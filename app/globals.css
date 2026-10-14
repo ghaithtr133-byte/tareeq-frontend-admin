@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8f6f1;
+  --foreground: #17233a;
+  --navy: #12213d;
+  --navy-light: #1d3154;
+  --gold: #b58b3a;
+  --gold-soft: #f6edda;
+  --line: #e7e1d5;
+  --muted: #687387;
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--background); }
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, "Tahoma", sans-serif;
+}
+
+button, input { font: inherit; }
+
+button:focus-visible, input:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--gold) 55%, white);
+  outline-offset: 2px;
+}
