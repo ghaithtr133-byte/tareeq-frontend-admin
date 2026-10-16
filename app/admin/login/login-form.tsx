@@ -1,11 +1,16 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { isLoginSessionVerificationError } from "@/api/auth";
+import { normalizeApiError } from "@/api/error";
 import { PasswordInput } from "@/components/ui/password-input";
+import { useLoginMutation } from "@/hook/mutations/use-login-mutation";
+import { useSessionQuery } from "@/hook/queries/use-session-query";
 
 const loginSchema = z.object({
   email: z.string().trim().email("أدخل بريدًا إلكترونيًا صحيحًا."),
@@ -18,16 +23,42 @@ const inputClassName =
   "mt-2 h-12 w-full rounded-xl border border-[var(--line)] bg-white px-4 text-right text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-[var(--gold)]";
 
 export function LoginForm() {
-  const [integrationBlocked, setIntegrationBlocked] = useState(false);
+  const router = useRouter();
+  const session = useSessionQuery();
+  const loginMutation = useLoginMutation();
+  const [submissionError, setSubmissionError] = useState<string>();
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({ resolver: zodResolver(loginSchema), defaultValues: { email: "", password: "" } });
 
-  async function onSubmit() {
-    // No endpoint, payload, or success state is assumed until the Hono contract is approved.
-    setIntegrationBlocked(true);
+  useEffect(() => {
+    if (session.data) router.replace("/admin");
+  }, [router, session.data]);
+
+  async function onSubmit(values: LoginValues) {
+    setSubmissionError(undefined);
+    try {
+      await loginMutation.mutateAsync(values);
+      router.replace("/admin");
+    } catch (error) {
+      if (isLoginSessionVerificationError(error)) {
+        setSubmissionError("تم إرسال بيانات الدخول، لكن تعذّر التحقق من الجلسة. حاول مرة أخرى.");
+        return;
+      }
+
+      const normalized = normalizeApiError(error);
+      if (normalized.kind === "cancelled") return;
+
+      if (normalized.kind === "network") {
+        setSubmissionError("تعذّر الاتصال بالخادم. تحقق من الاتصال ثم حاول مرة أخرى.");
+      } else if (normalized.status === 401 || normalized.status === 403) {
+        setSubmissionError("البريد الإلكتروني أو كلمة المرور غير صحيحة.");
+      } else {
+        setSubmissionError("تعذّر تسجيل الدخول حاليًا. حاول مرة أخرى.");
+      }
+    }
   }
 
   return (
@@ -60,18 +91,18 @@ export function LoginForm() {
         {errors.password ? <p id="password-error" className="mt-2 text-sm text-red-700" role="alert">{errors.password.message}</p> : null}
       </div>
 
-      {integrationBlocked ? (
-        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900" role="alert">
-          تسجيل الدخول غير متاح حاليًا لأن عقد المصادقة من الخادم لم يُعتمد بعد.
+      {submissionError ? (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800" role="alert">
+          {submissionError}
         </p>
       ) : null}
 
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || loginMutation.isPending}
         className="flex h-12 w-full items-center justify-center rounded-xl bg-[var(--navy)] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[var(--navy-light)] disabled:cursor-wait disabled:opacity-70"
       >
-        {isSubmitting ? "جارٍ التحقق…" : "تسجيل الدخول"}
+        {isSubmitting || loginMutation.isPending ? "جارٍ التحقق…" : "تسجيل الدخول"}
       </button>
       <p id="login-contract-note" className="text-center text-xs leading-5 text-[var(--muted)]">
         تُدار الجلسات الآمنة بواسطة الخادم ولا يتم حفظ أي رموز وصول في المتصفح.

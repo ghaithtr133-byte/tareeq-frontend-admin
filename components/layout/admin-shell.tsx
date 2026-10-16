@@ -8,11 +8,17 @@ type AdminShellProps = {
   user: AuthenticatedAdmin;
   title: string;
   activeItem?: AdminNavigationId;
+  onLogout: () => void;
+  isLoggingOut?: boolean;
   children: React.ReactNode;
 };
 
 function MenuIcon({ open = false }: { open?: boolean }) {
   return open ? <span aria-hidden="true">×</span> : <span aria-hidden="true">☰</span>;
+}
+
+function NavigationIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="ml-3 size-5" aria-hidden="true"><path d="M5 5h14M5 12h14M5 19h14" strokeLinecap="round" /></svg>;
 }
 
 function Sidebar({ user, activeItem, onNavigate }: Pick<AdminShellProps, "user" | "activeItem"> & { onNavigate: () => void }) {
@@ -36,7 +42,7 @@ function Sidebar({ user, activeItem, onNavigate }: Pick<AdminShellProps, "user" 
                   className={`flex w-full items-center rounded-lg px-3 py-2.5 text-right text-sm transition ${active ? "bg-white/12 font-bold text-white" : "cursor-not-allowed text-slate-400"}`}
                   title={active ? undefined : "هذه الصفحة ستتوفر ضمن مهمة لاحقة"}
                 >
-                  <span className="ml-3 inline-flex size-5 items-center justify-center rounded border border-current/30 text-[10px]" aria-hidden="true">•</span>
+                  <NavigationIcon />
                   {item.label}
                   {!active ? <span className="mr-auto text-[10px] text-slate-500">قريبًا</span> : null}
                 </button>
@@ -52,9 +58,10 @@ function Sidebar({ user, activeItem, onNavigate }: Pick<AdminShellProps, "user" 
   );
 }
 
-export function AdminShell({ user, title, activeItem = "dashboard", children }: AdminShellProps) {
+export function AdminShell({ user, title, activeItem = "dashboard", onLogout, isLoggingOut = false, children }: AdminShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const dialogId = useId();
 
   useEffect(() => {
@@ -73,7 +80,8 @@ export function AdminShell({ user, title, activeItem = "dashboard", children }: 
   }, []);
 
   useEffect(() => {
-    if (!drawerOpen) menuButtonRef.current?.focus();
+    if (drawerOpen) closeButtonRef.current?.focus();
+    else menuButtonRef.current?.focus();
   }, [drawerOpen]);
 
   return (
@@ -86,9 +94,12 @@ export function AdminShell({ user, title, activeItem = "dashboard", children }: 
             <h1 className="text-lg font-bold text-[var(--navy)] sm:text-xl">{title}</h1>
           </div>
           <div className="max-w-40 text-left sm:max-w-none">
-            <p className="truncate text-sm font-semibold text-[var(--navy)]">{user.name ?? "حساب إداري"}</p>
-            {user.email ? <p dir="ltr" className="truncate text-xs text-[var(--muted)]">{user.email}</p> : null}
+            <p className="truncate text-sm font-semibold text-[var(--navy)]">{user.name}</p>
+            <p dir="ltr" className="truncate text-xs text-[var(--muted)]">{user.email}</p>
           </div>
+          <button type="button" onClick={onLogout} disabled={isLoggingOut} className="mr-3 shrink-0 rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold text-[var(--navy)] transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60">
+            {isLoggingOut ? "جارٍ تسجيل الخروج…" : "تسجيل الخروج"}
+          </button>
         </header>
         <main className="p-4 sm:p-7">{children}</main>
       </div>
@@ -96,7 +107,10 @@ export function AdminShell({ user, title, activeItem = "dashboard", children }: 
       {drawerOpen ? (
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="قائمة التنقل" id={dialogId}>
           <button className="absolute inset-0 cursor-default bg-slate-950/35" aria-label="إغلاق قائمة التنقل" onClick={() => setDrawerOpen(false)} />
-          <div className="relative h-full w-72 shadow-2xl"><Sidebar user={user} activeItem={activeItem} onNavigate={() => setDrawerOpen(false)} /></div>
+          <div className="relative h-full w-72 shadow-2xl">
+            <button ref={closeButtonRef} type="button" className="absolute left-4 top-4 z-10 grid size-9 place-items-center rounded-lg border border-white/20 text-lg text-white hover:bg-white/10" aria-label="إغلاق قائمة التنقل" onClick={() => setDrawerOpen(false)}><MenuIcon open /></button>
+            <Sidebar user={user} activeItem={activeItem} onNavigate={() => setDrawerOpen(false)} />
+          </div>
         </div>
       ) : null}
     </div>

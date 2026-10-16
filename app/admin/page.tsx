@@ -1,9 +1,9 @@
-import { redirect } from "next/navigation";
+import { AdminDashboard } from "@/components/dashboard/admin-dashboard";
 
 /**
- * There is no approved session endpoint or response contract yet. Treat every
- * visit as unauthenticated rather than exposing an unverified admin shell.
+ * API-domain HttpOnly cookies are unavailable to this server component, so the
+ * client dashboard verifies the session through the approved browser /auth/me flow.
  */
 export default function AdminIndexPage() {
-  redirect("/admin/login");
+  return <AdminDashboard />;
 }

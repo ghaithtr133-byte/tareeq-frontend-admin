@@ -1,13 +1,10 @@
-export const adminRoles = ["ADMIN", "SUPER_ADMIN"] as const;
+import type { AdminRole, AuthenticatedUser } from "@/api/auth";
 
-export type AdminRole = (typeof adminRoles)[number];
+export const adminRoles = ["ADMIN", "SUPER_ADMIN"] as const satisfies readonly AdminRole[];
 
-export interface AuthenticatedAdmin {
-  id: string;
-  name?: string;
-  email?: string;
-  role: AdminRole;
-}
+export type { AdminRole, AuthenticatedUser };
+
+export type AuthenticatedAdmin = AuthenticatedUser;
 
 export type AdminNavigationId =
   | "dashboard"
@@ -45,7 +42,7 @@ const sharedNavigation: AdminNavigationItem[] = [
 const superAdminNavigation: AdminNavigationItem[] = [
   { id: "analytics", label: "التحليلات", restrictedTo: "SUPER_ADMIN" },
   { id: "audit-log", label: "سجل التدقيق", restrictedTo: "SUPER_ADMIN" },
-  { id: "admins", label: "المشرفون", restrictedTo: "SUPER_ADMIN" },
+  { id: "admins", label: "إدارة المشرفين", restrictedTo: "SUPER_ADMIN" },
   { id: "settings", label: "الإعدادات", restrictedTo: "SUPER_ADMIN" },
 ];
 

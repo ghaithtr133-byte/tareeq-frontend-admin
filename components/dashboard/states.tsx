@@ -6,5 +6,5 @@ function StateCard({ title, detail, action }: StateProps) {
 
 export function LoadingState() { return <StateCard title="جارٍ التحميل" detail="يتم تحضير مساحة العمل." />; }
 export function EmptyState() { return <StateCard title="لا توجد بيانات لعرضها" detail="ستظهر البيانات هنا عند توفرها من الخادم." />; }
-export function ErrorState() { return <StateCard title="تعذّر إتمام الطلب" detail="تحقق من الاتصال ثم أعد المحاولة. لم تُعرض أي تفاصيل حساسة." />; }
+export function ErrorState({ action }: Pick<StateProps, "action"> = {}) { return <StateCard title="تعذّر إتمام الطلب" detail="تحقق من الاتصال ثم أعد المحاولة. لم تُعرض أي تفاصيل حساسة." action={action} />; }
 export function UnauthorizedState() { return <StateCard title="لا تملك صلاحية الوصول" detail="يرجى التواصل مع مدير النظام إذا كنت تعتقد أن هذا غير صحيح." />; }
