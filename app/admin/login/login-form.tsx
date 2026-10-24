@@ -9,8 +9,8 @@ import { z } from "zod";
 import { isLoginSessionVerificationError } from "@/api/auth";
 import { normalizeApiError } from "@/api/error";
 import { PasswordInput } from "@/components/ui/password-input";
-import { useLoginMutation } from "@/hook/mutations/use-login-mutation";
-import { useSessionQuery } from "@/hook/queries/use-session-query";
+import { DevMockLoginOptions } from "@/components/layout/dev-admin-controls";
+import { useAdminAccess } from "@/providers/admin-access-provider";
 
 const loginSchema = z.object({
   email: z.string().trim().email("أدخل بريدًا إلكترونيًا صحيحًا."),
@@ -24,8 +24,7 @@ const inputClassName =
 
 export function LoginForm() {
   const router = useRouter();
-  const session = useSessionQuery();
-  const loginMutation = useLoginMutation();
+  const access = useAdminAccess();
   const [submissionError, setSubmissionError] = useState<string>();
   const {
     register,
@@ -34,13 +33,13 @@ export function LoginForm() {
   } = useForm<LoginValues>({ resolver: zodResolver(loginSchema), defaultValues: { email: "", password: "" } });
 
   useEffect(() => {
-    if (session.data) router.replace("/admin");
-  }, [router, session.data]);
+    if (access.user) router.replace("/admin");
+  }, [access.user, router]);
 
   async function onSubmit(values: LoginValues) {
     setSubmissionError(undefined);
     try {
-      await loginMutation.mutateAsync(values);
+      await access.login(values);
       router.replace("/admin");
     } catch (error) {
       if (isLoginSessionVerificationError(error)) {
@@ -60,6 +59,8 @@ export function LoginForm() {
       }
     }
   }
+
+  if (access.mockEnabled) return <DevMockLoginOptions />;
 
   return (
     <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-5" aria-describedby="login-contract-note">
@@ -99,10 +100,10 @@ export function LoginForm() {
 
       <button
         type="submit"
-        disabled={isSubmitting || loginMutation.isPending}
+        disabled={isSubmitting}
         className="flex h-12 w-full items-center justify-center rounded-xl bg-[var(--navy)] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[var(--navy-light)] disabled:cursor-wait disabled:opacity-70"
       >
-        {isSubmitting || loginMutation.isPending ? "جارٍ التحقق…" : "تسجيل الدخول"}
+        {isSubmitting ? "جارٍ التحقق…" : "تسجيل الدخول"}
       </button>
       <p id="login-contract-note" className="text-center text-xs leading-5 text-[var(--muted)]">
         تُدار الجلسات الآمنة بواسطة الخادم ولا يتم حفظ أي رموز وصول في المتصفح.

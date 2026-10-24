@@ -1,5 +1,7 @@
 node_modules/
 .next/
+.next-playwright/
+.next-real-auth/
 out/
 *.log
 .env
@@ -7,3 +9,4 @@ out/
 .env.*.local
 !.env.example
 *.tsbuildinfo
+test-results/

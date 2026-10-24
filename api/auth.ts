@@ -48,7 +48,7 @@ export function isLoginSessionVerificationError(error: unknown): boolean {
   return error instanceof LoginSessionVerificationError;
 }
 
-let refreshInFlight: Promise<void> | undefined;
+let refreshInFlight: Promise<AuthenticatedUser> | undefined;
 
 function hasHttpStatus(error: unknown, status: number): boolean {
   return typeof error === "object" && error !== null && "response" in error
@@ -74,15 +74,18 @@ export async function getAuthenticatedUser(config?: Pick<AxiosRequestConfig, "si
 }
 
 /**
- * Deduplicates a cookie-session refresh request. Its response body is not read
- * because the approved contract does not document one; callers must revalidate
- * through /auth/me after a successful response.
+ * Deduplicates a cookie-session refresh request. The Backend rotates its
+ * HttpOnly cookies and returns the active administrator; callers still
+ * revalidate through /auth/me before treating a restored session as usable.
  */
-export function refreshSession(): Promise<void> {
+export function refreshSession(): Promise<AuthenticatedUser> {
   if (!refreshInFlight) {
-    refreshInFlight = apiClient.post("/auth/refresh").then(() => undefined).finally(() => {
-      refreshInFlight = undefined;
-    });
+    refreshInFlight = apiClient
+      .post<AuthenticationResponse>("/auth/refresh")
+      .then((response) => response.data.data.user)
+      .finally(() => {
+        refreshInFlight = undefined;
+      });
   }
 
   return refreshInFlight;
@@ -113,7 +116,7 @@ export async function restoreAuthenticatedUser(config?: Pick<AxiosRequestConfig,
   return getAuthenticatedUser(config);
 }
 
-/** The logout response body is intentionally ignored because it is undocumented. */
+/** The logout response clears the Backend-managed HttpOnly session cookies. */
 export async function logout(): Promise<void> {
   await apiClient.post("/auth/logout");
 }

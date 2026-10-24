@@ -43,3 +43,19 @@ export function normalizeApiError(error: unknown): ApiError {
     cause: error,
   };
 }
+
+/** Reads only the documented `error.details.fields` validation shape. */
+export function getApiFieldErrors(error: unknown): Record<string, string[]> {
+  const normalized = normalizeApiError(error);
+  const data = normalized.responseData;
+  if (typeof data !== "object" || data === null || !("error" in data)) return {};
+  const details = (data as { error?: { details?: unknown } }).error?.details;
+  if (typeof details !== "object" || details === null || !("fields" in details)) return {};
+  const fields = (details as { fields?: unknown }).fields;
+  if (typeof fields !== "object" || fields === null) return {};
+  return Object.fromEntries(
+    Object.entries(fields).flatMap(([field, messages]) =>
+      Array.isArray(messages) && messages.every((message) => typeof message === "string") ? [[field, messages]] : [],
+    ),
+  );
+}

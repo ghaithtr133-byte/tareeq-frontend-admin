@@ -1,0 +1,168 @@
+{
+  "info": {
+    "_postman_id": "c3dc3b76-5f5a-4ad8-9f9b-0ee74c443682",
+    "name": "Tareeq Admin — Read-Only Verification",
+    "description": "Safe verification only. Contains GET /auth/me plus Admin GET list/detail requests. It has no login, POST, PATCH, DELETE, publish, archive, or logout requests. Use an existing authenticated Postman Cookie Jar session for one role at a time. Detail requests are skipped when their list response has no record.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://tareeq-api.vercel.app/api/v1", "type": "string" },
+    { "key": "expectedRole", "value": "", "type": "string", "description": "Set to ADMIN or SUPER_ADMIN before each separate run; never place credentials here." },
+    { "key": "countryId", "value": "", "type": "string" },
+    { "key": "universityId", "value": "", "type": "string" },
+    { "key": "scholarshipId", "value": "", "type": "string" },
+    { "key": "serviceId", "value": "", "type": "string" },
+    { "key": "articleId", "value": "", "type": "string" }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+          "const body = pm.response.json();",
+          "pm.test('documented success envelope', () => { pm.expect(body).to.be.an('object'); pm.expect(body.success).to.eql(true); pm.expect(body.data).to.be.an('object'); });"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication — existing session only",
+      "item": [
+        {
+          "name": "GET current administrator identity",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/me",
+            "description": "Requires an existing Postman Cookie Jar session. Does not log in or change authentication state."
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const user = pm.response.json().data.user;",
+            "pm.test('documented administrator identity', () => { pm.expect(user).to.be.an('object'); pm.expect(user.id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i); pm.expect(user.role).to.be.oneOf(['ADMIN', 'SUPER_ADMIN']); });",
+            "const expected = pm.collectionVariables.get('expectedRole');",
+            "if (expected) pm.test('expected role', () => pm.expect(user.role).to.eql(expected));",
+            "pm.collectionVariables.set('observedRole', user.role);"
+          ]}}]
+        }
+      ]
+    },
+    {
+      "name": "Countries",
+      "item": [
+        {
+          "name": "GET countries list",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/countries?page=1&limit=12&sort=manual&status=PUBLISHED" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const data = pm.response.json().data; const items = data.items;",
+            "pm.test('countries pagination metadata', () => { pm.expect(items).to.be.an('array'); ['page','limit','total','totalPages'].forEach((key) => pm.expect(data.pagination[key]).to.be.a('number')); pm.expect(data.pagination.limit).to.be.within(1, 50); });",
+            "pm.test('country response fields', () => items.forEach((item) => { ['id','slug','nameAr','introductionAr','detailsAr','featured','displayOrder','status','publishedAt','seoTitleAr','seoDescriptionAr'].forEach((key) => pm.expect(item).to.have.property(key)); pm.expect(item.id).to.match(/^[0-9a-f-]{36}$/i); pm.expect(item.status).to.be.oneOf(['DRAFT','PUBLISHED','ARCHIVED']); }));",
+            "if (items[0]) pm.collectionVariables.set('countryId', items[0].id); else pm.collectionVariables.unset('countryId');"
+          ]}}]
+        },
+        {
+          "name": "GET country detail from list UUID",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["if (!pm.collectionVariables.get('countryId')) pm.execution.skipRequest();"] }},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["const item = pm.response.json().data; pm.test('country detail UUID and Arabic fields', () => { pm.expect(item.id).to.eql(pm.collectionVariables.get('countryId')); ['nameAr','introductionAr','detailsAr','status'].forEach((key) => pm.expect(item).to.have.property(key)); });"] }}
+          ],
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/countries/{{countryId}}", "description": "Skipped when the list has no record; record this as NOT VERIFIED — NO DATA." }
+        }
+      ]
+    },
+    {
+      "name": "Universities",
+      "item": [
+        {
+          "name": "GET universities list",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/universities?page=1&limit=12&sort=name&status=PUBLISHED" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const data = pm.response.json().data; const items = data.items;",
+            "pm.test('universities pagination metadata', () => { pm.expect(items).to.be.an('array'); ['page','limit','total','totalPages'].forEach((key) => pm.expect(data.pagination[key]).to.be.a('number')); pm.expect(data.pagination.limit).to.be.within(1, 50); });",
+            "pm.test('university country relationship', () => items.forEach((item) => { ['id','slug','nameAr','officialName','countryId','cityAr','overviewAr','status'].forEach((key) => pm.expect(item).to.have.property(key)); pm.expect(item.countryId).to.match(/^[0-9a-f-]{36}$/i); if (item.country) pm.expect(item.country.id).to.eql(item.countryId); }));",
+            "if (items[0]) pm.collectionVariables.set('universityId', items[0].id); else pm.collectionVariables.unset('universityId');"
+          ]}}]
+        },
+        {
+          "name": "GET university detail from list UUID",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["if (!pm.collectionVariables.get('universityId')) pm.execution.skipRequest();"] }},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["const item = pm.response.json().data; pm.test('university detail UUID and country UUID', () => { pm.expect(item.id).to.eql(pm.collectionVariables.get('universityId')); pm.expect(item.countryId).to.match(/^[0-9a-f-]{36}$/i); });"] }}
+          ],
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/universities/{{universityId}}", "description": "Skipped when the list has no record." }
+        }
+      ]
+    },
+    {
+      "name": "Scholarships",
+      "item": [
+        {
+          "name": "GET scholarships list",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/scholarships?page=1&limit=12&sort=deadline&status=PUBLISHED" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const data = pm.response.json().data; const items = data.items;",
+            "pm.test('scholarships pagination metadata', () => { pm.expect(items).to.be.an('array'); ['page','limit','total','totalPages'].forEach((key) => pm.expect(data.pagination[key]).to.be.a('number')); pm.expect(data.pagination.limit).to.be.within(1, 50); });",
+            "pm.test('scholarship states and nullable relationships', () => items.forEach((item) => { ['id','titleAr','studyLevel','fundingType','requirementsAr','descriptionAr','applicationStatus','status'].forEach((key) => pm.expect(item).to.have.property(key)); pm.expect(item.status).to.be.oneOf(['DRAFT','PUBLISHED','ARCHIVED']); pm.expect(item.applicationStatus).to.be.oneOf(['OPEN','CLOSED']); pm.expect(item.effectiveApplicationStatus).to.be.oneOf(['OPEN','CLOSED']); ['countryId','universityId','verifiedDeadline','officialSourceUrl'].forEach((key) => pm.expect(item[key] === null || typeof item[key] === 'string').to.eql(true)); }));",
+            "if (items[0]) pm.collectionVariables.set('scholarshipId', items[0].id); else pm.collectionVariables.unset('scholarshipId');"
+          ]}}]
+        },
+        {
+          "name": "GET scholarship detail from list UUID",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["if (!pm.collectionVariables.get('scholarshipId')) pm.execution.skipRequest();"] }},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["const item = pm.response.json().data; pm.test('scholarship detail preserves distinct states', () => { pm.expect(item.id).to.eql(pm.collectionVariables.get('scholarshipId')); pm.expect(item.status).to.be.oneOf(['DRAFT','PUBLISHED','ARCHIVED']); pm.expect(item.applicationStatus).to.be.oneOf(['OPEN','CLOSED']); });"] }}
+          ],
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/scholarships/{{scholarshipId}}", "description": "Skipped when the list has no record." }
+        }
+      ]
+    },
+    {
+      "name": "Services",
+      "item": [
+        {
+          "name": "GET services list",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/services?page=1&limit=12&sort=manual&status=PUBLISHED" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const data = pm.response.json().data; const items = data.items;",
+            "pm.test('services pagination metadata', () => { pm.expect(items).to.be.an('array'); ['page','limit','total','totalPages'].forEach((key) => pm.expect(data.pagination[key]).to.be.a('number')); pm.expect(data.pagination.limit).to.be.within(1, 50); });",
+            "pm.test('service ordering and publication fields', () => items.forEach((item) => { ['id','titleAr','summaryAr','descriptionAr','displayOrder','featured','status','publishedAt'].forEach((key) => pm.expect(item).to.have.property(key)); pm.expect(item.displayOrder).to.be.a('number'); pm.expect(item.status).to.be.oneOf(['DRAFT','PUBLISHED','ARCHIVED']); }));",
+            "if (items[0]) pm.collectionVariables.set('serviceId', items[0].id); else pm.collectionVariables.unset('serviceId');"
+          ]}}]
+        },
+        {
+          "name": "GET service detail from list UUID",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["if (!pm.collectionVariables.get('serviceId')) pm.execution.skipRequest();"] }},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["const item = pm.response.json().data; pm.test('service detail UUID', () => pm.expect(item.id).to.eql(pm.collectionVariables.get('serviceId')));"] }}
+          ],
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/services/{{serviceId}}", "description": "Skipped when the list has no record." }
+        }
+      ]
+    },
+    {
+      "name": "Articles",
+      "item": [
+        {
+          "name": "GET articles list",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/articles?page=1&limit=12&sort=newest&status=PUBLISHED" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const data = pm.response.json().data; const items = data.items; const blockTypes = ['paragraph','heading2','heading3','bulleted-list','numbered-list','quote'];",
+            "pm.test('articles pagination metadata', () => { pm.expect(items).to.be.an('array'); ['page','limit','total','totalPages'].forEach((key) => pm.expect(data.pagination[key]).to.be.a('number')); pm.expect(data.pagination.limit).to.be.within(1, 50); });",
+            "pm.test('article flat structured blocks and nullable relations', () => items.forEach((item) => { ['id','titleAr','summaryAr','bodyAr','bodyEn','countryId','universityId','scholarshipId','status'].forEach((key) => pm.expect(item).to.have.property(key)); pm.expect(item.bodyAr).to.be.an('array'); item.bodyAr.forEach((block) => { pm.expect(block.type).to.be.oneOf(blockTypes); pm.expect(block.text).to.be.a('string'); }); pm.expect(item.bodyEn === null || Array.isArray(item.bodyEn)).to.eql(true); ['countryId','universityId','scholarshipId'].forEach((key) => pm.expect(item[key] === null || /^[0-9a-f-]{36}$/i.test(item[key])).to.eql(true)); }));",
+            "if (items[0]) pm.collectionVariables.set('articleId', items[0].id); else pm.collectionVariables.unset('articleId');"
+          ]}}]
+        },
+        {
+          "name": "GET article detail from list UUID",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["if (!pm.collectionVariables.get('articleId')) pm.execution.skipRequest();"] }},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": ["const item = pm.response.json().data; pm.test('article detail UUID and block format', () => { pm.expect(item.id).to.eql(pm.collectionVariables.get('articleId')); pm.expect(item.bodyAr).to.be.an('array'); item.bodyAr.forEach((block) => pm.expect(block).to.have.all.keys('type', 'text')); });"] }}
+          ],
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{baseUrl}}/admin/articles/{{articleId}}", "description": "Skipped when the list has no record." }
+        }
+      ]
+    }
+  ]
+}
