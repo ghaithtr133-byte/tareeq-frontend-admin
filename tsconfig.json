@@ -37,7 +37,9 @@
     ".next-playwright/types/**/*.ts",
     ".next-playwright/dev/types/**/*.ts",
     ".next-real-auth/types/**/*.ts",
-    ".next-real-auth/dev/types/**/*.ts"
+    ".next-real-auth/dev/types/**/*.ts",
+    ".next-playwright-3102/types/**/*.ts",
+    ".next-playwright-3102/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

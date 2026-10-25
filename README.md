@@ -28,9 +28,21 @@ npm run build
 
 ## Environment
 
-`NEXT_PUBLIC_API_BASE_URL` is the browser-safe API base URL and must end in the approved `/api/v1` namespace. The template targets `https://tareeq-api.vercel.app/api/v1`; for separate Admin deployments, use the approved Backend origin plus `/api/v1` and ensure that exact Admin origin is allowed by the Backend's credentialed CORS and origin-validation policy. This application does not proxy API calls. `API_BASE_URL` is server-only and must never use the `NEXT_PUBLIC_` prefix.
+`NEXT_PUBLIC_API_BASE_URL` selects the browser API base. Production must use the approved `https://api.tareeq-academy.com/api/v1` namespace exactly once; ensure that the exact Admin origin is allowed by the Backend's credentialed CORS and origin-validation policy. `API_BASE_URL` is server-only and must never use the `NEXT_PUBLIC_` prefix.
 
 The browser Axios instance uses `withCredentials: true` for Backend-managed HttpOnly sessions. It stores no token in local or session storage. The server client is isolated with `server-only` and does not forward cookies implicitly.
+
+### Development proxy for authorized production-Backend authentication
+
+For an authorized local browser session against the production Backend only, keep the ignored `.env.local` values below. The browser then calls the same-origin development route while server-side code retains the fixed production API base:
+
+```dotenv
+NEXT_PUBLIC_API_BASE_URL=/__dev_api
+API_BASE_URL=https://api.tareeq-academy.com/api/v1
+ADMIN_DEV_MOCK_ACCESS=disabled
+```
+
+The development-only route accepts only the documented health, authentication, and Admin content endpoints and forwards them to the fixed `https://api.tareeq-academy.com/api/v1` upstream. It forwards cookies, Origin, Referer, and CSRF headers without impersonating a production origin; it preserves each upstream `Set-Cookie` value and maps only an `/api/v1` cookie path to `/__dev_api`. In a production runtime the route returns `404` and cannot forward anything. Deployment configuration must retain the direct `https://api.tareeq-academy.com/api/v1` browser value shown in `.env.example`.
 
 ## Authentication
 

@@ -1,6 +1,7 @@
 node_modules/
 .next/
 .next-playwright/
+.next-playwright-3102/
 .next-real-auth/
 out/
 *.log

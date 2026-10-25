@@ -38,7 +38,9 @@ export class LoginSessionVerificationError extends Error {
   readonly cause: unknown;
 
   constructor(cause: unknown) {
-    super("Login succeeded but the authenticated session could not be verified.");
+    super(
+      "Login succeeded but the authenticated session could not be verified.",
+    );
     this.name = "LoginSessionVerificationError";
     this.cause = cause;
   }
@@ -51,12 +53,18 @@ export function isLoginSessionVerificationError(error: unknown): boolean {
 let refreshInFlight: Promise<AuthenticatedUser> | undefined;
 
 function hasHttpStatus(error: unknown, status: number): boolean {
-  return typeof error === "object" && error !== null && "response" in error
-    && (error as { response?: { status?: number } }).response?.status === status;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    (error as { response?: { status?: number } }).response?.status === status
+  );
 }
 
 export function isUnauthenticatedSessionError(error: unknown): boolean {
-  return error instanceof UnauthenticatedSessionError || hasHttpStatus(error, 401);
+  return (
+    error instanceof UnauthenticatedSessionError || hasHttpStatus(error, 401)
+  );
 }
 
 export function isForbiddenSessionError(error: unknown): boolean {
@@ -64,12 +72,20 @@ export function isForbiddenSessionError(error: unknown): boolean {
 }
 
 export async function login(request: LoginRequest): Promise<AuthenticatedUser> {
-  const response = await apiClient.post<AuthenticationResponse>("/auth/login", request);
+  const response = await apiClient.post<AuthenticationResponse>(
+    "/auth/login",
+    request,
+  );
   return response.data.data.user;
 }
 
-export async function getAuthenticatedUser(config?: Pick<AxiosRequestConfig, "signal">): Promise<AuthenticatedUser> {
-  const response = await apiClient.get<AuthenticationResponse>("/auth/me", config);
+export async function getAuthenticatedUser(
+  config?: Pick<AxiosRequestConfig, "signal">,
+): Promise<AuthenticatedUser> {
+  const response = await apiClient.get<AuthenticationResponse>(
+    "/auth/me",
+    config,
+  );
   return response.data.data.user;
 }
 
@@ -96,7 +112,9 @@ export function refreshSession(): Promise<AuthenticatedUser> {
  * /auth/me confirms the access session is unauthenticated, and only once per
  * recovery cycle. No failed business mutation is ever replayed.
  */
-export async function restoreAuthenticatedUser(config?: Pick<AxiosRequestConfig, "signal">): Promise<AuthenticatedUser> {
+export async function restoreAuthenticatedUser(
+  config?: Pick<AxiosRequestConfig, "signal">,
+): Promise<AuthenticatedUser> {
   try {
     return await getAuthenticatedUser(config);
   } catch (error) {

@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
-    "test": "tsx --test tests/admin-dev-mock.test.ts tests/admin-live-contract.test.ts",
+    "test": "tsx --test tests/admin-dev-mock.test.ts tests/admin-dev-api-proxy.test.ts tests/admin-live-contract.test.ts",
     "test:ui": "playwright test",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"

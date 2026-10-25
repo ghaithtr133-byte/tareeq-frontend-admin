@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { AxiosError } from "axios";
 
 import { apiClient } from "@/api/client";
 import { contentApi } from "@/api/content";
+import { getApiFieldErrors, normalizeApiError } from "@/api/error";
 import { invalidateContentAfterCreate } from "@/hook/mutations/use-content-mutations";
 import { toContentPayload } from "@/lib/content-form";
 
@@ -29,12 +31,12 @@ test("all Admin content resource functions preserve the documented methods, path
     await contentApi.countries.create({ nameAr: "الأردن", introductionAr: "مقدمة", detailsAr: "تفاصيل", slug: "jordan" });
     await contentApi.countries.update(recordId, { status: "ARCHIVED" });
 
-    await contentApi.universities.list({ page: 1, limit: 12, country: "jordan", sort: "name" });
+    await contentApi.universities.list({ page: 1, limit: 12, search: "جامعة", country: "jordan", featured: "true", sort: "name", status: "PUBLISHED" });
     await contentApi.universities.get(recordId);
     await contentApi.universities.create({ nameAr: "جامعة", officialName: "University", countryId: recordId, cityAr: "عمّان", overviewAr: "نبذة", slug: "university" });
     await contentApi.universities.update(recordId, { featured: true });
 
-    await contentApi.scholarships.list({ page: 1, limit: 12, country: "jordan", university: "university", studyLevel: "MASTERS", fundingType: "FULL", applicationStatus: "OPEN", sort: "deadline" });
+    await contentApi.scholarships.list({ page: 1, limit: 12, search: "منحة", country: "jordan", university: "university", studyLevel: "MASTERS", fundingType: "FULL", applicationStatus: "OPEN", featured: "true", sort: "deadline", status: "PUBLISHED" });
     await contentApi.scholarships.get(recordId);
     await contentApi.scholarships.create({ titleAr: "منحة", studyLevel: "MASTERS", fundingType: "FULL", requirementsAr: "متطلبات", descriptionAr: "وصف", slug: "scholarship" });
     await contentApi.scholarships.update(recordId, { applicationStatus: "CLOSED" });
@@ -44,7 +46,7 @@ test("all Admin content resource functions preserve the documented methods, path
     await contentApi.services.create({ titleAr: "خدمة", summaryAr: "ملخص", descriptionAr: "وصف", slug: "service" });
     await contentApi.services.update(recordId, { displayOrder: 4 });
 
-    await contentApi.articles.list({ page: 1, limit: 12, country: "jordan", sort: "newest" });
+    await contentApi.articles.list({ page: 1, limit: 12, search: "مقال", country: "jordan", featured: "false", sort: "newest", status: "DRAFT" });
     await contentApi.articles.get(recordId);
     await contentApi.articles.create({ titleAr: "مقال", summaryAr: "ملخص", bodyAr: [{ type: "paragraph", text: "نص" }], slug: "article" });
     await contentApi.articles.update(recordId, { bodyEn: null });
@@ -62,9 +64,26 @@ test("all Admin content resource functions preserve the documented methods, path
       "get /admin/articles", `get /admin/articles/${recordId}`, "post /admin/articles", `patch /admin/articles/${recordId}`,
     ],
   );
-  assert.deepEqual(requests[4]?.params, { page: 1, limit: 12, country: "jordan", sort: "name" });
-  assert.deepEqual(requests[8]?.params, { page: 1, limit: 12, country: "jordan", university: "university", studyLevel: "MASTERS", fundingType: "FULL", applicationStatus: "OPEN", sort: "deadline" });
+  assert.deepEqual(requests[4]?.params, { page: 1, limit: 12, search: "جامعة", country: "jordan", featured: "true", sort: "name", status: "PUBLISHED" });
+  assert.deepEqual(requests[8]?.params, { page: 1, limit: 12, search: "منحة", country: "jordan", university: "university", studyLevel: "MASTERS", fundingType: "FULL", applicationStatus: "OPEN", featured: "true", sort: "deadline", status: "PUBLISHED" });
+  assert.deepEqual(requests[16]?.params, { page: 1, limit: 12, search: "مقال", country: "jordan", featured: "false", sort: "newest", status: "DRAFT" });
   assert.equal(apiClient.defaults.withCredentials, true);
+});
+
+test("documented validation envelopes preserve the HTTP status, cause, and field messages", () => {
+  const cause = new AxiosError("Validation failed", undefined, undefined, undefined, {
+    status: 400,
+    statusText: "Bad Request",
+    headers: {},
+    config: { headers: {} } as never,
+    data: { success: false, error: { code: "VALIDATION_ERROR", message: "Validation failed", details: { fields: { slug: ["المعرّف النصي مستخدم بالفعل."] } } } },
+  });
+
+  const normalized = normalizeApiError(cause);
+  assert.equal(normalized.kind, "http");
+  assert.equal(normalized.status, 400);
+  assert.equal(normalized.cause, cause);
+  assert.deepEqual(getApiFieldErrors(cause), { slug: ["المعرّف النصي مستخدم بالفعل."] });
 });
 
 test("form serialization preserves null relationships and the documented flat article block format", () => {
