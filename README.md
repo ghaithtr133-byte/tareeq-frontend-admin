@@ -42,7 +42,9 @@ API_BASE_URL=https://api.tareeq-academy.com/api/v1
 ADMIN_DEV_MOCK_ACCESS=disabled
 ```
 
-The development-only route accepts only the documented health, authentication, and Admin content endpoints and forwards them to the fixed `https://api.tareeq-academy.com/api/v1` upstream. It forwards cookies, Origin, Referer, and CSRF headers without impersonating a production origin; it preserves each upstream `Set-Cookie` value and maps only an `/api/v1` cookie path to `/__dev_api`. In a production runtime the route returns `404` and cannot forward anything. Deployment configuration must retain the direct `https://api.tareeq-academy.com/api/v1` browser value shown in `.env.example`.
+The route accepts only the documented health, authentication, and Admin content endpoints and forwards them to the fixed `https://api.tareeq-academy.com/api/v1` upstream. State-changing requests must come from the configured `http://localhost:3000` host, Origin, and Referer. When an alternate local port is necessary, set the server-only `ADMIN_DEV_PROXY_LOCAL_ORIGIN` to that exact `http://localhost:<port>` origin before starting `next dev`.
+
+After that local boundary succeeds, the Backend-approved development proxy replaces only the upstream `Origin` and `Referer` with `https://admin.tareeq-academy.com` and `https://admin.tareeq-academy.com/`; it never copies those trusted values from the browser. Cookies and CSRF headers are preserved, each upstream `Set-Cookie` value is retained, and only an `/api/v1` cookie path maps to `/__dev_api`. In a production runtime the route returns `404` and cannot forward anything. Deployment configuration must retain the direct `https://api.tareeq-academy.com/api/v1` browser value shown in `.env.example`.
 
 ## Authentication
 

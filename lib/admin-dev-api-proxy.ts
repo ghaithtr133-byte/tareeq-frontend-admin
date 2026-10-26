@@ -1,5 +1,7 @@
 const API_ORIGIN = "https://api.tareeq-academy.com";
 const API_PREFIX = "/api/v1";
+const APPROVED_UPSTREAM_ORIGIN = "https://admin.tareeq-academy.com";
+const DEFAULT_LOCAL_ORIGIN = "http://localhost:3000";
 
 export const ADMIN_DEV_API_PREFIX = "/__dev_api";
 export const ADMIN_DEV_API_UPSTREAM = `${API_ORIGIN}${API_PREFIX}`;
@@ -46,9 +48,77 @@ export type AllowedDevApiEndpoint = {
   methods: readonly string[];
 };
 
+export type TrustedDevelopmentRequest =
+  | { trusted: true; localOrigin: string }
+  | { trusted: false };
+
 /** The route remains in the build, but it cannot forward requests in production. */
 export function isAdminDevApiProxyEnabled(environment: NodeJS.ProcessEnv = process.env): boolean {
-  return environment.NODE_ENV !== "production";
+  return environment.NODE_ENV === "development" && getTrustedLocalOrigin(environment) !== undefined;
+}
+
+/**
+ * An alternate port must be explicitly configured on the local server. The
+ * value is deliberately server-only and limited to an HTTP localhost origin.
+ */
+export function getTrustedLocalOrigin(environment: NodeJS.ProcessEnv = process.env): string | undefined {
+  const configuredOrigin = environment.ADMIN_DEV_PROXY_LOCAL_ORIGIN ?? DEFAULT_LOCAL_ORIGIN;
+
+  try {
+    const parsed = new URL(configuredOrigin);
+    if (
+      parsed.protocol !== "http:"
+      || parsed.hostname !== "localhost"
+      || !parsed.port
+      || parsed.pathname !== "/"
+      || parsed.search
+      || parsed.hash
+    ) {
+      return undefined;
+    }
+    return parsed.origin;
+  } catch {
+    return undefined;
+  }
+}
+
+function originFromReferer(referer: string | null): string | undefined {
+  if (!referer) return undefined;
+  try {
+    return new URL(referer).origin;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * This is the local boundary for the Backend-approved Origin normalization.
+ * Every request must target the explicitly configured loopback host. Requests
+ * that change state must also prove their local Origin and Referer before the
+ * proxy replaces those two headers for the approved upstream.
+ */
+export function validateTrustedDevelopmentRequest(
+  requestHeaders: Headers,
+  method: string,
+  environment: NodeJS.ProcessEnv = process.env,
+): TrustedDevelopmentRequest {
+  const localOrigin = getTrustedLocalOrigin(environment);
+  if (!localOrigin) return { trusted: false };
+
+  const localHost = new URL(localOrigin).host;
+  if (requestHeaders.get("host")?.toLowerCase() !== localHost) return { trusted: false };
+
+  const requestOrigin = requestHeaders.get("origin");
+  if (requestOrigin && requestOrigin !== localOrigin) return { trusted: false };
+
+  const referer = requestHeaders.get("referer");
+  if (referer && originFromReferer(referer) !== localOrigin) return { trusted: false };
+
+  if (["POST", "PATCH"].includes(method) && (requestOrigin !== localOrigin || originFromReferer(referer) !== localOrigin)) {
+    return { trusted: false };
+  }
+
+  return { trusted: true, localOrigin };
 }
 
 /**
@@ -88,6 +158,18 @@ export function createUpstreamHeaders(requestHeaders: Headers): Headers {
       headers.set(name, value);
     }
   }
+  return headers;
+}
+
+/**
+ * Call only after validateTrustedDevelopmentRequest succeeds. The Backend has
+ * explicitly authorized this development-only normalization; neither value is
+ * copied from client-controlled request headers.
+ */
+export function createNormalizedUpstreamHeaders(requestHeaders: Headers): Headers {
+  const headers = createUpstreamHeaders(requestHeaders);
+  headers.set("origin", APPROVED_UPSTREAM_ORIGIN);
+  headers.set("referer", `${APPROVED_UPSTREAM_ORIGIN}/`);
   return headers;
 }
 

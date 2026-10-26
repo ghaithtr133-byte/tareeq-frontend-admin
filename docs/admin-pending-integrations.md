@@ -24,6 +24,12 @@ The Backend team reports that its local harness passed HTTP acceptance (84/84) a
 - A local real-mode Admin server verified `GET /__dev_api/health` → upstream health `200`, while unauthenticated `/auth/me` and `/admin/countries` correctly returned upstream `401`. The proxy retains request IDs, query strings, cookies, Origin, Referer, and CSRF headers; it disables response caching and preserves distinct upstream `Set-Cookie` values, mapping only `/api/v1` cookie paths to `/__dev_api`.
 - Authentication is still **BLOCKED — BACKEND TRUSTED-ORIGIN DECISION**. A schema-invalid login request through the local proxy, sent with its real local Origin and Referer and no credentials, returned Backend `403`. The proxy intentionally does not rewrite either header. Backend must explicitly authorize the selected local loopback origin or approve a specific Origin/Referer normalization rule before a Project Owner manually enters either account's credentials.
 
+## Backend-approved development Origin normalization
+
+- On 2026-10-26, Backend explicitly approved the local-proxy-only upstream normalization `Origin: https://admin.tareeq-academy.com` and `Referer: https://admin.tareeq-academy.com/` after the proxy validates the actual local loopback Host, Origin, and Referer. The normalized values are constants; browser-controlled Origin or Referer values are never used as trusted upstream headers.
+- Before this approval, the retained credential-free diagnostic returned HTTP `403`, `error.code` `CSRF_VALIDATION_FAILED`, and the Backend message “Request origin is not allowed.” The request used `Origin: http://localhost:3000` and `Referer: http://localhost:3000/admin/login`; its request ID was recorded only in the secure local verification run and is not reproduced here.
+- The proxy now requires `http://localhost:3000` by default. A non-default port requires the server-only, explicit `ADMIN_DEV_PROXY_LOCAL_ORIGIN=http://localhost:<port>` value. Unexpected Hosts, Origins, or Referers are rejected locally before any upstream request. Production remains unable to forward `/__dev_api`.
+
 ## Historical deployed cross-site session blocker
 
 Real Administrator accounts exist and credentials are available through the approved secure workflow. They are not the blocker and must not be copied into source, test fixtures, logs, screenshots, or reports.

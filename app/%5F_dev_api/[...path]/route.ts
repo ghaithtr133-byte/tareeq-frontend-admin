@@ -2,10 +2,11 @@ import type { NextRequest } from "next/server";
 
 import {
   ADMIN_DEV_API_UPSTREAM,
+  createNormalizedUpstreamHeaders,
   createProxyResponseHeaders,
-  createUpstreamHeaders,
   getAllowedDevApiEndpoint,
   isAdminDevApiProxyEnabled,
+  validateTrustedDevelopmentRequest,
 } from "@/lib/admin-dev-api-proxy";
 
 export const runtime = "nodejs";
@@ -35,6 +36,11 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Res
     return rejectedResponse(405, "METHOD_NOT_ALLOWED", "The requested method is not supported by this development proxy.");
   }
 
+  const trustedRequest = validateTrustedDevelopmentRequest(request.headers, request.method);
+  if (!trustedRequest.trusted) {
+    return rejectedResponse(403, "DEV_PROXY_UNTRUSTED_LOCAL_REQUEST", "The request did not satisfy the local development proxy boundary.");
+  }
+
   const target = new URL(`${ADMIN_DEV_API_UPSTREAM}${endpoint.path}`);
   target.search = request.nextUrl.search;
 
@@ -47,7 +53,7 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Res
   try {
     upstream = await fetch(target, {
       method: request.method,
-      headers: createUpstreamHeaders(request.headers),
+      headers: createNormalizedUpstreamHeaders(request.headers),
       body,
       cache: "no-store",
       redirect: "manual",

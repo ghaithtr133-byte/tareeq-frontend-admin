@@ -88,12 +88,10 @@ function Field({ resource, field, register, error, countries, universities, scho
 }
 
 function ImagePreview({ url }: { url?: string }) {
-  const [state, setState] = useState<"empty" | "invalid" | "loading" | "loaded" | "unavailable">("empty");
   const validUrl = Boolean(url && /^https?:\/\//.test(url));
-
-  useEffect(() => {
-    setState(!url ? "empty" : validUrl ? "loading" : "invalid");
-  }, [url, validUrl]);
+  const [state, setState] = useState<"empty" | "invalid" | "loading" | "loaded" | "unavailable">(
+    !url ? "empty" : validUrl ? "loading" : "invalid",
+  );
 
   const detail = state === "empty"
     ? "لم يُدخل رابط صورة بعد."
@@ -180,7 +178,7 @@ export function ContentFormPage({ resource, id }: { resource: AdminContentResour
       {submitError ? <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{submitError}</p> : null}
       <div className="grid gap-5 md:grid-cols-2">{definition.fields.map((field) => <Field key={field.name} resource={resource} field={field} register={register} error={errors[field.name]?.message} countries={selectors.countries.data?.items ?? []} universities={selectors.universities.data?.items ?? []} scholarships={selectors.scholarships.data?.items ?? []} selectedCountryId={relationshipValue(selectedCountryId)} currentValue={field.name === "countryId" ? relationshipValue(selectedCountryId) : field.name === "universityId" ? relationshipValue(selectedUniversityId) : field.name === "scholarshipId" ? relationshipValue(selectedScholarshipId) : undefined} />)}</div>
       {resource === "articles" ? <div className="space-y-4"><ArticleBlockEditor control={form.control} name="bodyAr" label="محتوى المقال بالعربية" required error={errors.bodyAr?.message} /><ArticleBlockEditor control={form.control} name="bodyEn" label="محتوى المقال بالإنجليزية" error={errors.bodyEn?.message} /></div> : null}
-      {hasImageField ? <ImagePreview url={preview} /> : null}
+      {hasImageField ? <ImagePreview key={preview ?? ""} url={preview} /> : null}
       <div className="hidden flex-wrap gap-3 border-t border-[var(--line)] pt-5 sm:flex"><button type="submit" disabled={isPending} className="h-11 rounded-lg bg-[var(--navy)] px-5 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60">{isPending ? "جارٍ الحفظ…" : submitLabel}</button><Link href={`/admin/${resource}`} className="inline-flex h-11 items-center rounded-lg border border-[var(--line)] px-5 text-sm font-bold text-[var(--navy)]">إلغاء</Link></div>
     </form>
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,35,66,0.12)] backdrop-blur sm:hidden" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }} aria-label="إجراءات النموذج">
