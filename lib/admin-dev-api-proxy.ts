@@ -22,6 +22,11 @@ const ADMIN_RESOURCES = new Set([
   "articles",
 ]);
 
+// Task #5 has a deliberately narrower surface than the content resources:
+// submission records are never created from this Admin UI and a status change
+// has its own documented route.
+const ADMIN_SUBMISSION_RESOURCES = new Set(["applications", "inquiries"]);
+
 // The published contract specifies UUID formatting but does not constrain the
 // UUID version. Accept every canonical UUID so a future backend UUID version
 // is not rejected by the development-only path gate.
@@ -135,11 +140,31 @@ export function getAllowedDevApiEndpoint(segments: readonly string[]): AllowedDe
     return methods ? { path: `/auth/${segments[1]}`, methods } : undefined;
   }
 
-  if (segments[0] !== "admin" || !ADMIN_RESOURCES.has(segments[1] ?? "")) {
+  if (segments[0] !== "admin") {
     return undefined;
   }
 
   const resource = segments[1];
+  if (ADMIN_SUBMISSION_RESOURCES.has(resource ?? "")) {
+    if (segments.length === 2) {
+      return { path: `/admin/${resource}`, methods: ["GET", "OPTIONS"] };
+    }
+
+    if (segments.length === 3 && UUID_PATTERN.test(segments[2])) {
+      return { path: `/admin/${resource}/${segments[2]}`, methods: ["GET", "OPTIONS"] };
+    }
+
+    if (segments.length === 4 && UUID_PATTERN.test(segments[2]) && segments[3] === "status") {
+      return { path: `/admin/${resource}/${segments[2]}/status`, methods: ["PATCH", "OPTIONS"] };
+    }
+
+    return undefined;
+  }
+
+  if (!ADMIN_RESOURCES.has(resource ?? "")) {
+    return undefined;
+  }
+
   if (segments.length === 2) {
     return { path: `/admin/${resource}`, methods: ["GET", "POST", "OPTIONS"] };
   }

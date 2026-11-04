@@ -11,6 +11,7 @@ import { AdminShell } from "@/components/layout/admin-shell";
 import { DevAdminControls } from "@/components/layout/dev-admin-controls";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 import type { AdminNavigationId } from "@/lib/admin";
+import { clearPrivateAdminCache } from "@/lib/admin-session-cache";
 
 type AdminProtectedShellProps = {
   title: string;
@@ -28,7 +29,7 @@ export function AdminProtectedShell({ title, activeItem, children }: AdminProtec
 
   useEffect(() => {
     if (unauthenticated) {
-      queryClient.clear();
+      clearPrivateAdminCache(queryClient);
       router.replace("/admin/login");
     }
   }, [queryClient, router, unauthenticated]);

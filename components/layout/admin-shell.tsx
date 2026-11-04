@@ -37,6 +37,8 @@ function NavigationIcon({ item }: { item: AdminNavigationId }) {
 
 const contentRoutes: Partial<Record<AdminNavigationId, string>> = {
   dashboard: "/admin",
+  applications: "/admin/applications",
+  inquiries: "/admin/inquiries",
   countries: "/admin/countries",
   universities: "/admin/universities",
   scholarships: "/admin/scholarships",

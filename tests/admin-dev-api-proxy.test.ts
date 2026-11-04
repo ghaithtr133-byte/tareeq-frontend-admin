@@ -31,11 +31,18 @@ test("development proxy only permits documented auth, health, and Admin content 
   assert.deepEqual(getAllowedDevApiEndpoint(["auth", "login"]), { path: "/auth/login", methods: ["POST", "OPTIONS"] });
   assert.deepEqual(getAllowedDevApiEndpoint(["admin", "countries"]), { path: "/admin/countries", methods: ["GET", "POST", "OPTIONS"] });
   assert.deepEqual(getAllowedDevApiEndpoint(["admin", "countries", recordId]), { path: `/admin/countries/${recordId}`, methods: ["GET", "PATCH", "OPTIONS"] });
+  assert.deepEqual(getAllowedDevApiEndpoint(["admin", "applications"]), { path: "/admin/applications", methods: ["GET", "OPTIONS"] });
+  assert.deepEqual(getAllowedDevApiEndpoint(["admin", "applications", recordId]), { path: `/admin/applications/${recordId}`, methods: ["GET", "OPTIONS"] });
+  assert.deepEqual(getAllowedDevApiEndpoint(["admin", "applications", recordId, "status"]), { path: `/admin/applications/${recordId}/status`, methods: ["PATCH", "OPTIONS"] });
+  assert.deepEqual(getAllowedDevApiEndpoint(["admin", "inquiries"]), { path: "/admin/inquiries", methods: ["GET", "OPTIONS"] });
+  assert.deepEqual(getAllowedDevApiEndpoint(["admin", "inquiries", recordId]), { path: `/admin/inquiries/${recordId}`, methods: ["GET", "OPTIONS"] });
+  assert.deepEqual(getAllowedDevApiEndpoint(["admin", "inquiries", recordId, "status"]), { path: `/admin/inquiries/${recordId}/status`, methods: ["PATCH", "OPTIONS"] });
   assert.deepEqual(getAllowedDevApiEndpoint(["admin", "articles", "018f9d45-27b8-7cc2-8ee5-a8062a84c1d4"]), {
     path: "/admin/articles/018f9d45-27b8-7cc2-8ee5-a8062a84c1d4",
     methods: ["GET", "PATCH", "OPTIONS"],
   });
   assert.equal(getAllowedDevApiEndpoint(["admin", "countries", "not-a-uuid"]), undefined);
+  assert.equal(getAllowedDevApiEndpoint(["admin", "applications", recordId, "other"]), undefined);
   assert.equal(getAllowedDevApiEndpoint(["https:", "untrusted.example"]), undefined);
   assert.equal(getAllowedDevApiEndpoint(["auth", "unknown"]), undefined);
 });

@@ -132,6 +132,27 @@ test("mock roles, protected navigation, logout, and responsive drawer are intera
   await expect(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).resolves.toBeTruthy();
 });
 
+test("submission-management mock preview stays isolated and responsive", async ({ page }) => {
+  await resetAndScale(page);
+  const entries = [
+    { label: "الطلبات", heading: "طلبات التقديم", width: 350 },
+    { label: "الاستفسارات", heading: "الاستفسارات العامة", width: 390 },
+    { label: "الطلبات", heading: "طلبات التقديم", width: 768 },
+    { label: "الاستفسارات", heading: "الاستفسارات العامة", width: 1024 },
+    { label: "الطلبات", heading: "طلبات التقديم", width: 1280 },
+    { label: "الاستفسارات", heading: "الاستفسارات العامة", width: 1440 },
+  ];
+
+  for (const entry of entries) {
+    await page.setViewportSize({ width: entry.width, height: 900 });
+    if (entry.width < 1024) await page.getByRole("button", { name: "فتح قائمة التنقل" }).click();
+    await page.getByRole("link", { name: entry.label }).click();
+    await expect(page.getByRole("heading", { name: entry.heading, level: 2 })).toBeVisible();
+    await expect(page.getByText(/لا يتم الاتصال بالخادم في وضع المعاينة/)).toBeVisible();
+    await expect(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).resolves.toBeTruthy();
+  }
+});
+
 for (const resource of Object.keys(resourceLabels) as Resource[]) {
   test(`${resource}: list, validation, create, edit, lifecycle, and pagination`, async ({ page }) => {
     const suffix = `${resource}-ui`;

@@ -47,10 +47,10 @@ function RealAdminAccessProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<AdminAccess>(() => ({
     mockEnabled: false,
-    user: session.data,
+    user: session.isError ? undefined : session.data ?? undefined,
     isPending: session.isPending,
-    isError: session.isError,
-    error: session.error,
+    isError: session.isError || session.data === null,
+    error: session.data === null ? new UnauthenticatedSessionError(undefined) : session.error,
     isLoggingOut: logoutMutation.isPending,
     refetchSession: () => session.refetch(),
     reportContentUnauthorized: () => { void session.refetch(); },

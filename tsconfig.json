@@ -41,7 +41,15 @@
     ".next-playwright-3102/types/**/*.ts",
     ".next-playwright-3102/dev/types/**/*.ts",
     ".next-real-auth-3001/types/**/*.ts",
-    ".next-real-auth-3001/dev/types/**/*.ts"
+    ".next-real-auth-3001/dev/types/**/*.ts",
+    ".next-playwright-3106/types/**/*.ts",
+    ".next-playwright-3106/dev/types/**/*.ts",
+    ".next-submissions-e2e/types/**/*.ts",
+    ".next-submissions-e2e/dev/types/**/*.ts",
+    ".next-phase1-build/types/**/*.ts",
+    ".next-phase1-build/dev/types/**/*.ts",
+    ".next-live-acceptance-3001/types/**/*.ts",
+    ".next-live-acceptance-3001/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

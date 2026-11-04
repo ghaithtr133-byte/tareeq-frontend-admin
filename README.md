@@ -62,6 +62,14 @@ The visible development control can switch between `ADMIN`, `SUPER_ADMIN`, and s
 
 Outstanding live verification and missing Backend contracts are tracked in `docs/admin-pending-integrations.md`.
 
+## Applications and inquiries
+
+The protected `/admin/applications` and `/admin/inquiries` modules implement the supplied Task #5 list, UUID detail, and `/status` PATCH contracts. Both administrator roles can filter, sort, page through records, inspect nullable references, and edit workflow status/private notes. Unchanged patch fields are omitted; a blank note and an explicit null clear remain distinct. Notes are limited to 5000 characters. Sensitive data stays in memory and is cleared on logout.
+
+Normal runtime uses the existing Axios cookie-session integration. Development mock access shows a data-free preview for these modules and never calls their Backend endpoints. The test-only submission fixtures are not imported by application code.
+
+Run `npm run test` for contract/proxy regressions, `npm run test:ui` for existing mock UI coverage, and `npm run test:submissions:ui` for the real frontend session/API path with isolated contract responses. The latter uses its own development server and build directory on port 3107 with mock access disabled; every API request is intercepted before it can reach the proxy upstream. Its mocked PATCH results do not verify production mutations or real authentication.
+
 ## Roles and navigation
 
 Only `ADMIN` and `SUPER_ADMIN` are represented in `lib/admin.ts`. Shared navigation is available to both; Analytics, Audit Log, Admins, and Settings are visible only for `SUPER_ADMIN`. The navigation is a role-driven UI presentation layer, not an authorization boundary. The Backend remains responsible for authorization.
