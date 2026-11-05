@@ -9,6 +9,7 @@ import { normalizeApiError } from "@/api/error";
 import { ErrorState, LoadingState, UnauthorizedState } from "@/components/dashboard/states";
 import { AdminShell } from "@/components/layout/admin-shell";
 import { DevAdminControls } from "@/components/layout/dev-admin-controls";
+import { SuperAdminCacheGuard } from "@/components/layout/super-admin-boundary";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 import type { AdminNavigationId } from "@/lib/admin";
 import { clearPrivateAdminCache } from "@/lib/admin-session-cache";
@@ -55,6 +56,7 @@ export function AdminProtectedShell({ title, activeItem, children }: AdminProtec
   return (
     <AdminShell user={session.user} title={title} activeItem={activeItem} onLogout={() => void handleLogout()} isLoggingOut={session.isLoggingOut}>
       <DevAdminControls />
+      <SuperAdminCacheGuard />
       {children}
       {logoutError ? <p className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">{logoutError}</p> : null}
     </AdminShell>

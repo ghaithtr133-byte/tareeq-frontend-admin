@@ -1,0 +1,47 @@
+"use client";
+import { useState } from "react";
+import { z } from "zod";
+import type { SectionRecords, SectionInputs, UniversitySection } from "@/api/university-management";
+import { getApiFieldErrors, normalizeApiError } from "@/api/error";
+import { useUniversitySave } from "@/hook/mutations/use-university-management";
+import { useUniversitySection } from "@/hook/queries/use-university-management";
+import { admissionScopes, programStudyLevels, teachingLanguages } from "@/lib/university-schemas";
+import { sectionPayload, sectionValues } from "@/lib/university-form";
+import { ImageUpload } from "@/components/media/image-upload";
+import { buttonClass, DirectorySelector, FormField, inputClass, PageControls, panelClass } from "./controls";
+
+function ProgramSelector({ universityId, value, onChange }: { universityId: string; value: string; onChange: (value: string) => void }) {
+  const [page, setPage] = useState(1); const [search, setSearch] = useState("");
+  const list = useUniversitySection("programs", universityId, { page, limit: 50, search: search.trim() || undefined });
+  return <div className="space-y-2"><input aria-label="بحث برنامج الجامعة" className={inputClass} value={search} maxLength={200} onChange={event => { setSearch(event.target.value); setPage(1); }} /><select aria-label="برنامج الجامعة" value={value} className={inputClass} onChange={event => onChange(event.target.value)}><option value="">اختر البرنامج</option>{value && !list.data?.items.some(item => item.id === value) ? <option value={value}>{value} (مختار)</option> : null}{list.data?.items.map(item => <option key={item.id} value={item.id}>{item.nameAr ?? item.academicMajor.nameAr}</option>)}</select>{list.isFetching ? <p role="status">جارٍ التحميل…</p> : null}{list.isError ? <p role="alert">تعذّر تحميل البرامج. <button type="button" onClick={() => void list.refetch()}>إعادة المحاولة</button></p> : null}<PageControls data={list.data} change={setPage} /></div>;
+}
+export function SectionEditor<K extends UniversitySection>({ section, universityId, record, close }: { section: K; universityId: string; record?: SectionRecords[K]; close: (saved?: boolean) => void }) {
+  const [values, setValues] = useState(() => sectionValues(section, record)); const [errors, setErrors] = useState<Record<string, string>>({}); const [message, setMessage] = useState("");
+  const save = useUniversitySave(section, universityId);
+  const set = (name: string, value: string) => setValues(old => ({ ...old, [name]: value }));
+  const field = (name: string, label: string, type = "text", maxLength?: number) => <FormField key={name} label={label}><label className="sr-only" htmlFor={`phase2-${name}`}>{label}</label>{type === "textarea" ? <textarea id={`phase2-${name}`} aria-invalid={Boolean(errors[name])} rows={5} className={inputClass} maxLength={maxLength} value={values[name] ?? ""} onChange={e => set(name, e.target.value)} /> : <input id={`phase2-${name}`} aria-invalid={Boolean(errors[name])} dir={type === "url" || type === "number" || type === "datetime-local" || ["academicYear", "currency", "amount"].includes(name) ? "ltr" : undefined} type={type} maxLength={maxLength} min={type === "number" ? 1 : undefined} max={type === "number" ? 240 : undefined} className={inputClass} value={values[name] ?? ""} onChange={e => set(name, e.target.value)} />}{errors[name] ? <p role="alert" className="text-sm text-red-700">{errors[name]}</p> : null}</FormField>;
+  const select = (name: string, label: string, options: readonly string[], blank = false) => <FormField key={name} label={label}><select aria-label={label} className={inputClass} value={values[name] ?? ""} onChange={e => set(name, e.target.value)}>{blank ? <option value="">بلا اختيار</option> : null}{options.map(value => <option key={value}>{value}</option>)}</select>{errors[name] ? <p role="alert">{errors[name]}</p> : null}</FormField>;
+  return <form className={panelClass} noValidate onSubmit={async event => {
+    event.preventDefault(); setErrors({}); setMessage("");
+    try {
+      const input = sectionPayload(section, values, record) as Partial<SectionInputs[K]>;
+      if ((input.status === "PUBLISHED" || input.status === "ARCHIVED") && input.status !== record?.status && !window.confirm("تأكيد تغيير الحالة التحريرية؟")) return;
+      await save.mutateAsync({ input, id: record?.id }); close(true);
+    } catch (error) {
+      if (error instanceof z.ZodError) { setErrors(Object.fromEntries(error.issues.map(issue => [String(issue.path[0] ?? "form"), `تحقق من هذا الحقل: ${issue.path.join(".") || "النموذج"}.`]))); setMessage("راجع الحقول المطلوبة وصيغ القيم."); }
+      else { const fields = getApiFieldErrors(error); setErrors(Object.fromEntries(Object.entries(fields).map(([key, messages]) => [key, messages[0]]))); const normalized = normalizeApiError(error); if (normalized.kind !== "cancelled") setMessage(error instanceof Error && error.message.startsWith("النشر") ? error.message : normalized.status === 409 ? "تعارض مع سجل موجود. راجع القيم؛ لم تُفقد التعديلات." : normalized.status === 403 ? "لا توجد صلاحية لتنفيذ الإجراء." : "تعذّر الحفظ؛ بيانات النموذج محفوظة. راجع الحقول والاتصال."); }
+    }
+  }}><h3 className="text-lg font-bold">{record ? "تعديل السجل" : "إضافة سجل"}</h3>{message ? <p role="alert" className="text-red-700">{message}</p> : null}
+    <fieldset disabled={save.isPending} className="grid min-w-0 gap-4 md:grid-cols-2">
+    {section === "programs" ? <>
+      <FormField label="التخصص الأكاديمي *"><DirectorySelector kind="academic-majors" value={values.academicMajorId ?? ""} label="التخصص الأكاديمي" selectedLabel={record && "academicMajor" in record ? record.academicMajor.nameAr : undefined} onChange={value => set("academicMajorId", value)} />{errors.academicMajorId ? <p role="alert">{errors.academicMajorId}</p> : null}</FormField>
+      {field("nameAr", "اسم البرنامج بالعربية *", "text", 300)}{field("nameEn", "اسم البرنامج بالإنجليزية", "text", 300)}{field("facultyNameAr", "الكلية بالعربية", "text", 300)}{field("facultyNameEn", "الكلية بالإنجليزية", "text", 300)}{select("studyLevel", "المستوى الدراسي *", programStudyLevels)}{field("durationValue", "مدة الدراسة", "number")}{select("durationUnit", "وحدة المدة", ["MONTHS", "YEARS"], true)}
+      <FormField label="لغات الدراسة *"><div className="flex flex-wrap gap-3">{teachingLanguages.map(language => <label key={language} className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={values.languages.split(",").includes(language)} onChange={e => set("languages", (e.target.checked ? [...values.languages.split(",").filter(Boolean), language] : values.languages.split(",").filter(value => value !== language)).join(","))} />{language}</label>)}</div>{errors.languages ? <p role="alert">{errors.languages}</p> : null}</FormField>
+      <div className="space-y-3 md:col-span-2"><p className="rounded-lg bg-amber-50 p-3 text-sm">عرض الرسوم الحالية وسجلها معلّق بسبب تعارض OpenAPI. يمكن إرسال رسوم سنة محددة وفق عقد الإدخال المعتمد؛ لا تُستبدل السنوات الأخرى.</p><label className="flex min-h-11 items-center gap-2"><input type="checkbox" checked={values.includeTuition === "yes"} onChange={e => set("includeTuition", e.target.checked ? "yes" : "")} />إضافة / تحديث رسوم سنة أكاديمية محددة</label>{values.includeTuition === "yes" ? <div className="grid gap-4 sm:grid-cols-2">{field("amount", "المبلغ *", "text", 13)}{field("currency", "رمز العملة (مثل USD) *", "text", 3)}{select("billingPeriod", "دورية الرسوم *", ["YEAR", "SEMESTER", "FULL_PROGRAM"])}{field("academicYear", "السنة الأكاديمية (2026/2027) *", "text", 9)}{errors.tuition ? <p role="alert">{errors.tuition}</p> : null}</div> : null}</div>
+    </> : null}
+    {section === "admission-requirements" ? <>{record ? <p className="md:col-span-2 text-sm">النطاق والهدف ثابتان: {"scope" in record ? record.scope : ""} · {"programId" in record ? record.programId : ""}{"studyLevel" in record && typeof record.studyLevel === "string" ? record.studyLevel : ""}</p> : <>{select("scope", "نطاق المتطلبات *", admissionScopes)}{values.scope === "STUDY_LEVEL" ? select("studyLevel", "المستوى المستهدف *", programStudyLevels, true) : values.scope === "PROGRAM" ? <FormField label="البرنامج المستهدف *"><ProgramSelector universityId={universityId} value={values.programId ?? ""} onChange={value => set("programId", value)} />{errors.programId ? <p role="alert">{errors.programId}</p> : null}</FormField> : null}</>}{field("contentAr", "متطلبات القبول بالعربية *", "textarea", 20000)}{field("contentEn", "متطلبات القبول بالإنجليزية", "textarea", 20000)}</> : null}
+    {section !== "gallery" ? <>{field("officialSourceUrl", "رابط المصدر الرسمي *", "url", 2048)}{field("verifiedAt", "تاريخ التحقق *", "datetime-local")}</> : <>{field("imageUrl", "رابط الصورة *", "url", 2048)}{field("altAr", "النص البديل بالعربية", "text", 500)}{field("altEn", "النص البديل بالإنجليزية", "text", 500)}<div className="md:col-span-2"><ImageUpload resource="universities" onUploaded={url => set("imageUrl", url)} disabled={save.isPending} /></div></>}
+    {select("status", "الحالة التحريرية", ["DRAFT", "PUBLISHED", "ARCHIVED"])}
+    </fieldset><div className="flex flex-wrap gap-3"><button type="submit" className={buttonClass} disabled={save.isPending}>{save.isPending ? "جارٍ الحفظ…" : "حفظ السجل"}</button><button type="button" className={buttonClass} disabled={save.isPending} onClick={() => close()}>إلغاء</button></div>
+  </form>;
+}

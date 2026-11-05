@@ -8,6 +8,8 @@ import { ErrorState, EmptyState, LoadingState } from "@/components/dashboard/sta
 import { StatusBadge } from "@/components/content/status-badge";
 import { useContentSelectors, useContentList } from "@/hook/queries/use-content-queries";
 import { contentDefinitions, contentTitle, publicationStatusOptions } from "@/lib/content-config";
+import { programStudyLevels, teachingLanguages } from "@/lib/university-schemas";
+import { scholarshipUniversityFilters, scholarshipUniversityFilterNames } from "@/lib/content-filters";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -32,8 +34,14 @@ function parseFilters<K extends AdminContentResource>(resource: K, params: Searc
     page: positive(one(params, "page"), 1, Number.MAX_SAFE_INTEGER),
     limit: positive(one(params, "limit"), 12, 50),
   };
-  const strings = ["search", "country", "university", "studyLevel", "fundingType"] as const;
+  const strings = ["search", "country", "university", "studyLevel", "fundingType", "major", "city"] as const;
   for (const key of strings) if (definition.filters.includes(key) && one(params, key)?.trim()) output[key] = one(params, key)!.trim();
+  if (resource === "universities") {
+    output.studyLevel = allowed(one(params, "studyLevel"), programStudyLevels);
+    output.language = allowed(one(params, "language"), teachingLanguages);
+    output.universityType = allowed(one(params, "universityType"), ["PUBLIC", "PRIVATE"]);
+  }
+  if (resource === "scholarships") Object.assign(output, scholarshipUniversityFilters(params));
   if (definition.filters.includes("featured")) output.featured = allowed(one(params, "featured"), ["true", "false"]);
   if (definition.filters.includes("status")) output.status = allowed(one(params, "status"), ["DRAFT", "PUBLISHED", "ARCHIVED"] satisfies PublicationStatus[]);
   if (definition.filters.includes("applicationStatus")) output.applicationStatus = allowed(one(params, "applicationStatus"), ["OPEN", "CLOSED"] satisfies ScholarshipApplicationStatus[]);
@@ -91,15 +99,29 @@ export function ContentListPage({ resource, searchParams }: { resource: AdminCon
       </div>
 
       <form key={JSON.stringify(filters)} onSubmit={(event) => { event.preventDefault(); update(new FormData(event.currentTarget)); }} className="grid gap-3 rounded-2xl border border-[var(--line)] bg-white p-4 shadow-sm md:grid-cols-3 xl:grid-cols-5">
+        {([['countries', definition.filters.includes('country')], ['universities', definition.filters.includes('university')]] as const).map(([kind, needed]) => needed && (selectors[kind].isFetching || selectors[kind].isError) ? <div key={kind} className="md:col-span-3 xl:col-span-5">{selectors[kind].isError ? <p role="alert">تعذّر تحميل خيارات {kind === 'countries' ? 'الدول' : 'الجامعات'}. <button type="button" className="underline" onClick={() => void selectors[kind].refetch()}>إعادة تحميل الخيارات</button></p> : <p role="status">جارٍ تحميل خيارات العلاقات…</p>}</div> : null)}
         {definition.filters.includes("search") ? <label className="grid gap-1 text-xs font-semibold text-[var(--navy)]"><span>بحث</span><input name="search" defaultValue={String(filterValues.search ?? "")} className="h-10 rounded-lg border border-[var(--line)] px-3 text-sm" placeholder="ابحث في المحتوى" /></label> : null}
-        {definition.filters.includes("country") ? <FilterSelect name="country" label="الدولة" defaultValue={String(filterValues.country ?? "")}>{selectors.countries.data?.items.map((country) => <option key={country.id} value={country.slug}>{country.nameAr}</option>)}</FilterSelect> : null}
-        {definition.filters.includes("university") ? <FilterSelect name="university" label="الجامعة" defaultValue={String(filterValues.university ?? "")}>{selectors.universities.data?.items.map((university) => <option key={university.id} value={university.slug}>{university.nameAr}</option>)}</FilterSelect> : null}
-        {definition.filters.includes("studyLevel") ? <label className="grid gap-1 text-xs font-semibold text-[var(--navy)]"><span>المستوى الدراسي</span><input name="studyLevel" defaultValue={String(filterValues.studyLevel ?? "")} className="h-10 rounded-lg border border-[var(--line)] px-3 text-sm" /></label> : null}
+        {definition.filters.includes("country") ? <FilterSelect name="country" label="الدولة" defaultValue={String(filterValues.country ?? "")}>{filterValues.country && !selectors.countries.data?.items.some(item => item.slug === filterValues.country) ? <option value={String(filterValues.country)}>{filterValues.country} (مختارة)</option> : null}{selectors.countries.data?.items.map((country) => <option key={country.id} value={country.slug}>{country.nameAr}</option>)}</FilterSelect> : null}
+        {definition.filters.includes("university") ? <FilterSelect name="university" label="الجامعة" defaultValue={String(filterValues.university ?? "")}>{filterValues.university && !selectors.universities.data?.items.some(item => item.slug === filterValues.university) ? <option value={String(filterValues.university)}>{filterValues.university} (مختارة)</option> : null}{selectors.universities.data?.items.map((university) => <option key={university.id} value={university.slug}>{university.nameAr}</option>)}</FilterSelect> : null}
+        {resource === "universities" ? <>{(["major", "city"] as const).map(name => <label key={name} className="grid gap-1 text-xs font-semibold"><span>{name === "major" ? "التخصص (Slug)" : "المدينة (Slug)"}</span><input name={name} dir="ltr" maxLength={120} defaultValue={String(filterValues[name] ?? "")} className="h-10 rounded-lg border border-[var(--line)] px-3" /></label>)}<FilterSelect name="studyLevel" label="المستوى الدراسي" defaultValue={String(filterValues.studyLevel ?? "")}>{programStudyLevels.map(value => <option key={value}>{value}</option>)}</FilterSelect><FilterSelect name="language" label="لغة الدراسة" defaultValue={String(filterValues.language ?? "")}>{teachingLanguages.map(value => <option key={value}>{value}</option>)}</FilterSelect><FilterSelect name="universityType" label="نوع الجامعة" defaultValue={String(filterValues.universityType ?? "")}><option value="PUBLIC">حكومية</option><option value="PRIVATE">خاصة</option></FilterSelect></> : definition.filters.includes("studyLevel") ? <label className="grid gap-1 text-xs font-semibold text-[var(--navy)]"><span>المستوى الدراسي</span><input name="studyLevel" defaultValue={String(filterValues.studyLevel ?? "")} className="h-10 rounded-lg border border-[var(--line)] px-3 text-sm" /></label> : null}
         {definition.filters.includes("fundingType") ? <label className="grid gap-1 text-xs font-semibold text-[var(--navy)]"><span>نوع التمويل</span><input name="fundingType" defaultValue={String(filterValues.fundingType ?? "")} className="h-10 rounded-lg border border-[var(--line)] px-3 text-sm" /></label> : null}
         {definition.filters.includes("applicationStatus") ? <FilterSelect name="applicationStatus" label="حالة التقديم" defaultValue={String(filterValues.applicationStatus ?? "")}><option value="OPEN">مفتوح</option><option value="CLOSED">مغلق</option></FilterSelect> : null}
         {definition.filters.includes("featured") ? <FilterSelect name="featured" label="مميز" defaultValue={String(filterValues.featured ?? "")}><option value="true">مميز</option><option value="false">غير مميز</option></FilterSelect> : null}
         {definition.filters.includes("status") ? <FilterSelect name="status" label="الحالة" defaultValue={String(filterValues.status ?? "")}>{publicationStatusOptions.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</FilterSelect> : null}
         {definition.filters.includes("sort") ? <FilterSelect name="sort" label="الترتيب" defaultValue={String(filterValues.sort ?? "")}>{definition.sorts.map((sort) => <option key={sort.value} value={sort.value}>{sort.label}</option>)}</FilterSelect> : null}
+        {resource === "scholarships" ? <details open={scholarshipUniversityFilterNames.some(name => Boolean(filterValues[name]))} className="min-w-0 rounded-xl border border-[var(--line)] p-3 md:col-span-3 xl:col-span-5">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-bold">مرشحات الجامعة المرتبطة المتقدمة</summary>
+          <p className="mb-3 text-xs text-[var(--muted)]">هذه المرشحات تخص الجامعة وبرامجها المنشورة، ولا تستبدل مستوى المنحة أو الدولة أو تمييز المنحة. يطبق الخادم شروط البرنامج على برنامج منشور واحد.</p>
+          <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <label className="grid min-w-0 gap-1 text-xs font-semibold">بحث الجامعة المرتبطة<input name="universitySearch" maxLength={200} defaultValue={String(filterValues.universitySearch ?? "")} className="h-10 min-w-0 rounded-lg border border-[var(--line)] px-3 text-sm" /></label>
+            <FilterSelect name="universityCountry" label="دولة الجامعة المرتبطة" defaultValue={String(filterValues.universityCountry ?? "")}>{filterValues.universityCountry && !selectors.countries.data?.items.some(item => item.slug === filterValues.universityCountry) ? <option value={String(filterValues.universityCountry)}>{filterValues.universityCountry} (مختارة)</option> : null}{selectors.countries.data?.items.map(item => <option key={item.id} value={item.slug}>{item.nameAr}</option>)}</FilterSelect>
+            {([['universityMajor','تخصص برنامج الجامعة (Slug)'],['universityCity','مدينة الجامعة (Slug)']] as const).map(([name,label]) => <label key={name} className="grid min-w-0 gap-1 text-xs font-semibold">{label}<input name={name} dir="ltr" minLength={2} maxLength={120} pattern="[a-z0-9]+(-[a-z0-9]+)*" defaultValue={String(filterValues[name] ?? "")} className="h-10 min-w-0 rounded-lg border border-[var(--line)] px-3 text-sm" /></label>)}
+            <FilterSelect name="universityStudyLevel" label="مستوى برنامج الجامعة" defaultValue={String(filterValues.universityStudyLevel ?? "")}>{programStudyLevels.map(value => <option key={value}>{value}</option>)}</FilterSelect>
+            <FilterSelect name="universityLanguage" label="لغة برنامج الجامعة" defaultValue={String(filterValues.universityLanguage ?? "")}>{teachingLanguages.map(value => <option key={value}>{value}</option>)}</FilterSelect>
+            <FilterSelect name="universityType" label="نوع الجامعة المرتبطة" defaultValue={String(filterValues.universityType ?? "")}><option value="PUBLIC">حكومية</option><option value="PRIVATE">خاصة</option></FilterSelect>
+            <FilterSelect name="universityFeatured" label="تمييز الجامعة المرتبطة" defaultValue={String(filterValues.universityFeatured ?? "")}><option value="true">مميزة</option><option value="false">غير مميزة</option></FilterSelect>
+          </div>
+        </details> : null}
         <FilterSelect name="limit" label="لكل صفحة" defaultValue={String(filterValues.limit ?? 12)}><option value="12">12</option><option value="24">24</option><option value="50">50</option></FilterSelect>
         <div className="flex items-end gap-2"><button className="h-10 rounded-lg bg-[var(--navy)] px-4 text-sm font-bold text-white">تطبيق</button><Link href={pathname} className="inline-flex h-10 items-center rounded-lg border border-[var(--line)] px-3 text-sm font-semibold text-[var(--navy)]">إعادة ضبط</Link></div>
       </form>

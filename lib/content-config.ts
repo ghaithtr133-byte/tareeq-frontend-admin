@@ -1,6 +1,6 @@
 import type { AdminContentResource, ArticleBlockType, ContentRecord, PublicationStatus } from "@/api/content";
 
-export type FormFieldKind = "text" | "textarea" | "url" | "number" | "checkbox" | "select" | "datetime-local" | "country" | "university" | "scholarship";
+export type FormFieldKind = "text" | "textarea" | "url" | "number" | "checkbox" | "select" | "datetime-local" | "country" | "university" | "scholarship" | "scholarships" | "city";
 
 export interface ContentFieldDefinition {
   name: string;
@@ -18,7 +18,7 @@ export interface ResourceDefinition {
   singular: string;
   titleField: "nameAr" | "titleAr";
   fields: readonly ContentFieldDefinition[];
-  filters: readonly ("search" | "country" | "university" | "studyLevel" | "fundingType" | "applicationStatus" | "featured" | "status" | "sort")[];
+  filters: readonly ("search" | "country" | "university" | "studyLevel" | "fundingType" | "applicationStatus" | "featured" | "status" | "sort" | "major" | "city" | "language" | "universityType" | "universitySearch" | "universityCountry" | "universityMajor" | "universityStudyLevel" | "universityLanguage" | "universityCity" | "universityFeatured")[];
   sorts: readonly { value: string; label: string }[];
 }
 
@@ -68,13 +68,15 @@ export const contentDefinitions: Record<AdminContentResource, ResourceDefinition
     ],
   },
   universities: {
-    label: "الجامعات", singular: "جامعة", titleField: "nameAr", filters: ["search", "country", "featured", "status", "sort"],
+    label: "الجامعات", singular: "جامعة", titleField: "nameAr", filters: ["search", "country", "major", "city", "studyLevel", "language", "universityType", "featured", "status", "sort"],
     sorts: [{ value: "newest", label: "الأحدث" }, { value: "name", label: "الاسم العربي" }],
     fields: [
       { name: "nameAr", label: "اسم الجامعة بالعربية", kind: "text", required: true, maxLength: 200 },
       { name: "nameEn", label: "اسم الجامعة بالإنجليزية", kind: "text", maxLength: 200 },
       { name: "officialName", label: "الاسم الرسمي", kind: "text", required: true, maxLength: 300 },
+      { name: "universityType", label: "نوع الجامعة", kind: "select", options: [{ value: "", label: "غير محدد / إبقاء القيمة الحالية" }, { value: "PUBLIC", label: "حكومية" }, { value: "PRIVATE", label: "خاصة" }], hint: "مسح النوع إلى null معلّق لحين تصحيح عقد Backend." },
       { name: "countryId", label: "الدولة", kind: "country", required: true },
+      { name: "cityId", label: "المدينة المرتبطة", kind: "city", nullable: true, hint: "اختر مدينة تابعة للدولة. الحقول النصية أدناه مستقلة ولا تُستبدل تلقائيًا." },
       { name: "cityAr", label: "المدينة بالعربية", kind: "text", required: true, maxLength: 200 },
       { name: "cityEn", label: "المدينة بالإنجليزية", kind: "text", maxLength: 200 },
       { name: "overviewAr", label: "نبذة بالعربية", kind: "textarea", required: true, maxLength: 20000 },
@@ -84,12 +86,13 @@ export const contentDefinitions: Record<AdminContentResource, ResourceDefinition
     ],
   },
   scholarships: {
-    label: "المنح الدراسية", singular: "منحة", titleField: "titleAr", filters: ["search", "country", "university", "studyLevel", "fundingType", "applicationStatus", "featured", "status", "sort"],
+    label: "المنح الدراسية", singular: "منحة", titleField: "titleAr", filters: ["search", "country", "university", "studyLevel", "fundingType", "applicationStatus", "featured", "status", "sort", "universitySearch", "universityCountry", "universityMajor", "universityStudyLevel", "universityLanguage", "universityCity", "universityType", "universityFeatured"],
     sorts: [{ value: "newest", label: "الأحدث" }, { value: "deadline", label: "أقرب موعد" }],
     fields: [
       { name: "titleAr", label: "العنوان بالعربية", kind: "text", required: true, maxLength: 300 },
       { name: "titleEn", label: "العنوان بالإنجليزية", kind: "text", maxLength: 300 },
       { name: "countryId", label: "الدولة", kind: "country", nullable: true },
+      ...imageFields,
       { name: "universityId", label: "الجامعة", kind: "university", nullable: true },
       { name: "studyLevel", label: "المستوى الدراسي", kind: "text", required: true, maxLength: 120 },
       { name: "fundingType", label: "نوع التمويل", kind: "text", required: true, maxLength: 120 },
@@ -131,7 +134,7 @@ export const contentDefinitions: Record<AdminContentResource, ResourceDefinition
       { name: "coverImageAltEn", label: "النص البديل للغلاف بالإنجليزية", kind: "text", maxLength: 300 },
       { name: "countryId", label: "الدولة المرتبطة", kind: "country", nullable: true },
       { name: "universityId", label: "الجامعة المرتبطة", kind: "university", nullable: true },
-      { name: "scholarshipId", label: "المنحة المرتبطة", kind: "scholarship", nullable: true },
+      { name: "scholarshipIds", label: "المنح المرتبطة بالترتيب", kind: "scholarships" },
       ...sharedFields,
     ],
   },

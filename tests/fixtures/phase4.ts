@@ -1,0 +1,13 @@
+import type { AnalyticsSummary, AuditLog, ManagedAccount } from "@/lib/phase4-schemas";
+export const actorId = "11111111-1111-4111-8111-111111111111";
+export const targetId = "22222222-2222-4222-8222-222222222222";
+export const summaryFixture: AnalyticsSummary = {
+  range: { from: "2026-10-04", to: "2026-11-02", granularity: "day" }, totals: { pageViews: 1200, visitors: 430, sessions: 510 },
+  topPages: [{ path: "/scholarships", pageViews: 320, visitors: 210 }], trafficSources: [{ source: "google", medium: null, campaign: null, sessions: 100, pageViews: 240 }], ctaEngagement: [{ ctaId: "APPLY_NOW", clicks: 80, sessions: 72 }],
+  clientReportedConversions: { applications: 25, inquiries: 8, total: 33 }, serverVerifiedConversions: { applications: 23, inquiries: 7, total: 30 }, conversionRates: { clientReportedSessionRate: 6.47, applicationSessionRate: 4.9, inquirySessionRate: 1.57 }, funnel: [{ step: "PAGE_VIEW", sessions: 510, rateFromPrevious: null }, { step: "CTA_CLICK", sessions: 72, rateFromPrevious: 14.12 }],
+  trends: [{ periodStart: "2026-11-01T00:00:00Z", pageViews: 12, visitors: 8, sessions: 10, ctaClicks: 4, clientReportedConversions: 3, serverVerifiedApplications: 2, serverVerifiedInquiries: 1 }, { periodStart: "2026-11-02T00:00:00Z", pageViews: 20, visitors: 10, sessions: 12, ctaClicks: 6, clientReportedConversions: 4, serverVerifiedApplications: 3, serverVerifiedInquiries: 0 }],
+};
+export const accountFixture: ManagedAccount = { id: targetId, name: "مشرف اختبار محلي", email: "local@example.invalid", role: "ADMIN", isActive: true };
+export const auditFixture: AuditLog = { id: targetId, actorAdminId: actorId, action: "content.country.status_changed", resourceType: "COUNTRY", resourceId: targetId, createdAt: "2026-11-02T10:00:00Z", actor: { id: actorId, name: "منفذ محلي" }, metadata: { fromStatus: "DRAFT", toStatus: "PUBLISHED", password: "HIDDEN_PASSWORD_SENTINEL", token: "HIDDEN_TOKEN_SENTINEL", privateMessage: "HIDDEN_MESSAGE_SENTINEL", nested: { cookie: "HIDDEN_COOKIE_SENTINEL" } } };
+// Two contradictory nullable-enum fields are opaque fixtures, not formal response validation evidence.
+export const journeyFixture = { range: summaryFixture.range, items: [{ sessionId: targetId, startedAt: "2026-11-02T10:00:00Z", endedAt: "2026-11-02T10:05:00Z", eventCount: 1, truncated: false, clientReportedApplication: false, clientReportedInquiry: false, steps: [{ eventId: actorId, type: "PAGE_VIEW", path: "/scholarships", targetPath: null, ctaId: null, engagementType: null, occurredAt: "2026-11-02T10:00:00Z" }] }], pagination: { page: 1, limit: 10, total: 1, totalPages: 1 } };

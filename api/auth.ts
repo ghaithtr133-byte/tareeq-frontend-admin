@@ -2,6 +2,8 @@ import type { AxiosRequestConfig } from "axios";
 
 import { apiClient } from "@/api/client";
 import { isRequestCancelled } from "@/api/error";
+import { z } from "zod";
+import { changePasswordSchema, ChangePasswordError, safePasswordError, type ChangePasswordRequest } from "@/lib/change-password";
 
 export type AdminRole = "ADMIN" | "SUPER_ADMIN";
 
@@ -137,4 +139,14 @@ export async function restoreAuthenticatedUser(
 /** The logout response clears the Backend-managed HttpOnly session cookies. */
 export async function logout(): Promise<void> {
   await apiClient.post("/auth/logout");
+}
+
+/** Backend revokes refresh sessions and clears cookies; never attempt recovery after success. */
+export async function changePassword(input: ChangePasswordRequest): Promise<void> {
+  const parsed = changePasswordSchema.safeParse(input);
+  if (!parsed.success) throw new ChangePasswordError("unknown", undefined, [...new Set(parsed.error.issues.map(issue => String(issue.path[0])))]);
+  try {
+    const response = await apiClient.post("/auth/change-password", { currentPassword: parsed.data.currentPassword, newPassword: parsed.data.newPassword });
+    z.object({ success: z.literal(true), data: z.object({}) }).parse(response.data);
+  } catch (error) { throw safePasswordError(error); }
 }

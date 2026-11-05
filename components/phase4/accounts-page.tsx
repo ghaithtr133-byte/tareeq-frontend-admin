@@ -1,0 +1,29 @@
+"use client";
+import { useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
+import { getApiFieldErrors, normalizeApiError } from "@/api/error";
+import { useManagedAccounts } from "@/hook/queries/use-phase4-queries";
+import { useAccountMutation } from "@/hook/mutations/use-account-mutation";
+import { accountUpdateSchema, managedRoles, type ManagedAccount } from "@/lib/phase4-schemas";
+import { useAdminAccess } from "@/providers/admin-access-provider";
+import { buttonClass, inputClass, PageControls, panelClass } from "@/components/universities/controls";
+import { EmptyState, LoadingState } from "@/components/dashboard/states";
+import { Phase4Error } from "./query-state";
+function AccountCard({ record }: { record: ManagedAccount }) {
+  const access = useAdminAccess(); const own = access.user?.id === record.id; const mutation = useAccountMutation(); const [editing, setEditing] = useState<ManagedAccount>(); const [message, setMessage] = useState(""); const [roleError, setRoleError] = useState(""); const form = useForm<{ role: ManagedAccount["role"] }>({ defaultValues: { role: record.role } });
+  async function update(input: { role: ManagedAccount["role"] } | { isActive: boolean }) {
+    if (mutation.isPending) return; setMessage(""); setRoleError("");
+    try { const result = await mutation.mutateAsync({ id: record.id, input: accountUpdateSchema.parse(input) }); form.reset({ role: result.role }); setEditing(undefined); setMessage("تم تحديث الحساب وفق استجابة الخادم."); }
+    catch (error) { const normalized = normalizeApiError(error); setRoleError(getApiFieldErrors(error).role?.[0] ?? ""); if (normalized.kind !== "cancelled") setMessage(normalized.status === 409 ? "رفض الخادم التغيير لحماية الحساب الحالي أو آخر SUPER_ADMIN نشط أو لعدم وجود تغيير. احتُفظ باختيارك؛ أعد تحميل البيانات قبل المحاولة." : normalized.status === 403 ? "رفض الخادم التغيير. تحقق من الصلاحيات والأصل الموثوق؛ لم يتغير العرض إلى نجاح." : normalized.status === 401 ? "تعذّر التحديث بسبب صلاحية الجلسة." : "تعذّر تحديث الحساب. احتُفظ بالاختيار ولم يُعاد الطلب تلقائيًا."); }
+  }
+  const stale = editing && (editing.role !== record.role || editing.isActive !== record.isActive);
+  const selectedRole = useWatch({ control: form.control, name: "role" });
+  return <article className={panelClass}><div className="flex flex-wrap justify-between gap-3"><h3 className="min-w-0 break-words font-bold">{record.name}</h3><span className="text-sm font-semibold">{record.isActive ? "نشط" : "غير نشط"}</span></div><p dir="ltr" className="break-all text-sm">{record.email}</p><p className="break-all text-xs text-[var(--muted)]" dir="ltr">{record.id}</p><p className="text-sm">الدور الحالي: {record.role}</p>{own ? <p className="text-sm">حسابك الحالي. لا يسمح العقد بخفض دورك أو إلغاء تفعيلك.</p> : null}
+    {editing ? <form className="space-y-3 border-t border-[var(--line)] pt-3" onSubmit={form.handleSubmit(values => { if (mutation.isPending || stale || values.role === record.role || (own && values.role === "ADMIN")) return; if (!window.confirm(`تأكيد تغيير دور هذا الحساب إلى ${values.role}؟`)) return; void update({ role: values.role }); })}><label className="grid gap-1 text-sm font-semibold">الدور الجديد<select aria-label="الدور الجديد" className={inputClass} disabled={mutation.isPending} {...form.register("role")}>{managedRoles.map(role => <option key={role} disabled={own && role === "ADMIN"}>{role}</option>)}</select></label>{roleError ? <p role="alert" className="text-sm text-red-700">{roleError}</p> : null}{stale ? <p role="alert">تغيرت بيانات السجل. أغلق المحرر وأعد فتحه قبل الحفظ.</p> : null}<div className="flex flex-wrap gap-2"><button className={buttonClass} disabled={mutation.isPending || Boolean(stale) || selectedRole === record.role}>تأكيد حفظ الدور</button><button type="button" className={buttonClass} disabled={mutation.isPending} onClick={() => setEditing(undefined)}>إلغاء تغيير الدور</button></div></form> : <button className={buttonClass} disabled={mutation.isPending || own} onClick={() => { form.reset({ role: record.role }); setEditing(record); setMessage(""); }}>تغيير الدور</button>}
+    <button className={`${buttonClass} block`} disabled={mutation.isPending || Boolean(editing) || (own && record.isActive)} onClick={() => { if (window.confirm(record.isActive ? "تأكيد إلغاء تفعيل الحساب؟ سيبطل Backend جلساته وفق العقد." : "تأكيد تفعيل هذا الحساب؟")) void update({ isActive: !record.isActive }); }}>{record.isActive ? "إلغاء التفعيل" : "تفعيل الحساب"}</button>{message ? <p role={message.startsWith("تم") ? "status" : "alert"} className="break-words text-sm">{message}</p> : null}
+  </article>;
+}
+export function AccountsPage() {
+  const [page, setPage] = useState(1); const [limit, setLimit] = useState(20); const query = useManagedAccounts({ page, limit });
+  return <section className="space-y-5"><h2 className="text-2xl font-bold">إدارة المشرفين</h2><p className="text-sm">القائمة تدعم التصفح فقط؛ لا يوجد بحث أو إنشاء أو حذف أو تفاصيل منفصلة في العقد. حماية آخر SUPER_ADMIN نشط مسؤولية Backend؛ لا يمكن استنتاجها من صفحة واحدة.</p><div className="flex flex-wrap items-end gap-3"><label className="grid gap-1 text-sm">حسابات لكل صفحة<select aria-label="حسابات لكل صفحة" className={inputClass} value={limit} onChange={event => { setLimit(Number(event.target.value)); setPage(1); }}>{[20, 50].map(value => <option key={value}>{value}</option>)}</select></label><button className={buttonClass} onClick={() => void query.refetch()}>إعادة تحميل الحسابات</button></div>{query.isPending ? <LoadingState /> : query.isError ? <Phase4Error error={query.error} retry={query.refetch} /> : !query.data || !query.data.items.length ? <EmptyState /> : <div className="grid gap-4 lg:grid-cols-2">{query.data.items.map(record => <AccountCard key={record.id} record={record} />)}</div>}<PageControls data={query.data} change={setPage} /></section>;
+}

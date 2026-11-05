@@ -126,6 +126,14 @@ export function createMockContentRepository(): MockContentRepository {
     }
     if (resource === "articles") {
       const article = value as Article;
+      article.scholarshipIds ??= article.scholarshipId ? [article.scholarshipId] : [];
+      article.scholarshipId = article.scholarshipIds[0] ?? null;
+      article.relatedScholarships = article.scholarshipIds.flatMap(id => {
+        const linked = scholarshipById.get(id);
+        if (!linked) return [];
+        const country = countryById.get(linked.countryId ?? "");
+        return [{ id, slug: linked.slug, titleAr: linked.titleAr, imageUrl: linked.imageUrl ?? null, country: country ? { id: country.id, slug: country.slug, nameAr: country.nameAr } : null, effectiveApplicationStatus: linked.applicationStatus }];
+      });
       article.country = referenceCountry(countryById.get(article.countryId ?? ""));
       const university = universityById.get(article.universityId ?? "");
       const scholarship = scholarshipById.get(article.scholarshipId ?? "");
@@ -301,6 +309,12 @@ export function createMockContentRepository(): MockContentRepository {
         if (index < 0) throw mockError(404, "السجل المطلوب غير موجود.");
         const previous = collection[index] as ContentRecord;
         const next = { ...previous, ...input, updatedAt: now() } as ContentTypeMap[K]["record"] & ContentRecord;
+        if (resource === "articles") {
+          const associations = input as { scholarshipIds?: string[]; scholarshipId?: string | null };
+          const article = next as Article;
+          if (associations.scholarshipIds !== undefined) article.scholarshipId = associations.scholarshipIds[0] ?? null;
+          else if (associations.scholarshipId !== undefined) article.scholarshipIds = associations.scholarshipId ? [associations.scholarshipId] : [];
+        }
         if (input.status === "PUBLISHED" && previous.status !== "PUBLISHED") next.publishedAt = now();
         collection[index] = next as ContentTypeMap[K]["record"];
         return enriched(resource, next as ContentTypeMap[K]["record"]);

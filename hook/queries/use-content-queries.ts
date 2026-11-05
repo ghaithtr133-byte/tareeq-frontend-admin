@@ -7,11 +7,12 @@ import type { AdminContentResource, ContentTypeMap } from "@/api/content";
 import { queryKeys } from "@/api/query-keys";
 import { useAdminAccess, useContentRepository } from "@/providers/admin-access-provider";
 
-export function useContentList<K extends AdminContentResource>(resource: K, params: ContentTypeMap[K]["params"], enabled = true) {
+export function useContentList<K extends AdminContentResource>(resource: K, params: ContentTypeMap[K]["params"], enabled = true, retry?: false) {
   const getApi = useContentRepository();
   const { reportContentUnauthorized } = useAdminAccess();
   return useQuery({
     queryKey: queryKeys.admin.content.list(resource, params),
+    ...(retry === false ? { retry: false } : {}),
     queryFn: async ({ signal }) => {
       try {
         return await getApi(resource).list(params, { signal });
@@ -46,6 +47,8 @@ function useContentSelector<K extends AdminContentResource>(resource: K, sort: C
   const { reportContentUnauthorized } = useAdminAccess();
   return useQuery({
     queryKey: queryKeys.admin.content.selector(resource),
+    retry: false,
+    retryOnMount: false,
     enabled,
     queryFn: async ({ signal }) => {
       try {

@@ -49,6 +49,9 @@ export interface CountryReference {
 }
 
 export interface University {
+  cityId?: string | null;
+  city?: { id: string; slug: string; nameAr: string; nameEn: string } | null;
+  universityType?: "PUBLIC" | "PRIVATE";
   id: string;
   slug: string;
   featured: boolean;
@@ -74,6 +77,9 @@ export interface University {
 }
 
 export interface Scholarship {
+  imageUrl?: string | null;
+  imageAltAr?: string | null;
+  imageAltEn?: string | null;
   id: string;
   slug: string;
   featured: boolean;
@@ -124,6 +130,9 @@ export interface Service {
 }
 
 export interface Article {
+  /** Present on the documented UUID detail/create/PATCH response, not list rows. */
+  scholarshipIds?: string[];
+  relatedScholarships?: ArticleRelatedScholarship[];
   id: string;
   slug: string;
   featured: boolean;
@@ -150,17 +159,29 @@ export interface Article {
   updatedAt: string;
 }
 
+export interface ArticleRelatedScholarship {
+  id: string;
+  slug: string;
+  titleAr: string;
+  imageUrl: string | null;
+  country: Pick<CountryReference, "id" | "slug" | "nameAr"> | null;
+  effectiveApplicationStatus: ScholarshipApplicationStatus;
+}
+export interface ArticleDetail extends Article { scholarshipIds: string[]; relatedScholarships: ArticleRelatedScholarship[] }
+
 export interface CountryInput {
   nameAr?: string; nameEn?: string; introductionAr?: string; introductionEn?: string; detailsAr?: string; detailsEn?: string;
   imageUrl?: string; imageAltAr?: string; imageAltEn?: string; displayOrder?: number; slug?: string; featured?: boolean;
   status?: PublicationStatus; seoTitleAr?: string; seoDescriptionAr?: string;
 }
 export interface UniversityInput {
+  cityId?: string | null; universityType?: "PUBLIC" | "PRIVATE";
   nameAr?: string; nameEn?: string; officialName?: string; countryId?: string; cityAr?: string; cityEn?: string;
   overviewAr?: string; overviewEn?: string; officialWebsite?: string; imageUrl?: string; imageAltAr?: string; imageAltEn?: string;
   slug?: string; featured?: boolean; status?: PublicationStatus; seoTitleAr?: string; seoDescriptionAr?: string;
 }
 export interface ScholarshipInput {
+  imageUrl?: string; imageAltAr?: string; imageAltEn?: string;
   titleAr?: string; titleEn?: string; countryId?: string | null; universityId?: string | null; studyLevel?: string; fundingType?: string;
   requirementsAr?: string; requirementsEn?: string; descriptionAr?: string; descriptionEn?: string; verifiedDeadline?: string | null;
   officialSourceUrl?: string | null; applicationStatus?: ScholarshipApplicationStatus; slug?: string; featured?: boolean;
@@ -172,6 +193,7 @@ export interface ServiceInput {
   status?: PublicationStatus; seoTitleAr?: string; seoDescriptionAr?: string;
 }
 export interface ArticleInput {
+  scholarshipIds?: string[];
   titleAr?: string; titleEn?: string; summaryAr?: string; summaryEn?: string; bodyAr?: ArticleRichTextBlock[]; bodyEn?: ArticleRichTextBlock[] | null;
   coverImageUrl?: string; coverImageAltAr?: string; coverImageAltEn?: string; countryId?: string | null; universityId?: string | null;
   scholarshipId?: string | null; slug?: string; featured?: boolean; status?: PublicationStatus; seoTitleAr?: string; seoDescriptionAr?: string;
@@ -184,8 +206,14 @@ export interface BaseListParams {
   status?: PublicationStatus;
 }
 export interface CountryListParams extends BaseListParams { search?: string; sort?: "manual" | "newest"; }
-export interface UniversityListParams extends BaseListParams { search?: string; country?: string; sort?: "newest" | "name"; }
-export interface ScholarshipListParams extends BaseListParams { search?: string; country?: string; university?: string; studyLevel?: string; fundingType?: string; applicationStatus?: ScholarshipApplicationStatus; sort?: "newest" | "deadline"; }
+export interface UniversityListParams extends BaseListParams { search?: string; country?: string; major?: string; city?: string; studyLevel?: import("@/lib/university-schemas").ProgramStudyLevel; language?: import("@/lib/university-schemas").TeachingLanguage; universityType?: "PUBLIC" | "PRIVATE"; sort?: "newest" | "name"; }
+export interface ScholarshipListParams extends BaseListParams {
+  search?: string; country?: string; university?: string; studyLevel?: string; fundingType?: string; applicationStatus?: ScholarshipApplicationStatus; sort?: "newest" | "deadline";
+  universitySearch?: string; universityCountry?: string; universityMajor?: string;
+  universityStudyLevel?: import("@/lib/university-schemas").ProgramStudyLevel;
+  universityLanguage?: import("@/lib/university-schemas").TeachingLanguage;
+  universityCity?: string; universityType?: "PUBLIC" | "PRIVATE"; universityFeatured?: "true" | "false";
+}
 export interface ServiceListParams extends BaseListParams { sort?: "manual" | "newest"; }
 export interface ArticleListParams extends BaseListParams { search?: string; country?: string; sort?: "newest"; }
 

@@ -119,7 +119,7 @@ export function validateTrustedDevelopmentRequest(
   const referer = requestHeaders.get("referer");
   if (referer && originFromReferer(referer) !== localOrigin) return { trusted: false };
 
-  if (["POST", "PATCH"].includes(method) && (requestOrigin !== localOrigin || originFromReferer(referer) !== localOrigin)) {
+  if (["POST", "PATCH", "DELETE"].includes(method) && (requestOrigin !== localOrigin || originFromReferer(referer) !== localOrigin)) {
     return { trusted: false };
   }
 
@@ -131,6 +131,7 @@ export function validateTrustedDevelopmentRequest(
  * No user-provided host or arbitrary path can reach the upstream service.
  */
 export function getAllowedDevApiEndpoint(segments: readonly string[]): AllowedDevApiEndpoint | undefined {
+  if (segments.length === 1 && segments[0] === "site-settings") return { path: "/site-settings", methods: ["GET", "OPTIONS"] };
   if (segments.length === 1 && segments[0] === "health") {
     return { path: "/health", methods: ["GET", "OPTIONS"] };
   }
@@ -145,6 +146,29 @@ export function getAllowedDevApiEndpoint(segments: readonly string[]): AllowedDe
   }
 
   const resource = segments[1];
+  if (resource === "analytics") return segments.length === 3 && ["summary", "journeys"].includes(segments[2]) ? { path: `/admin/analytics/${segments[2]}`, methods: ["GET", "OPTIONS"] } : undefined;
+  if (resource === "audit-logs") return segments.length === 2 ? { path: "/admin/audit-logs", methods: ["GET", "OPTIONS"] } : undefined;
+  if (resource === "users") {
+    if (segments.length === 2) return { path: "/admin/users", methods: ["GET", "OPTIONS"] };
+    return segments.length === 3 && UUID_PATTERN.test(segments[2]) ? { path: `/admin/users/${segments[2]}`, methods: ["PATCH", "OPTIONS"] } : undefined;
+  }
+  if (resource === "site-settings") return segments.length === 2 ? { path: "/admin/site-settings", methods: ["PATCH", "OPTIONS"] } : undefined;
+  if (resource === "faqs") {
+    if (segments.length === 2) return { path: "/admin/faqs", methods: ["GET", "POST", "OPTIONS"] };
+    if (segments.length === 3 && (segments[2] === "order" || UUID_PATTERN.test(segments[2]))) return { path: `/admin/faqs/${segments[2]}`, methods: ["PATCH", "OPTIONS"] };
+    return undefined;
+  }
+  if (["academic-majors", "cities"].includes(resource ?? "")) {
+    return segments.length === 2 ? { path: `/admin/${resource}`, methods: ["GET", "POST", "OPTIONS"] } : undefined;
+  }
+  if (resource === "uploads") return segments.length === 3 && segments[2] === "images" ? { path: "/admin/uploads/images", methods: ["POST", "OPTIONS"] } : undefined;
+  if (["university-programs", "university-admission-requirements", "university-gallery"].includes(resource ?? "")) {
+    return segments.length === 3 && UUID_PATTERN.test(segments[2]) ? { path: `/admin/${resource}/${segments[2]}`, methods: ["PATCH", ...(resource === "university-gallery" ? ["DELETE"] : []), "OPTIONS"] } : undefined;
+  }
+  if (resource === "universities" && UUID_PATTERN.test(segments[2] ?? "")) {
+    if (segments.length === 4 && ["programs", "admission-requirements", "gallery"].includes(segments[3])) return { path: `/admin/universities/${segments[2]}/${segments[3]}`, methods: ["GET", "POST", "OPTIONS"] };
+    if (segments.length === 5 && segments[3] === "gallery" && segments[4] === "order") return { path: `/admin/universities/${segments[2]}/gallery/order`, methods: ["PATCH", "OPTIONS"] };
+  }
   if (ADMIN_SUBMISSION_RESOURCES.has(resource ?? "")) {
     if (segments.length === 2) {
       return { path: `/admin/${resource}`, methods: ["GET", "OPTIONS"] };
@@ -197,6 +221,9 @@ export function createNormalizedUpstreamHeaders(requestHeaders: Headers): Header
   headers.set("referer", `${APPROVED_UPSTREAM_ORIGIN}/`);
   return headers;
 }
+
+/** Public settings reads must not receive Admin cookies/auth/CSRF headers, including same-origin XHR. */
+export function createPublicSettingsHeaders(): Headers { return new Headers({ accept: "application/json" }); }
 
 /**
  * The Backend documents host-only cookies. Keep every security attribute and

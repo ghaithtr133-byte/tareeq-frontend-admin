@@ -15,7 +15,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(fu
         type={visible ? "text" : "password"}
         className={className}
         dir="ltr"
-        autoComplete="current-password"
+        autoComplete={props.autoComplete ?? "current-password"}
       />
       <button
         type="button"

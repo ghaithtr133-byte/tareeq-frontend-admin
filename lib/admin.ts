@@ -7,14 +7,18 @@ export type { AdminRole, AuthenticatedUser };
 export type AuthenticatedAdmin = AuthenticatedUser;
 
 export type AdminNavigationId =
+  | "change-password"
   | "dashboard"
   | "applications"
   | "inquiries"
   | "countries"
   | "universities"
+  | "academic-majors"
+  | "cities"
   | "scholarships"
   | "services"
   | "articles"
+  | "faqs"
   | "media"
   | "analytics"
   | "audit-log"
@@ -33,9 +37,13 @@ const sharedNavigation: AdminNavigationItem[] = [
   { id: "inquiries", label: "الاستفسارات" },
   { id: "countries", label: "الدول" },
   { id: "universities", label: "الجامعات" },
+  { id: "academic-majors", label: "التخصصات الأكاديمية" },
+  { id: "cities", label: "المدن" },
   { id: "scholarships", label: "المنح الدراسية" },
   { id: "services", label: "الخدمات" },
   { id: "articles", label: "المقالات" },
+  { id: "faqs", label: "الأسئلة الشائعة" },
+  { id: "settings", label: "إعدادات الموقع" },
   { id: "media", label: "الوسائط" },
 ];
 
@@ -43,7 +51,6 @@ const superAdminNavigation: AdminNavigationItem[] = [
   { id: "analytics", label: "التحليلات", restrictedTo: "SUPER_ADMIN" },
   { id: "audit-log", label: "سجل التدقيق", restrictedTo: "SUPER_ADMIN" },
   { id: "admins", label: "إدارة المشرفين", restrictedTo: "SUPER_ADMIN" },
-  { id: "settings", label: "الإعدادات", restrictedTo: "SUPER_ADMIN" },
 ];
 
 export function navigationForRole(role: AdminRole): readonly AdminNavigationItem[] {

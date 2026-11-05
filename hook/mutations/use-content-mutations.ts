@@ -6,6 +6,7 @@ import { normalizeApiError } from "@/api/error";
 import type { AdminContentResource, ContentTypeMap } from "@/api/content";
 import { queryKeys } from "@/api/query-keys";
 import { useAdminAccess, useContentRepository } from "@/providers/admin-access-provider";
+import { assertContentSession, captureContentSession, type ContentSessionContext } from "@/lib/content-session";
 
 export async function invalidateContentAfterCreate(queryClient: Pick<ReturnType<typeof useQueryClient>, "invalidateQueries">) {
   await Promise.all([
@@ -16,43 +17,54 @@ export async function invalidateContentAfterCreate(queryClient: Pick<ReturnType<
   ]);
 }
 
-export function useCreateContent<K extends AdminContentResource>(resource: K) {
+function useGuardedContentMutation<K extends AdminContentResource, V>(resource: K, write: (value: V) => Promise<ContentTypeMap[K]["record"]>, create: boolean) {
   const queryClient = useQueryClient();
-  const getApi = useContentRepository();
-  const { reportContentUnauthorized } = useAdminAccess();
-  return useMutation({
-    mutationFn: async (input: ContentTypeMap[K]["input"]) => {
+  const access = useAdminAccess();
+  const mutation = useMutation({
+    gcTime: 0,
+    mutationFn: async ({ value, context }: { value: V; context: ContentSessionContext }) => {
+      assertContentSession(queryClient, context);
       try {
-        return await getApi(resource).create(input);
+        const record = await write(value);
+        assertContentSession(queryClient, context);
+        return record;
       } catch (error) {
-        if (normalizeApiError(error).status === 401) reportContentUnauthorized();
+        // Late failures must not revalidate or disturb another session either.
+        assertContentSession(queryClient, context, error);
+        if (normalizeApiError(error).status === 401) access.reportContentUnauthorized();
         throw error;
       }
     },
     retry: false,
-    onSuccess: () => invalidateContentAfterCreate(queryClient),
+    onSuccess: async (record, { context }) => {
+      assertContentSession(queryClient, context);
+      if (create) await invalidateContentAfterCreate(queryClient);
+      else {
+        queryClient.setQueryData(queryKeys.admin.content.detail(resource, record.id), record);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: queryKeys.admin.content.lists() }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.admin.content.detail(resource, record.id) }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.admin.content.selectors() }),
+        ]);
+      }
+    },
   });
+  async function mutateAsync(value: V) {
+    const context = captureContentSession(queryClient, access.user?.id, access.mockEnabled);
+    const record = await mutation.mutateAsync({ value, context });
+    // Also guard the caller's redirect/success continuation after async invalidation.
+    assertContentSession(queryClient, context);
+    return record;
+  }
+  return { ...mutation, mutateAsync, mutate: (value: V) => { void mutateAsync(value).catch(() => undefined); } };
+}
+
+export function useCreateContent<K extends AdminContentResource>(resource: K) {
+  const getApi = useContentRepository();
+  return useGuardedContentMutation(resource, (input: ContentTypeMap[K]["input"]) => getApi(resource).create(input), true);
 }
 
 export function useUpdateContent<K extends AdminContentResource>(resource: K) {
-  const queryClient = useQueryClient();
   const getApi = useContentRepository();
-  const { reportContentUnauthorized } = useAdminAccess();
-  return useMutation({
-    mutationFn: async ({ id, input }: { id: string; input: ContentTypeMap[K]["input"] }) => {
-      try {
-        return await getApi(resource).update(id, input);
-      } catch (error) {
-        if (normalizeApiError(error).status === 401) reportContentUnauthorized();
-        throw error;
-      }
-    },
-    retry: false,
-    onSuccess: (record) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.admin.content.lists() });
-      queryClient.setQueryData(queryKeys.admin.content.detail(resource, record.id), record);
-      queryClient.invalidateQueries({ queryKey: queryKeys.admin.content.detail(resource, record.id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.admin.content.selectors() });
-    },
-  });
+  return useGuardedContentMutation(resource, ({ id, input }: { id: string; input: ContentTypeMap[K]["input"] }) => getApi(resource).update(id, input), false);
 }

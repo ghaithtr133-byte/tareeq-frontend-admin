@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import {
   ADMIN_DEV_API_UPSTREAM,
   createNormalizedUpstreamHeaders,
+  createPublicSettingsHeaders,
   createProxyResponseHeaders,
   getAllowedDevApiEndpoint,
   isAdminDevApiProxyEnabled,
@@ -46,14 +47,20 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Res
 
   let body: ArrayBuffer | undefined;
   if (request.method !== "GET" && request.method !== "HEAD") {
-    body = await request.arrayBuffer();
+    if (endpoint.path === "/admin/uploads/images") {
+      const maxBytes = 4_100_000;
+      if (Number(request.headers.get("content-length")) > maxBytes) return rejectedResponse(413, "PAYLOAD_TOO_LARGE", "Image upload request exceeds the documented limit.");
+      const reader = request.body?.getReader(); const chunks: Uint8Array[] = []; let length = 0;
+      if (reader) { while (true) { const chunk = await reader.read(); if (chunk.done) break; length += chunk.value.byteLength; if (length > maxBytes) { await reader.cancel(); return rejectedResponse(413, "PAYLOAD_TOO_LARGE", "Image upload request exceeds the documented limit."); } chunks.push(chunk.value); } }
+      const bytes = new Uint8Array(length); let offset = 0; for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; } body = bytes.buffer;
+    } else body = await request.arrayBuffer();
   }
 
   let upstream: Response;
   try {
     upstream = await fetch(target, {
       method: request.method,
-      headers: createNormalizedUpstreamHeaders(request.headers),
+      headers: endpoint.path === "/site-settings" ? createPublicSettingsHeaders() : createNormalizedUpstreamHeaders(request.headers),
       body,
       cache: "no-store",
       redirect: "manual",
@@ -78,4 +85,5 @@ async function forward(request: NextRequest, context: RouteContext): Promise<Res
 export const GET = forward;
 export const POST = forward;
 export const PATCH = forward;
+export const DELETE = forward;
 export const OPTIONS = forward;

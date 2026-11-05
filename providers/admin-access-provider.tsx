@@ -10,6 +10,7 @@ import { useLoginMutation } from "@/hook/mutations/use-login-mutation";
 import { useLogoutMutation } from "@/hook/mutations/use-logout-mutation";
 import { useSessionQuery } from "@/hook/queries/use-session-query";
 import { queryKeys } from "@/api/query-keys";
+import { clearPrivateAdminCache } from "@/lib/admin-session-cache";
 
 type MockRole = AuthenticatedUser["role"] | null;
 
@@ -82,10 +83,10 @@ function MockAdminAccessProvider({ children }: PropsWithChildren) {
     isLoggingOut: false,
     refetchSession: async () => role ? mockUsers[role] : undefined,
     reportContentUnauthorized: () => undefined,
-    logout: async () => { setRole(null); queryClient.clear(); },
+    logout: async () => { setRole(null); clearPrivateAdminCache(queryClient); },
     login: async () => undefined,
     mockRole: role,
-    setMockRole: (nextRole) => { setRole(nextRole); queryClient.clear(); },
+    setMockRole: (nextRole) => { setRole(nextRole); clearPrivateAdminCache(queryClient); },
     contentApi: repository.getApi,
     scenario,
     setScenario: (nextScenario) => { repository.setScenario(nextScenario); setScenarioState(nextScenario); void queryClient.invalidateQueries({ queryKey: queryKeys.admin.content.root }); },

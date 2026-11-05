@@ -41,14 +41,21 @@ const contentRoutes: Partial<Record<AdminNavigationId, string>> = {
   inquiries: "/admin/inquiries",
   countries: "/admin/countries",
   universities: "/admin/universities",
+  "academic-majors": "/admin/academic-majors",
+  cities: "/admin/cities",
   scholarships: "/admin/scholarships",
   services: "/admin/services",
   articles: "/admin/articles",
+  faqs: "/admin/faqs",
+  settings: "/admin/settings",
+  analytics: "/admin/analytics",
+  admins: "/admin/admins",
+  "audit-log": "/admin/audit-log",
 };
 
 function Sidebar({ user, activeItem, onNavigate }: Pick<AdminShellProps, "user" | "activeItem"> & { onNavigate: () => void }) {
   return (
-    <aside className="flex h-full w-72 flex-col bg-[var(--navy)] px-4 py-5 text-white" aria-label="التنقل الإداري">
+    <aside className="flex h-full w-72 flex-col overflow-y-auto overscroll-contain bg-[var(--navy)] px-4 py-5 text-white" aria-label="التنقل الإداري">
       <div className="border-b border-white/10 px-3 pb-5">
         <p className="text-lg font-bold">طريق أكاديمي</p>
         <p className="mt-1 text-xs text-slate-300">إدارة المنصة · هوية مؤقتة</p>
@@ -86,6 +93,7 @@ export function AdminShell({ user, title, activeItem = "dashboard", onLogout, is
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLDialogElement>(null);
   const dialogId = useId();
 
   useEffect(() => {
@@ -104,8 +112,10 @@ export function AdminShell({ user, title, activeItem = "dashboard", onLogout, is
   }, []);
 
   useEffect(() => {
-    if (drawerOpen) closeButtonRef.current?.focus();
-    else menuButtonRef.current?.focus();
+    if (!drawerOpen) return;
+    const dialog = drawerRef.current; const opener = menuButtonRef.current;
+    dialog?.showModal(); closeButtonRef.current?.focus();
+    return () => { dialog?.close(); if (opener?.isConnected && opener.getClientRects().length) opener.focus(); };
   }, [drawerOpen]);
 
   return (
@@ -121,6 +131,7 @@ export function AdminShell({ user, title, activeItem = "dashboard", onLogout, is
             <p className="truncate text-sm font-semibold text-[var(--navy)]">{user.name}</p>
             <p className="text-xs text-[var(--muted)] sm:hidden">{user.role === "SUPER_ADMIN" ? "مدير" : "مشرف"}</p>
             <p dir="ltr" className="hidden truncate text-xs text-[var(--muted)] sm:block">{user.email}</p>
+            <Link href="/admin/change-password" className="block py-1 text-xs font-semibold text-[var(--navy)] underline">تغيير كلمة المرور</Link>
           </div>
           <button type="button" onClick={onLogout} disabled={isLoggingOut} className="mr-3 shrink-0 rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold text-[var(--navy)] transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60">
             {isLoggingOut ? "جارٍ تسجيل الخروج…" : "تسجيل الخروج"}
@@ -130,13 +141,13 @@ export function AdminShell({ user, title, activeItem = "dashboard", onLogout, is
       </div>
 
       {drawerOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="قائمة التنقل" id={dialogId}>
-          <button className="absolute inset-0 cursor-default bg-slate-950/35" aria-label="إغلاق قائمة التنقل" onClick={() => setDrawerOpen(false)} />
+        <dialog ref={drawerRef} role="dialog" className="fixed inset-0 z-50 m-0 h-dvh max-h-none w-screen max-w-none border-0 bg-transparent p-0 backdrop:bg-slate-950/35 lg:hidden" aria-modal="true" aria-label="قائمة التنقل" id={dialogId} onCancel={event => { event.preventDefault(); setDrawerOpen(false); }}>
+          <button tabIndex={-1} className="absolute inset-0 cursor-default" aria-label="إغلاق قائمة التنقل" onClick={() => setDrawerOpen(false)} />
           <div className="relative h-full w-72 shadow-2xl">
             <button ref={closeButtonRef} type="button" className="absolute left-4 top-4 z-10 grid size-9 place-items-center rounded-lg border border-white/20 text-lg text-white hover:bg-white/10" aria-label="إغلاق قائمة التنقل" onClick={() => setDrawerOpen(false)}><MenuIcon open /></button>
             <Sidebar user={user} activeItem={activeItem} onNavigate={() => setDrawerOpen(false)} />
           </div>
-        </div>
+        </dialog>
       ) : null}
     </div>
   );
