@@ -1,8 +1,8 @@
 "use client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { phase4Api } from "@/api/phase4";
-import { queryKeys } from "@/api/query-keys";
-import { normalizeApiError } from "@/api/error";
+import { phase4Api } from "@/lib/api-client/phase4";
+import { queryKeys } from "@/lib/api-client/query-keys";
+import { normalizeApiError } from "@/lib/api-client/error";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 import { assertSuperAdminSession, isSuperAdmin } from "@/lib/privileged-access";
 import { accountParamsSchema, analyticsParamsSchema, auditParamsSchema, journeyParamsSchema, type AccountParams, type AnalyticsParams, type AuditParams, type JourneyParams } from "@/lib/phase4-schemas";

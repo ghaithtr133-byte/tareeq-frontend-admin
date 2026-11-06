@@ -1,10 +1,10 @@
 "use client";
 
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import type { AuthenticatedUser } from "@/api/auth";
-import { normalizeApiError } from "@/api/error";
-import { queryKeys } from "@/api/query-keys";
-import { submissionApi, type Submission, type SubmissionResource, type SubmissionStatusUpdateRequest } from "@/api/submissions";
+import type { AuthenticatedUser } from "@/lib/api-client/auth";
+import { normalizeApiError } from "@/lib/api-client/error";
+import { queryKeys } from "@/lib/api-client/query-keys";
+import { submissionApi, type Submission, type SubmissionResource, type SubmissionStatusUpdateRequest } from "@/lib/api-client/submissions";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 
 /** An in-flight completion after logout must not recreate private cache entries. */

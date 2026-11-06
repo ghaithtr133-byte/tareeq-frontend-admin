@@ -1,5 +1,5 @@
-import { normalizeApiError } from "@/api/error";
-import { applicationTypes, submissionSorts, submissionStatuses, type ApplicationListParams, type Submission, type SubmissionResource, type SubmissionStatus, type SubmissionStatusUpdateRequest } from "@/api/submissions";
+import { normalizeApiError } from "@/lib/api-client/error";
+import { applicationTypes, submissionSorts, submissionStatuses, type ApplicationListParams, type Submission, type SubmissionResource, type SubmissionStatus, type SubmissionStatusUpdateRequest } from "@/lib/api-client/submissions";
 
 export const submissionLabels = { applications: "طلبات التقديم", inquiries: "الاستفسارات العامة" };
 export const submissionStatusLabels: Record<SubmissionStatus, string> = { NEW: "جديد", IN_REVIEW: "قيد المراجعة", RESOLVED: "تمت المعالجة", CLOSED: "مغلق" };

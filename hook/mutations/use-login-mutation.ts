@@ -2,8 +2,8 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { getAuthenticatedUser, LoginSessionVerificationError, login, type LoginRequest } from "@/api/auth";
-import { queryKeys } from "@/api/query-keys";
+import { getAuthenticatedUser, LoginSessionVerificationError, login, type LoginRequest } from "@/lib/api-client/auth";
+import { queryKeys } from "@/lib/api-client/query-keys";
 
 /**
  * A successful login is followed by /auth/me before the session cache changes;

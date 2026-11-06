@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { AdminContentResource, Article, ArticleRichTextBlock, ContentRecord, ContentTypeMap } from "@/api/content";
+import type { AdminContentResource, Article, ArticleRichTextBlock, ContentRecord, ContentTypeMap } from "@/lib/api-client/content";
 import { articleBlockOptions, contentDefinitions } from "@/lib/content-config";
 import { uuidSchema } from "@/lib/university-schemas";
 

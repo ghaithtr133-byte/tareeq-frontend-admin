@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AxiosError } from "axios";
-import type { Article, Scholarship } from "@/api/content";
+import type { Article, Scholarship } from "@/lib/api-client/content";
 import { initialContentValues, toContentPatch, toContentPayload, articleScholarshipIdsSchema, validateContentValues } from "@/lib/content-form";
 import { scholarshipUniversityFilters } from "@/lib/content-filters";
 import { safeAuditMetadata } from "@/lib/phase4-presentation";
 import { changePasswordSchema, safePasswordError } from "@/lib/change-password";
-import { createMockContentRepository } from "@/api/mock-content-repository";
+import { createMockContentRepository } from "@/lib/api-client/mock-content-repository";
 
 const first = "11111111-1111-4111-8111-111111111111";
 const second = "22222222-2222-4222-8222-222222222222";

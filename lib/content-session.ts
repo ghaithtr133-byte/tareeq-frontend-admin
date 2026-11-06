@@ -1,6 +1,6 @@
 import type { Query, QueryClient } from "@tanstack/react-query";
-import type { AuthenticatedUser } from "@/api/auth";
-import { queryKeys } from "@/api/query-keys";
+import type { AuthenticatedUser } from "@/lib/api-client/auth";
+import { queryKeys } from "@/lib/api-client/query-keys";
 import { privateSessionGeneration } from "@/lib/admin-session-cache";
 
 export class StaleContentSessionError extends Error {

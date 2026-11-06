@@ -1,8 +1,8 @@
 "use client";
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { siteSettingsApi } from "@/api/site-settings";
-import { normalizeApiError } from "@/api/error";
-import { queryKeys } from "@/api/query-keys";
+import { siteSettingsApi } from "@/lib/api-client/site-settings";
+import { normalizeApiError } from "@/lib/api-client/error";
+import { queryKeys } from "@/lib/api-client/query-keys";
 import type { SiteSettingsUpdate } from "@/lib/site-settings-schemas";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 export function canEditSiteSettings(role: string | undefined) { return role === "SUPER_ADMIN"; }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-import type { AdminContentResource, ContentRecord, ContentTypeMap, Country, PublicationStatus, Scholarship, ScholarshipApplicationStatus, Service, University } from "@/api/content";
+import type { AdminContentResource, ContentRecord, ContentTypeMap, Country, PublicationStatus, Scholarship, ScholarshipApplicationStatus, Service, University } from "@/lib/api-client/content";
 import { ErrorState, EmptyState, LoadingState } from "@/components/dashboard/states";
 import { StatusBadge } from "@/components/content/status-badge";
 import { useContentSelectors, useContentList } from "@/hook/queries/use-content-queries";
@@ -58,7 +58,7 @@ function recordDetails(resource: AdminContentResource, record: ContentRecord) {
   if (resource === "universities") { const item = record as University; return `${item.country?.nameAr ?? "—"} · ${item.cityAr}`; }
   if (resource === "scholarships") { const item = record as Scholarship; return `${item.country?.nameAr ?? "—"} · ${item.effectiveApplicationStatus ?? item.applicationStatus}`; }
   if (resource === "services") return `ترتيب العرض: ${(record as Service).displayOrder}`;
-  return (record as import("@/api/content").Article).country?.nameAr ?? "—";
+  return (record as import("@/lib/api-client/content").Article).country?.nameAr ?? "—";
 }
 
 export function ContentListPage({ resource, searchParams }: { resource: AdminContentResource; searchParams: SearchParams }) {

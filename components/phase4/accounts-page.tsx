@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { getApiFieldErrors, normalizeApiError } from "@/api/error";
+import { getApiFieldErrors, normalizeApiError } from "@/lib/api-client/error";
 import { useManagedAccounts } from "@/hook/queries/use-phase4-queries";
 import { useAccountMutation } from "@/hook/mutations/use-account-mutation";
 import { accountUpdateSchema, managedRoles, type ManagedAccount } from "@/lib/phase4-schemas";

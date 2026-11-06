@@ -2,8 +2,8 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { logout } from "@/api/auth";
-import { queryKeys } from "@/api/query-keys";
+import { logout } from "@/lib/api-client/auth";
+import { queryKeys } from "@/lib/api-client/query-keys";
 import { clearPrivateAdminCache } from "@/lib/admin-session-cache";
 
 /** Clear private records and retain a signed-out sentinel after confirmed logout. */

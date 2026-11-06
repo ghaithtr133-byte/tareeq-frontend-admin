@@ -76,7 +76,7 @@ FAQ scope/parent ownership and all SUPER_ADMIN write authorization remain enforc
 
 Phase3 files created:
 
-- `api/faqs.ts`, `api/site-settings.ts`.
+- `lib/api-client/faqs.ts`, `lib/api-client/site-settings.ts`.
 - `lib/faq-schemas.ts`, `lib/faq-form.ts`, `lib/site-settings-schemas.ts`.
 - `hook/queries/use-faq-queries.ts`, `hook/queries/use-site-settings-query.ts`.
 - `hook/mutations/use-faq-mutation.ts`, `hook/mutations/use-site-settings-mutation.ts`.
@@ -85,7 +85,7 @@ Phase3 files created:
 - `app/admin/faqs/page.tsx`, `app/admin/settings/page.tsx`.
 - `tests/admin-site-management.test.ts`, `tests/fixtures/site-management.ts`, `tests/phase3-e2e/site-management.spec.ts`, `playwright.phase3.config.ts`, this report.
 
-Shared files extended without discarding their existing local Phase2 changes: `api/query-keys.ts`, `lib/admin.ts`, `components/layout/admin-shell.tsx`, `lib/admin-dev-api-proxy.ts`, `app/%5F_dev_api/[...path]/route.ts`, `package.json`, and the integration dependency register. Next.js generated isolated-output imports/includes in `next-env.d.ts`/`tsconfig.json` during verification. No removed files, dependency upgrades or installations.
+Shared files extended without discarding their existing local Phase2 changes: `lib/api-client/query-keys.ts`, `lib/admin.ts`, `components/layout/admin-shell.tsx`, `lib/admin-dev-api-proxy.ts`, `app/%5F_dev_api/[...path]/route.ts`, `package.json`, and the integration dependency register. Next.js generated isolated-output imports/includes in `next-env.d.ts`/`tsconfig.json` during verification. No removed files, dependency upgrades or installations.
 
 Starting and final branch: `main...origin/main`, with dirty tracked/untracked Phase2 work already present before Phase3. The entire final Git status therefore includes earlier work and must not be represented as newly authored Phase3 changes. Existing Applications/Inquiries, University/Programs/Gallery/upload implementations and their evidence were preserved. No commit, push, pull, merge, rebase, reset, deployment, Backend/database operation, production mutation or Public Website edit occurred.
 

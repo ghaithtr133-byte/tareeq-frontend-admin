@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { initialContentValues, toContentPayload, validateContentValues } from "@/lib/content-form";
 import { contentDefinitions } from "@/lib/content-config";
-import type { Article, Scholarship } from "@/api/content";
+import type { Article, Scholarship } from "@/lib/api-client/content";
 import { safeAuditMetadata } from "@/lib/phase4-presentation";
 
 // Audit acceptance assertions deliberately remain RED when a defect exists.
@@ -45,7 +45,7 @@ test("AUD-04: Scholarship associated-University filters are represented in front
 
 test("AUD-05: Current-password change has a frontend API consumer, not just a proxy allowlist", () => {
   assert.ok(spec.paths["/api/v1/auth/change-password"].post);
-  assert.ok(/["']\/auth\/change-password["']/.test(readFileSync("api/auth.ts", "utf8")), "No change-password API consumer exists.");
+  assert.ok(/["']\/auth\/change-password["']/.test(readFileSync("lib/api-client/auth.ts", "utf8")), "No change-password API consumer exists.");
 });
 
 test("AUD-09: Safe audit metadata includes the documented RESOLVED submission status", () => {

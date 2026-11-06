@@ -1,6 +1,6 @@
 import type { AxiosRequestConfig } from "axios";
 
-import { apiClient } from "@/api/client";
+import { apiClient } from "@/lib/api-client/client";
 
 export type PublicationStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 export type ScholarshipApplicationStatus = "OPEN" | "CLOSED";

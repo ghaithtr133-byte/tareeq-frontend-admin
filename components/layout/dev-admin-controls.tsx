@@ -1,7 +1,7 @@
 "use client";
 
 import { useAdminAccess } from "@/providers/admin-access-provider";
-import type { MockContentScenario } from "@/api/mock-content-repository";
+import type { MockContentScenario } from "@/lib/api-client/mock-content-repository";
 
 const scenarios: readonly { value: MockContentScenario; label: string }[] = [
   { value: "normal", label: "بيانات تجريبية طبيعية" },

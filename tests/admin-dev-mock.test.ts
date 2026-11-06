@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createMockContentRepository } from "../api/mock-content-repository";
+import { createMockContentRepository } from "../lib/api-client/mock-content-repository";
 import { isAdminDevMockAccessEnabled } from "../lib/admin-dev-mock-gate";
 
 test("mock access is enabled only by the explicit non-production server environment", () => {

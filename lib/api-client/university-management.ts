@@ -1,6 +1,6 @@
 import type { AxiosRequestConfig } from "axios";
 import { z } from "zod";
-import { apiClient } from "@/api/client";
+import { apiClient } from "@/lib/api-client/client";
 import { admissionScopes, cityInputSchema, galleryInputSchema, galleryOrderSchema, galleryPatchSchema, isoDateSchema, majorInputSchema, programCreateSchema, programPatchSchema, programStudyLevels, publicationStates, requirementCreateSchema, requirementPatchSchema, teachingLanguages, uuidSchema, type CityInput, type GalleryInput, type MajorInput, type ProgramInput, type RequirementInput } from "@/lib/university-schemas";
 
 export type DirectoryKind = "academic-majors" | "cities";

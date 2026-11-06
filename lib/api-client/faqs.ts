@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiClient } from "@/api/client";
+import { apiClient } from "@/lib/api-client/client";
 import { faqCreateSchema, faqGroupSchema, faqListParamsSchema, faqOrderSchema, faqSchema, faqUpdateSchema, type Faq, type FaqCreate, type FaqGroup, type FaqListParams, type FaqUpdate } from "@/lib/faq-schemas";
 import { uuidSchema } from "@/lib/university-schemas";
 const pagination = z.object({ page: z.number().int(), limit: z.number().int(), total: z.number().int(), totalPages: z.number().int() });

@@ -1,7 +1,7 @@
 "use client";
 import { useMutation } from "@tanstack/react-query";
-import { uploadImage, type MediaResource } from "@/api/images";
-import { normalizeApiError } from "@/api/error";
+import { uploadImage, type MediaResource } from "@/lib/api-client/images";
+import { normalizeApiError } from "@/lib/api-client/error";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 export function useImageUpload(resource: MediaResource) {
   const access = useAdminAccess();

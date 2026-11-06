@@ -1,8 +1,8 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { faqApi, loadFaqOrder } from "@/api/faqs";
-import { queryKeys } from "@/api/query-keys";
-import { normalizeApiError } from "@/api/error";
+import { faqApi, loadFaqOrder } from "@/lib/api-client/faqs";
+import { queryKeys } from "@/lib/api-client/query-keys";
+import { normalizeApiError } from "@/lib/api-client/error";
 import { faqGroupSchema, type FaqGroup, type FaqListParams, type FaqScope } from "@/lib/faq-schemas";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 import { useContentList } from "@/hook/queries/use-content-queries";

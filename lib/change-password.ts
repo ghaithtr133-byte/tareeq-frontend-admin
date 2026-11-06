@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getApiFieldErrors, normalizeApiError, type ApiErrorKind } from "@/api/error";
+import { getApiFieldErrors, normalizeApiError, type ApiErrorKind } from "@/lib/api-client/error";
 
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "أدخل كلمة المرور الحالية.").max(128, "الحد الأقصى 128 حرفًا."),

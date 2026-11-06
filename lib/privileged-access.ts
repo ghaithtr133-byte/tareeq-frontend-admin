@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { AuthenticatedUser } from "@/api/auth";
-import { queryKeys } from "@/api/query-keys";
+import type { AuthenticatedUser } from "@/lib/api-client/auth";
+import { queryKeys } from "@/lib/api-client/query-keys";
 export function isSuperAdmin(role: string | undefined) { return role === "SUPER_ADMIN"; }
 export function assertSuperAdminSession(client: QueryClient, id: string | undefined) {
   const user = client.getQueryData<AuthenticatedUser | null>(queryKeys.session);

@@ -1,4 +1,4 @@
-import type { AdminContentResource, ArticleBlockType, ContentRecord, PublicationStatus } from "@/api/content";
+import type { AdminContentResource, ArticleBlockType, ContentRecord, PublicationStatus } from "@/lib/api-client/content";
 
 export type FormFieldKind = "text" | "textarea" | "url" | "number" | "checkbox" | "select" | "datetime-local" | "country" | "university" | "scholarship" | "scholarships" | "city";
 

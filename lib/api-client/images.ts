@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiClient } from "@/api/client";
+import { apiClient } from "@/lib/api-client/client";
 export const mediaResources = ["countries", "universities", "scholarships", "services", "articles"] as const;
 export type MediaResource = typeof mediaResources[number];
 export const MAX_IMAGE_BYTES = 4_000_000;

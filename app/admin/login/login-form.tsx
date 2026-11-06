@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { isLoginSessionVerificationError } from "@/api/auth";
-import { normalizeApiError } from "@/api/error";
+import { isLoginSessionVerificationError } from "@/lib/api-client/auth";
+import { normalizeApiError } from "@/lib/api-client/error";
 import { PasswordInput } from "@/components/ui/password-input";
 import { DevMockLoginOptions } from "@/components/layout/dev-admin-controls";
 import { useAdminAccess } from "@/providers/admin-access-provider";

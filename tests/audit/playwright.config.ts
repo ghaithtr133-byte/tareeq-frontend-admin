@@ -15,6 +15,6 @@ export default defineConfig({
     url: "http://127.0.0.1:3111/admin/login",
     reuseExistingServer: false,
     timeout: 120_000,
-    env: { ...process.env, NEXT_TEST_DIST_DIR: production ? ".next-audit-remediation-build" : ".next-audit-remediation-e2e", ADMIN_DEV_MOCK_ACCESS: "disabled", NEXT_PUBLIC_API_BASE_URL: production ? "https://api.tareeq-academy.com/api/v1" : "/__dev_api" },
+    env: { ...process.env, NEXT_TEST_DIST_DIR: process.env.NEXT_TEST_DIST_DIR ?? (production ? ".next-audit-remediation-build" : ".next-audit-remediation-e2e"), ADMIN_DEV_MOCK_ACCESS: "disabled", NEXT_PUBLIC_API_BASE_URL: production ? "https://api.tareeq-academy.com/api/v1" : "/__dev_api" },
   },
 });

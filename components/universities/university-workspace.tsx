@@ -1,8 +1,8 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useState } from "react";
-import type { GalleryImage, ManagementListParams, SectionRecords, UniversitySection } from "@/api/university-management";
-import { normalizeApiError } from "@/api/error";
+import type { GalleryImage, ManagementListParams, SectionRecords, UniversitySection } from "@/lib/api-client/university-management";
+import { normalizeApiError } from "@/lib/api-client/error";
 import { ContentFormPage } from "@/components/content/content-form-page";
 import { StatusBadge } from "@/components/content/status-badge";
 import { ErrorState, EmptyState, LoadingState } from "@/components/dashboard/states";

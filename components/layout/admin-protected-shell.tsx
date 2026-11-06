@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { isForbiddenSessionError, isUnauthenticatedSessionError } from "@/api/auth";
-import { normalizeApiError } from "@/api/error";
+import { isForbiddenSessionError, isUnauthenticatedSessionError } from "@/lib/api-client/auth";
+import { normalizeApiError } from "@/lib/api-client/error";
 import { ErrorState, LoadingState, UnauthorizedState } from "@/components/dashboard/states";
 import { AdminShell } from "@/components/layout/admin-shell";
 import { DevAdminControls } from "@/components/layout/dev-admin-controls";

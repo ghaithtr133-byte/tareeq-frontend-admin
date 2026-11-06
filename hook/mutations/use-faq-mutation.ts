@@ -1,8 +1,8 @@
 "use client";
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { faqApi } from "@/api/faqs";
-import { normalizeApiError } from "@/api/error";
-import { queryKeys } from "@/api/query-keys";
+import { faqApi } from "@/lib/api-client/faqs";
+import { normalizeApiError } from "@/lib/api-client/error";
+import { queryKeys } from "@/lib/api-client/query-keys";
 import type { FaqCreate, FaqGroup, FaqUpdate } from "@/lib/faq-schemas";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 type FaqAction = { create: FaqCreate } | { id: string; update: FaqUpdate } | { orderedIds: string[] };

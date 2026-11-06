@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type PropsWithChildren, useState } from "react";
 
-import { isRequestCancelled } from "@/api/error";
+import { isRequestCancelled } from "@/lib/api-client/error";
 
 function makeQueryClient() {
   return new QueryClient({

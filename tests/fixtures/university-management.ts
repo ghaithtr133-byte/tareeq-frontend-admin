@@ -1,4 +1,4 @@
-import type { AdmissionRequirement, GalleryImage, UniversityProgram } from "@/api/university-management";
+import type { AdmissionRequirement, GalleryImage, UniversityProgram } from "@/lib/api-client/university-management";
 export const universityId = "00000000-0000-4000-8000-000000000001";
 export const recordId = "00000000-0000-4000-8000-000000000002";
 export const countryId = "00000000-0000-4000-8000-000000000003";

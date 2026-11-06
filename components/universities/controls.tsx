@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import type { ManagementPage, DirectoryKind } from "@/api/university-management";
+import type { ManagementPage, DirectoryKind } from "@/lib/api-client/university-management";
 import { useDirectoryList } from "@/hook/queries/use-university-management";
 import { uuidSchema } from "@/lib/university-schemas";
 export const inputClass = "min-h-11 w-full min-w-0 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-900";

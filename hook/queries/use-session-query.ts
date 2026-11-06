@@ -2,8 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { restoreAuthenticatedUser, type AuthenticatedUser } from "@/api/auth";
-import { queryKeys } from "@/api/query-keys";
+import { restoreAuthenticatedUser, type AuthenticatedUser } from "@/lib/api-client/auth";
+import { queryKeys } from "@/lib/api-client/query-keys";
 
 /** The sole client-side source of authenticated-user state. */
 export function useSessionQuery() {

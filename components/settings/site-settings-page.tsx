@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { z } from "zod";
-import { getApiFieldErrors, normalizeApiError } from "@/api/error";
+import { getApiFieldErrors, normalizeApiError } from "@/lib/api-client/error";
 import { useSiteSettingsQuery } from "@/hook/queries/use-site-settings-query";
 import { canEditSiteSettings, useSiteSettingsMutation } from "@/hook/mutations/use-site-settings-mutation";
 import { settingsChanges, settingsFields, settingsValues, type SettingsFieldName, type SiteSettings } from "@/lib/site-settings-schemas";

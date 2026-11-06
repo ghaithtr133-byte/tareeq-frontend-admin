@@ -1,7 +1,7 @@
 import type { AxiosRequestConfig } from "axios";
 
-import { apiClient } from "@/api/client";
-import { isRequestCancelled } from "@/api/error";
+import { apiClient } from "@/lib/api-client/client";
+import { isRequestCancelled } from "@/lib/api-client/error";
 import { z } from "zod";
 import { changePasswordSchema, ChangePasswordError, safePasswordError, type ChangePasswordRequest } from "@/lib/change-password";
 

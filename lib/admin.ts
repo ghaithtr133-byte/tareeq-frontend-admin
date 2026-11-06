@@ -1,4 +1,4 @@
-import type { AdminRole, AuthenticatedUser } from "@/api/auth";
+import type { AdminRole, AuthenticatedUser } from "@/lib/api-client/auth";
 
 export const adminRoles = ["ADMIN", "SUPER_ADMIN"] as const satisfies readonly AdminRole[];
 

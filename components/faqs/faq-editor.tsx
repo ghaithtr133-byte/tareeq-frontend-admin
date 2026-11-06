@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { getApiFieldErrors, normalizeApiError } from "@/api/error";
+import { getApiFieldErrors, normalizeApiError } from "@/lib/api-client/error";
 import { useFaqMutation } from "@/hook/mutations/use-faq-mutation";
 import { faqFormPayload, faqFormValues, type FaqFormValues } from "@/lib/faq-form";
 import { faqScopeLabels, type Faq, type FaqCreate, type FaqGroup } from "@/lib/faq-schemas";

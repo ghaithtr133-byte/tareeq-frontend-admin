@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/api/query-keys";
+import { queryKeys } from "@/lib/api-client/query-keys";
 const privateGenerations = new WeakMap<QueryClient, number>();
 export function privateSessionGeneration(client: QueryClient) { return privateGenerations.get(client) ?? 0; }
 

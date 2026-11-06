@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { applicationFixture, inquiryFixture } from "../fixtures/submissions";
-import type { Submission, SubmissionResource } from "@/api/submissions";
+import type { Submission, SubmissionResource } from "@/lib/api-client/submissions";
 
 async function installContractBackend(page: Page, role: "ADMIN" | "SUPER_ADMIN" = "ADMIN") {
   const state = { signedIn: true, listError: 0, detailError: 0, patchError: 0, networkError: false, delay: 0, malformed: false, patches: [] as unknown[], calls: [] as string[] };

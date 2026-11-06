@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ArticleRelatedScholarship } from "@/api/content";
+import type { ArticleRelatedScholarship } from "@/lib/api-client/content";
 import { useContentList } from "@/hook/queries/use-content-queries";
 import { buttonClass, inputClass, PageControls } from "@/components/universities/controls";
 

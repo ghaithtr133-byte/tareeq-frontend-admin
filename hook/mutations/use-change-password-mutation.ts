@@ -1,8 +1,8 @@
 "use client";
 import { useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { changePassword } from "@/api/auth";
-import { queryKeys } from "@/api/query-keys";
+import { changePassword } from "@/lib/api-client/auth";
+import { queryKeys } from "@/lib/api-client/query-keys";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 import { clearPrivateAdminCache } from "@/lib/admin-session-cache";
 import { assertContentSession, captureContentSession, type ContentSessionContext } from "@/lib/content-session";

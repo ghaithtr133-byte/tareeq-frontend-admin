@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { AxiosError } from "axios";
 
-import { apiClient } from "@/api/client";
-import { contentApi } from "@/api/content";
-import { getApiFieldErrors, normalizeApiError } from "@/api/error";
+import { apiClient } from "@/lib/api-client/client";
+import { contentApi } from "@/lib/api-client/content";
+import { getApiFieldErrors, normalizeApiError } from "@/lib/api-client/error";
 import { invalidateContentAfterCreate } from "@/hook/mutations/use-content-mutations";
 import { toContentPayload } from "@/lib/content-form";
 

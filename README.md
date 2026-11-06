@@ -52,7 +52,9 @@ Authentication uses the approved Backend cookie-session endpoints: `POST /auth/l
 
 The application never stores or reads tokens in JavaScript. Login is considered complete only after `/auth/me` confirms the authenticated user. A confirmed logout or invalid session clears the in-memory TanStack Query cache before navigation. Refresh returns the active administrator while rotating HttpOnly cookies; the client still follows it with `/auth/me` before restoring the session.
 
-API resource functions live under `api/`; custom `useQuery` hooks live only in `hook/queries/`, and `useMutation` hooks only in `hook/mutations/`.
+API resource functions live under `lib/api-client/`; custom `useQuery` hooks live only in `hook/queries/`, and `useMutation` hooks only in `hook/mutations/`.
+
+Keep Backend clients/helpers outside the root-level `api` directory: Vercel reserves that location for function discovery. The 13 former helpers were relocated without changing request behavior; see `docs/admin-vercel-hobby-fix.md` for verification and deployment limits. Existing report module paths were updated mechanically; their historical test results are unchanged.
 
 ## Development-only mock access
 
@@ -78,7 +80,7 @@ Only `ADMIN` and `SUPER_ADMIN` are represented in `lib/admin.ts`. Shared navigat
 
 ```text
 app/                 App Router pages and global RTL styles
-api/                 Axios clients, error normalization, query keys
+lib/api-client/      Axios clients, error normalization, query keys
 components/          Dashboard shell, states, and UI primitives
 hook/queries/        Session query hooks
 hook/mutations/      Login and logout mutation hooks

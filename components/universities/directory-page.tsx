@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
 import { z } from "zod";
-import type { DirectoryInputs, DirectoryKind } from "@/api/university-management";
-import { getApiFieldErrors, normalizeApiError } from "@/api/error";
+import type { DirectoryInputs, DirectoryKind } from "@/lib/api-client/university-management";
+import { getApiFieldErrors, normalizeApiError } from "@/lib/api-client/error";
 import { useDirectoryList } from "@/hook/queries/use-university-management";
 import { useDirectoryCreate } from "@/hook/mutations/use-university-management";
 import { useContentSelectors } from "@/hook/queries/use-content-queries";

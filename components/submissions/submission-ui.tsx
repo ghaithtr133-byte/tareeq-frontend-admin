@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { SubmissionStatus } from "@/api/submissions";
+import type { SubmissionStatus } from "@/lib/api-client/submissions";
 import { submissionErrorMessage, submissionStatusLabels } from "@/lib/submissions";
 
 export const submissionControlClass = "min-h-11 w-full min-w-0 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm";

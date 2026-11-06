@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiClient } from "@/api/client";
+import { apiClient } from "@/lib/api-client/client";
 import { accountParamsSchema, accountSchema, accountUpdateSchema, analyticsParamsSchema, analyticsSummarySchema, auditParamsSchema, auditSchema, journeyParamsSchema, journeySchema, paginationSchema, type AccountParams, type AccountUpdate, type AnalyticsParams, type AuditParams, type JourneyParams } from "@/lib/phase4-schemas";
 import { uuidSchema } from "@/lib/university-schemas";
 function data<T extends z.ZodType>(schema: T, response: unknown): z.infer<T> { return schema.parse(z.object({ success: z.literal(true), data: z.unknown() }).parse(response).data); }

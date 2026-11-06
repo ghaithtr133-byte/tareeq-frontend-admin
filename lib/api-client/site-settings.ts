@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiClient } from "@/api/client";
+import { apiClient } from "@/lib/api-client/client";
 import { siteSettingsSchema, siteSettingsUpdateSchema, type SiteSettingsUpdate } from "@/lib/site-settings-schemas";
 const envelope = z.object({ success: z.literal(true), data: siteSettingsSchema });
 export const siteSettingsApi = {

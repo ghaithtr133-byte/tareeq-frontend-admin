@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { normalizeApiError } from "@/api/error";
-import { queryKeys } from "@/api/query-keys";
-import { isSubmissionId, serializeSubmissionParams, submissionApi, type SubmissionParamsMap, type SubmissionResource } from "@/api/submissions";
+import { normalizeApiError } from "@/lib/api-client/error";
+import { queryKeys } from "@/lib/api-client/query-keys";
+import { isSubmissionId, serializeSubmissionParams, submissionApi, type SubmissionParamsMap, type SubmissionResource } from "@/lib/api-client/submissions";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 
 export function useSubmissionList<K extends SubmissionResource>(resource: K, params: SubmissionParamsMap[K]) {

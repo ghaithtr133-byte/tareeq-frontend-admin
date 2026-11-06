@@ -6,8 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 
-import type { AdminContentResource, Article, ContentRecord } from "@/api/content";
-import { getApiFieldErrors, normalizeApiError } from "@/api/error";
+import type { AdminContentResource, Article, ContentRecord } from "@/lib/api-client/content";
+import { getApiFieldErrors, normalizeApiError } from "@/lib/api-client/error";
 import { ArticleBlockEditor } from "@/components/content/article-block-editor";
 import { ArticleScholarships } from "@/components/content/article-scholarships";
 import { DirectorySelector } from "@/components/universities/controls";

@@ -1,5 +1,5 @@
 import type { Trend } from "@/lib/phase4-schemas";
-import { submissionStatuses } from "@/api/submissions";
+import { submissionStatuses } from "@/lib/api-client/submissions";
 import { publicationStates } from "@/lib/university-schemas";
 import { managedRoles } from "@/lib/phase4-schemas";
 export const trendLabels = { pageViews: "مشاهدات الصفحات", visitors: "الزوار", sessions: "الجلسات", ctaClicks: "نقرات الدعوة للإجراء", clientReportedConversions: "تحويلات مبلغ عنها من المتصفح", serverVerifiedApplications: "طلبات مؤكدة من الخادم", serverVerifiedInquiries: "استفسارات مؤكدة من الخادم" } as const;

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { EmptyState, LoadingState } from "@/components/dashboard/states";
-import { applicationTypes, submissionStatuses, type Submission, type SubmissionResource } from "@/api/submissions";
+import { applicationTypes, submissionStatuses, type Submission, type SubmissionResource } from "@/lib/api-client/submissions";
 import { useSubmissionList } from "@/hook/queries/use-submission-queries";
 import { applicationTypeLabels, parseSubmissionFilters, submissionLabels, submissionStatusLabels, type SubmissionSearchParams } from "@/lib/submissions";
 import { useAdminAccess } from "@/providers/admin-access-provider";

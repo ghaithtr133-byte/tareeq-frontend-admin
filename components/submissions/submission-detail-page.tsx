@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { getApiFieldErrors } from "@/api/error";
-import { isSubmissionId, submissionStatuses, submissionStatusUpdateSchema, type Submission, type SubmissionResource, type SubmissionStatus } from "@/api/submissions";
+import { getApiFieldErrors } from "@/lib/api-client/error";
+import { isSubmissionId, submissionStatuses, submissionStatusUpdateSchema, type Submission, type SubmissionResource, type SubmissionStatus } from "@/lib/api-client/submissions";
 import { LoadingState } from "@/components/dashboard/states";
 import { useSubmissionMutation } from "@/hook/mutations/use-submission-mutation";
 import { useSubmissionDetail } from "@/hook/queries/use-submission-queries";

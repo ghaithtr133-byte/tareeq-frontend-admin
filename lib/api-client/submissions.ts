@@ -1,7 +1,7 @@
 import type { AxiosRequestConfig } from "axios";
 import { z } from "zod";
 
-import { apiClient } from "@/api/client";
+import { apiClient } from "@/lib/api-client/client";
 
 /** Derived from the supplied tareeq-academy-api.json Task #5 schemas. */
 export const submissionStatuses = ["NEW", "IN_REVIEW", "RESOLVED", "CLOSED"] as const;

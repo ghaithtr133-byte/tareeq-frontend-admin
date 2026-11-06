@@ -1,10 +1,10 @@
 "use client";
 import { useState } from "react";
-import { normalizeApiError } from "@/api/error";
+import { normalizeApiError } from "@/lib/api-client/error";
 import { useFaqList } from "@/hook/queries/use-faq-queries";
 import { faqGroupSchema, faqScopeLabels, faqScopes, type Faq, type FaqGroup } from "@/lib/faq-schemas";
 import { publicationStatusOptions } from "@/lib/content-config";
-import type { PublicationStatus } from "@/api/content";
+import type { PublicationStatus } from "@/lib/api-client/content";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 import { EmptyState, ErrorState, LoadingState, UnauthorizedState } from "@/components/dashboard/states";
 import { StatusBadge } from "@/components/content/status-badge";

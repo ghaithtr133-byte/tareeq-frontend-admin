@@ -11,7 +11,7 @@ import type {
   Scholarship,
   Service,
   University,
-} from "@/api/content";
+} from "@/lib/api-client/content";
 
 export type MockContentScenario = "normal" | "loading" | "empty" | "forbidden" | "failure" | "network" | "validation";
 

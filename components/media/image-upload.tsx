@@ -1,9 +1,9 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
-import { validateImageFile, type MediaResource } from "@/api/images";
+import { validateImageFile, type MediaResource } from "@/lib/api-client/images";
 import { useImageUpload } from "@/hook/mutations/use-image-upload";
-import { normalizeApiError } from "@/api/error";
+import { normalizeApiError } from "@/lib/api-client/error";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 
 /** Uploading an asset never saves the surrounding content form. */

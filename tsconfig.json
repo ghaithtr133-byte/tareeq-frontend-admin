@@ -65,7 +65,9 @@
     ".next-audit-remediation-e2e/types/**/*.ts",
     ".next-audit-remediation-e2e/dev/types/**/*.ts",
     ".next-audit-remediation-build/types/**/*.ts",
-    ".next-audit-remediation-build/dev/types/**/*.ts"
+    ".next-audit-remediation-build/dev/types/**/*.ts",
+    ".next-hobby-layout-build/types/**/*.ts",
+    ".next-hobby-layout-build/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

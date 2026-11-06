@@ -3,13 +3,13 @@
 import { createContext, useContext, useMemo, useState, type PropsWithChildren } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { getContentApi, type AdminContentResource, type ContentResourceApi } from "@/api/content";
-import { createMockContentRepository, type MockContentRepository, type MockContentScenario } from "@/api/mock-content-repository";
-import { type AuthenticatedUser, UnauthenticatedSessionError } from "@/api/auth";
+import { getContentApi, type AdminContentResource, type ContentResourceApi } from "@/lib/api-client/content";
+import { createMockContentRepository, type MockContentRepository, type MockContentScenario } from "@/lib/api-client/mock-content-repository";
+import { type AuthenticatedUser, UnauthenticatedSessionError } from "@/lib/api-client/auth";
 import { useLoginMutation } from "@/hook/mutations/use-login-mutation";
 import { useLogoutMutation } from "@/hook/mutations/use-logout-mutation";
 import { useSessionQuery } from "@/hook/queries/use-session-query";
-import { queryKeys } from "@/api/query-keys";
+import { queryKeys } from "@/lib/api-client/query-keys";
 import { clearPrivateAdminCache } from "@/lib/admin-session-cache";
 
 type MockRole = AuthenticatedUser["role"] | null;

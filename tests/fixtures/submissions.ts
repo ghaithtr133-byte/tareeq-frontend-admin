@@ -1,4 +1,4 @@
-import type { GeneralInquiry, StudentApplication } from "@/api/submissions";
+import type { GeneralInquiry, StudentApplication } from "@/lib/api-client/submissions";
 
 /** Synthetic records derived from Task #5 OpenAPI response examples; tests only. */
 export const applicationFixture: StudentApplication = {

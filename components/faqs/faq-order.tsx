@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { normalizeApiError } from "@/api/error";
+import { normalizeApiError } from "@/lib/api-client/error";
 import { useFaqMutation } from "@/hook/mutations/use-faq-mutation";
 import { useFaqOrder } from "@/hook/queries/use-faq-queries";
 import type { Faq, FaqGroup } from "@/lib/faq-schemas";

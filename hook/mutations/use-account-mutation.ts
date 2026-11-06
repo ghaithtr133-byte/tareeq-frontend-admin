@@ -1,8 +1,8 @@
 "use client";
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { phase4Api } from "@/api/phase4";
-import { normalizeApiError } from "@/api/error";
-import { queryKeys } from "@/api/query-keys";
+import { phase4Api } from "@/lib/api-client/phase4";
+import { normalizeApiError } from "@/lib/api-client/error";
+import { queryKeys } from "@/lib/api-client/query-keys";
 import { assertSuperAdminSession } from "@/lib/privileged-access";
 import type { AccountUpdate, ManagedAccount } from "@/lib/phase4-schemas";
 import { useAdminAccess } from "@/providers/admin-access-provider";

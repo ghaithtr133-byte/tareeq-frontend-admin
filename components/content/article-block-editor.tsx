@@ -4,7 +4,7 @@ import { Controller, useFieldArray, type Control } from "react-hook-form";
 
 import { articleBlockOptions } from "@/lib/content-config";
 import type { ContentFormValues } from "@/lib/content-form";
-import type { ArticleRichTextBlock } from "@/api/content";
+import type { ArticleRichTextBlock } from "@/lib/api-client/content";
 
 type ArticleBlockEditorProps = {
   control: Control<ContentFormValues>;

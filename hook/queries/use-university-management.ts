@@ -1,8 +1,8 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { directoryApi, loadGalleryOrder, managementParams, universitySectionApi, type DirectoryKind, type ManagementListParams, type UniversitySection } from "@/api/university-management";
-import { normalizeApiError } from "@/api/error";
-import { queryKeys } from "@/api/query-keys";
+import { directoryApi, loadGalleryOrder, managementParams, universitySectionApi, type DirectoryKind, type ManagementListParams, type UniversitySection } from "@/lib/api-client/university-management";
+import { normalizeApiError } from "@/lib/api-client/error";
+import { queryKeys } from "@/lib/api-client/query-keys";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 import { uuidSchema } from "@/lib/university-schemas";
 

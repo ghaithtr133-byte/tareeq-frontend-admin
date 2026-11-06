@@ -2,9 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { normalizeApiError } from "@/api/error";
-import type { AdminContentResource, ContentTypeMap } from "@/api/content";
-import { queryKeys } from "@/api/query-keys";
+import { normalizeApiError } from "@/lib/api-client/error";
+import type { AdminContentResource, ContentTypeMap } from "@/lib/api-client/content";
+import { queryKeys } from "@/lib/api-client/query-keys";
 import { useAdminAccess, useContentRepository } from "@/providers/admin-access-provider";
 
 export function useContentList<K extends AdminContentResource>(resource: K, params: ContentTypeMap[K]["params"], enabled = true, retry?: false) {

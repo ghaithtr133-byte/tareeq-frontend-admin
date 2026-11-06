@@ -1,4 +1,4 @@
-import type { SectionRecords, UniversitySection } from "@/api/university-management";
+import type { SectionRecords, UniversitySection } from "@/lib/api-client/university-management";
 import { galleryInputSchema, galleryPatchSchema, isoFormDate, localDateValue, programCreateSchema, programPatchSchema, requirementCreateSchema, requirementPatchSchema } from "@/lib/university-schemas";
 
 export type ManagementValues = Record<string, string>;

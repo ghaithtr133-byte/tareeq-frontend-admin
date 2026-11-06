@@ -1,4 +1,4 @@
-import type { PublicationStatus } from "@/api/content";
+import type { PublicationStatus } from "@/lib/api-client/content";
 
 const labels: Record<PublicationStatus, string> = { DRAFT: "مسودة", PUBLISHED: "منشور", ARCHIVED: "مؤرشف" };
 const colors: Record<PublicationStatus, string> = {

@@ -66,7 +66,7 @@ Existing uncommitted work at task start was preserved: navigation entries in `co
 
 Created or completed in this phase:
 
-- `api/submissions.ts`, `api/query-keys.ts` — schema-derived models and resource functions; typed query keys.
+- `lib/api-client/submissions.ts`, `lib/api-client/query-keys.ts` — schema-derived models and resource functions; typed query keys.
 - `app/admin/applications/page.tsx`, `app/admin/inquiries/page.tsx` — replace pending lists.
 - `app/admin/applications/[id]/page.tsx`, `app/admin/inquiries/[id]/page.tsx` — protected UUID details.
 - `components/submissions/submission-list-page.tsx`, `submission-detail-page.tsx`, `submission-ui.tsx` — shared responsive list/detail/workflow UI. The previous untracked `submission-contract-pending.tsx` scaffold was removed.

@@ -25,7 +25,7 @@ Upstream base: `https://api.tareeq-academy.com/api/v1`; existing browser base/pr
 
 | Operation | Request contract | Response contract | Implementation | Verification |
 | --- | --- | --- | --- | --- |
-| GET `/admin/analytics/summary` | from/to optional UTC YYYY-MM-DD, inclusive range≤366days; granularity day/week/month defaultday; topLimit1–25 default10 | AnalyticsSummaryResponse: range,totals,topPages,trafficSources,ctaEngagement,clientReportedConversions,serverVerifiedConversions,conversionRates,funnel,trends | `api/phase4.ts`, `useAnalyticsSummary`, `components/phase4/analytics-page.tsx` | CONTRACT/MOCK PASS; **LIVE FAIL HTTP500**, error UI PASS |
+| GET `/admin/analytics/summary` | from/to optional UTC YYYY-MM-DD, inclusive range≤366days; granularity day/week/month defaultday; topLimit1–25 default10 | AnalyticsSummaryResponse: range,totals,topPages,trafficSources,ctaEngagement,clientReportedConversions,serverVerifiedConversions,conversionRates,funnel,trends | `lib/api-client/phase4.ts`, `useAnalyticsSummary`, `components/phase4/analytics-page.tsx` | CONTRACT/MOCK PASS; **LIVE FAIL HTTP500**, error UI PASS |
 | GET `/admin/analytics/journeys` | Same report query + page≥1 default1,limit1–20 default10; Backend latest-event ordering | AnalyticsJourneyResponse: range,items,pagination; each anonymous session has times/count/truncation/conversion flags/steps | `phase4Api.journeys`, `useAnalyticsJourneys`, lazy Journeys view | MOCK PASS/core mapping; **LIVE PASS200/core fields,2 sessions**; ctaId/engagementType formal validation excluded |
 | GET `/admin/users` | page≥1 default1,limit1–50 default20; no documented search/filter/sort | ManagedAdminAccountListResponse, safe id/name/email/role/isActive + pagination | `phase4Api.accounts`, `useManagedAccounts`, `accounts-page.tsx` | CONTRACT/MOCK PASS; **LIVE PASS200,2 accounts** |
 | PATCH `/admin/users/{id}` | UUID id; AdminAccountUpdateRequest: **exactly one** `{role:ADMIN\|SUPER_ADMIN}` OR `{isActive:boolean}`; no extra keys | ManagedAdminAccountResponse, same five safe fields | `phase4Api.updateAccount`, `useAccountMutation`, confirmed account form/buttons | CONTRACT/MOCK PASS; **NO LIVE MUTATION** |
@@ -94,7 +94,7 @@ No unauthorized ADMIN Phase4 requests occurred in intercepted browser tests. Exi
 
 Created Phase4 files:
 
-- `api/phase4.ts`.
+- `lib/api-client/phase4.ts`.
 - `lib/phase4-schemas.ts`, `lib/phase4-presentation.ts`, `lib/privileged-access.ts`.
 - `hook/queries/use-phase4-queries.ts`, `hook/mutations/use-account-mutation.ts`.
 - `components/layout/super-admin-boundary.tsx`.
@@ -102,7 +102,7 @@ Created Phase4 files:
 - `app/admin/analytics/page.tsx`, `app/admin/admins/page.tsx`, `app/admin/audit-log/page.tsx`.
 - `tests/admin-phase4.test.ts`, `tests/fixtures/phase4.ts`, `tests/phase4-e2e/phase4.spec.ts`, `playwright.phase4.config.ts`, this report.
 
-Existing shared files extended: `api/query-keys.ts`, `components/layout/admin-shell.tsx`, `components/layout/admin-protected-shell.tsx`, `lib/admin-dev-api-proxy.ts`, `package.json`, and the dependency register. Next.js generated isolated-output imports/includes in `next-env.d.ts` and `tsconfig.json` during verification. No removed files, dependency installations or upgrades.
+Existing shared files extended: `lib/api-client/query-keys.ts`, `components/layout/admin-shell.tsx`, `components/layout/admin-protected-shell.tsx`, `lib/admin-dev-api-proxy.ts`, `package.json`, and the dependency register. Next.js generated isolated-output imports/includes in `next-env.d.ts` and `tsconfig.json` during verification. No removed files, dependency installations or upgrades.
 
 Branch remained `main...origin/main`; the starting tree already contained tracked/untracked Phase2/3 work. That earlier work was preserved and must not be described as newly authored Phase4 changes merely because it appears in final Git status. No commit, push, pull, merge, rebase, reset, cleanup or deployment. Public Website and Backend repositories were untouched.
 

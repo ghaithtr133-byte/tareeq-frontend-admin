@@ -1,8 +1,8 @@
 "use client";
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { directoryApi, universitySectionApi, type DirectoryInputs, type DirectoryKind, type SectionInputs, type UniversitySection } from "@/api/university-management";
-import { queryKeys } from "@/api/query-keys";
-import { normalizeApiError } from "@/api/error";
+import { directoryApi, universitySectionApi, type DirectoryInputs, type DirectoryKind, type SectionInputs, type UniversitySection } from "@/lib/api-client/university-management";
+import { queryKeys } from "@/lib/api-client/query-keys";
+import { normalizeApiError } from "@/lib/api-client/error";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 
 export async function invalidateUniversitySection(client: Pick<QueryClient, "invalidateQueries">, id: string, section: UniversitySection) {

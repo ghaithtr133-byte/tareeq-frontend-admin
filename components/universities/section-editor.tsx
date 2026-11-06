@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
 import { z } from "zod";
-import type { SectionRecords, SectionInputs, UniversitySection } from "@/api/university-management";
-import { getApiFieldErrors, normalizeApiError } from "@/api/error";
+import type { SectionRecords, SectionInputs, UniversitySection } from "@/lib/api-client/university-management";
+import { getApiFieldErrors, normalizeApiError } from "@/lib/api-client/error";
 import { useUniversitySave } from "@/hook/mutations/use-university-management";
 import { useUniversitySection } from "@/hook/queries/use-university-management";
 import { admissionScopes, programStudyLevels, teachingLanguages } from "@/lib/university-schemas";

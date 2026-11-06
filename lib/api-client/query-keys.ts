@@ -19,17 +19,17 @@ export const queryKeys = {
       list: (params: import("@/lib/faq-schemas").FaqListParams) => ["admin", "faqs", params.scope, params.parentId ?? null, "list", params] as const,
     },
     directory: {
-      root: (kind: import("@/api/university-management").DirectoryKind) => ["admin", "directory", kind] as const,
-      list: (kind: import("@/api/university-management").DirectoryKind, params: import("@/api/university-management").ManagementListParams) => ["admin", "directory", kind, params] as const,
+      root: (kind: import("@/lib/api-client/university-management").DirectoryKind) => ["admin", "directory", kind] as const,
+      list: (kind: import("@/lib/api-client/university-management").DirectoryKind, params: import("@/lib/api-client/university-management").ManagementListParams) => ["admin", "directory", kind, params] as const,
     },
     university: {
-      section: (id: string, section: import("@/api/university-management").UniversitySection) => ["admin", "university", id, section] as const,
-      list: (id: string, section: import("@/api/university-management").UniversitySection, params: import("@/api/university-management").ManagementListParams) => ["admin", "university", id, section, params] as const,
+      section: (id: string, section: import("@/lib/api-client/university-management").UniversitySection) => ["admin", "university", id, section] as const,
+      list: (id: string, section: import("@/lib/api-client/university-management").UniversitySection, params: import("@/lib/api-client/university-management").ManagementListParams) => ["admin", "university", id, section, params] as const,
     },
     submissions: {
       root: ["admin", "submissions"] as const,
       lists: (resource: "applications" | "inquiries") => ["admin", "submissions", resource, "list"] as const,
-      list: (resource: "applications" | "inquiries", params: import("@/api/submissions").ApplicationListParams) => ["admin", "submissions", resource, "list", params] as const,
+      list: (resource: "applications" | "inquiries", params: import("@/lib/api-client/submissions").ApplicationListParams) => ["admin", "submissions", resource, "list", params] as const,
       detail: (resource: "applications" | "inquiries", id: string) => ["admin", "submissions", resource, "detail", id] as const,
     },
     content: {

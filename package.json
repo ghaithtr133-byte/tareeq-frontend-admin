@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "test": "tsx --test tests/admin-dev-mock.test.ts tests/admin-dev-api-proxy.test.ts tests/admin-live-contract.test.ts tests/admin-submissions.test.ts tests/admin-university-management.test.ts tests/admin-site-management.test.ts tests/admin-phase4.test.ts",
+    "test": "tsx --test tests/admin-dev-mock.test.ts tests/admin-dev-api-proxy.test.ts tests/admin-live-contract.test.ts tests/admin-submissions.test.ts tests/admin-university-management.test.ts tests/admin-site-management.test.ts tests/admin-phase4.test.ts tests/api-client-layout.test.ts",
     "test:ui": "playwright test",
     "test:submissions:ui": "playwright test --config=playwright.submissions.config.ts",
     "test:phase2": "tsx --test tests/admin-university-management.test.ts tests/admin-dev-api-proxy.test.ts",
