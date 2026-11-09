@@ -5,6 +5,14 @@ import { articleBlockOptions, contentDefinitions } from "@/lib/content-config";
 import { uuidSchema } from "@/lib/university-schemas";
 
 export type ContentFormValues = Record<string, string | boolean | ArticleRichTextBlock[] | string[] | undefined>;
+export type ParentCreateIntent = "finish" | "details";
+const resourcesWithDetails = new Set<AdminContentResource>(["countries", "scholarships", "services"]);
+
+export function supportsContentDetails(resource: AdminContentResource) { return resourcesWithDetails.has(resource); }
+export function parentSaveDestination(resource: AdminContentResource, id: string, intent: ParentCreateIntent, existing = false) {
+  if (existing || !supportsContentDetails(resource) || intent === "finish") return `/admin/${resource}`;
+  return `/admin/${resource}/${id}#content-details`;
+}
 
 const slugSchema = z.string().min(2).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 export const articleScholarshipIdsSchema = z.array(uuidSchema).max(50, "الحد الأقصى 50 منحة.").refine(ids => new Set(ids).size === ids.length, "لا تكرر المنحة المرتبطة.");

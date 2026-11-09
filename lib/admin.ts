@@ -18,6 +18,7 @@ export type AdminNavigationId =
   | "scholarships"
   | "services"
   | "articles"
+  | "about"
   | "faqs"
   | "media"
   | "analytics"
@@ -42,6 +43,7 @@ const sharedNavigation: AdminNavigationItem[] = [
   { id: "scholarships", label: "المنح الدراسية" },
   { id: "services", label: "الخدمات" },
   { id: "articles", label: "المقالات" },
+  { id: "about", label: "من نحن" },
   { id: "faqs", label: "الأسئلة الشائعة" },
   { id: "settings", label: "إعدادات الموقع" },
   { id: "media", label: "الوسائط" },

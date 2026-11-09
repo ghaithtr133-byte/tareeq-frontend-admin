@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 import { useState } from "react";
-import type { GalleryImage, ManagementListParams, SectionRecords, UniversitySection } from "@/lib/api-client/university-management";
+import type { GalleryImage, ManagementListParams, SectionRecords, UniversityProgram, UniversitySection } from "@/lib/api-client/university-management";
 import { normalizeApiError } from "@/lib/api-client/error";
 import { ContentFormPage } from "@/components/content/content-form-page";
 import { StatusBadge } from "@/components/content/status-badge";
@@ -14,6 +14,27 @@ import { buttonClass, inputClass, PageControls, panelClass } from "./controls";
 import { SectionEditor } from "./section-editor";
 
 const labels: Record<UniversitySection | "overview", string> = { overview: "بيانات الجامعة", programs: "البرامج والرسوم", "admission-requirements": "متطلبات القبول", gallery: "معرض الصور" };
+
+const billingLabels = { YEAR: "سنويًا", SEMESTER: "لكل فصل دراسي", FULL_PROGRAM: "لكامل البرنامج" };
+function FeeValue({ fee }: { fee: NonNullable<UniversityProgram["tuition"]> }) {
+  return <><bdi dir="ltr">{fee.amount} {fee.currency}</bdi> · {billingLabels[fee.billingPeriod]} · <bdi dir="ltr">{fee.academicYear}</bdi></>;
+}
+function ProgramFees({ program }: { program: UniversityProgram }) {
+  return <section className="space-y-2 rounded-lg border border-[var(--line)] p-3 text-sm" aria-label="الرسوم الدراسية">
+    <p><strong>الرسوم الحالية: </strong>{program.tuition ? <FeeValue fee={program.tuition} /> : "غير متاحة"}</p>
+    {program.tuitionFees.length ? <details><summary className="min-h-11 cursor-pointer py-2 font-semibold">سجل الرسوم حسب السنة الأكاديمية ({program.tuitionFees.length})</summary>
+      <ul className="space-y-1">{program.tuitionFees.map((fee, index) => <li key={`${fee?.id ?? "unavailable"}-${index}`}>{fee ? <FeeValue fee={fee} /> : "سجل رسوم غير متاح"}</li>)}</ul>
+    </details> : <p className="text-[var(--muted)]">لا يوجد سجل رسوم.</p>}
+  </section>;
+}
+
+function GalleryPreview({ image }: { image: GalleryImage }) {
+  const [failed, setFailed] = useState(false);
+  let usable = false;
+  try { usable = ["http:", "https:"].includes(new URL(image.imageUrl).protocol); } catch { /* Unusable URL is a content state. */ }
+  if (!usable || failed) return <p role="status" className="rounded-lg border border-dashed border-[var(--line)] p-3 text-sm">تعذّر عرض صورة المعرض. يمكنك مراجعة الرابط أو تعديل بيانات الصورة.</p>;
+  return <img src={image.imageUrl} alt={image.altAr ?? "صورة الجامعة"} onError={() => setFailed(true)} className="max-h-48 max-w-full rounded-lg object-contain" />;
+}
 function OrderEditor({ images, universityId, close }: { images: GalleryImage[]; universityId: string; close: () => void }) {
   const [order, setOrder] = useState(images); const [stale, setStale] = useState(false); const [error, setError] = useState(""); const mutation = useGalleryAction(universityId);
   function move(index: number, delta: number) { setOrder(items => { const next = [...items]; [next[index], next[index + delta]] = [next[index + delta], next[index]]; return next; }); }
@@ -34,7 +55,7 @@ function SectionPanel<K extends UniversitySection>({ section, universityId }: { 
       {section === "programs" ? <><input aria-label="بحث البرامج" name="search" maxLength={200} className={inputClass} placeholder="بحث البرامج" /><input aria-label="الكلية" name="faculty" maxLength={200} className={inputClass} placeholder="الكلية" /><select aria-label="تصفية المستوى" name="studyLevel" className={inputClass}><option value="">كل المستويات</option>{programStudyLevels.map(value => <option key={value}>{value}</option>)}</select><select aria-label="تصفية اللغة" name="language" className={inputClass}><option value="">كل اللغات</option>{teachingLanguages.map(value => <option key={value}>{value}</option>)}</select></> : section === "admission-requirements" ? <select aria-label="تصفية النطاق" name="scope" className={inputClass}><option value="">كل النطاقات</option>{admissionScopes.map(value => <option key={value}>{value}</option>)}</select> : null}
       <select aria-label="تصفية الحالة" name="status" className={inputClass}><option value="">كل الحالات</option>{publicationStates.map(value => <option key={value}>{value}</option>)}</select><select aria-label="عدد السجلات" name="limit" defaultValue="12" className={inputClass}>{[12, 50, ...(section !== "programs" ? [100] : [])].map(value => <option key={value}>{value}</option>)}</select><button className={buttonClass}>تطبيق المرشحات</button>
     </form>
-    {list.isPending ? <LoadingState /> : list.isError ? <ErrorState action={<button className={buttonClass} onClick={() => void list.refetch()}>إعادة المحاولة</button>} /> : list.data.items.length === 0 ? <EmptyState /> : <div className="grid gap-3">{list.data.items.map(item => <article className={panelClass} key={item.id}><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="min-w-0 break-words font-bold">{"nameAr" in item ? item.nameAr ?? item.academicMajor.nameAr : "contentAr" in item ? item.contentAr : item.altAr ?? "صورة بلا وصف"}</h3><StatusBadge status={item.status} /></div>{"imageUrl" in item ? <img src={item.imageUrl} alt={item.altAr ?? "صورة الجامعة"} className="max-h-48 max-w-full rounded-lg object-contain" /> : null}{"scope" in item ? <p className="text-sm">{item.scope} · {item.program?.nameAr ?? (typeof item.studyLevel === "string" ? item.studyLevel : "الجامعة")}</p> : null}{"languages" in item ? <p className="text-sm">{item.studyLevel} · {item.languages.join("، ")}</p> : null}<div className="flex flex-wrap gap-3"><button className={buttonClass} disabled={Boolean(editor) || ordering} onClick={() => { setNotice(""); setEditor(item); }}>تعديل السجل</button>{section === "gallery" ? <button className={buttonClass} disabled={action.isPending || Boolean(editor) || ordering} onClick={async () => { if (!window.confirm("فصل الصورة عن معرض الجامعة فقط؟ لن يُحذف ملف Cloudinary أو غلاف الجامعة.")) return; try { await action.mutateAsync({ detach: item.id }); setNotice("تم فصل الصورة عن المعرض."); } catch { setError("تعذّر فصل الصورة. لم تتغير القائمة."); } }}>فصل من المعرض</button> : null}</div></article>)}</div>}{error ? <p role="alert">{error}</p> : null}<PageControls data={list.data} change={page => setParams(old => ({ ...old, page }))} />
+    {list.isPending ? <LoadingState /> : list.isError ? <ErrorState action={<button className={buttonClass} onClick={() => void list.refetch()}>إعادة المحاولة</button>} /> : list.data.items.length === 0 ? <EmptyState /> : <div className="grid gap-3">{list.data.items.map(item => <article className={panelClass} key={item.id}><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="min-w-0 break-words font-bold">{"nameAr" in item ? item.nameAr ?? item.academicMajor.nameAr : "contentAr" in item ? item.contentAr : item.altAr ?? "صورة بلا وصف"}</h3><StatusBadge status={item.status} /></div>{"imageUrl" in item ? <GalleryPreview key={item.imageUrl} image={item} /> : null}{"scope" in item ? <p className="text-sm">{item.scope} · {item.program?.nameAr ?? (item.studyLevel ?? "الجامعة")}</p> : null}{"languages" in item ? <><p className="text-sm">{item.studyLevel} · {item.languages.join("، ")}</p><ProgramFees program={item} /></> : null}<div className="flex flex-wrap gap-3"><button className={buttonClass} disabled={Boolean(editor) || ordering} onClick={() => { setNotice(""); setEditor(item); }}>تعديل السجل</button>{section === "gallery" ? <button className={buttonClass} disabled={action.isPending || Boolean(editor) || ordering} onClick={async () => { if (!window.confirm("فصل الصورة عن معرض الجامعة فقط؟ لن يُحذف ملف Cloudinary أو غلاف الجامعة.")) return; try { await action.mutateAsync({ detach: item.id }); setNotice("تم فصل الصورة عن المعرض."); } catch { setError("تعذّر فصل الصورة. لم تتغير القائمة."); } }}>فصل من المعرض</button> : null}</div></article>)}</div>}{error ? <p role="alert">{error}</p> : null}<PageControls data={list.data} change={page => setParams(old => ({ ...old, page }))} />
   </section>;
 }
 export function UniversityWorkspace({ id }: { id: string }) {

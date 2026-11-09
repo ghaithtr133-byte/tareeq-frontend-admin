@@ -40,7 +40,7 @@ test("pagination defaults, caps and supported filters only", () => {
   assert.deepEqual(managementParams("programs", { search: " cs ", studyLevel: "PHD", language: "ARABIC", faculty: "علوم", status: "DRAFT" }), { page: 1, limit: 12, search: "cs", studyLevel: "PHD", language: "ARABIC", faculty: "علوم", status: "DRAFT" });
   for (const [kind, params] of [["cities", { limit: 51 }], ["gallery", { limit: 101 }], ["programs", { page: 0 }], ["cities", { countryId: "bad" }]] as const) assert.throws(() => managementParams(kind, params));
 });
-test("program duration pairing and tuition yearly upsert never flatten opaque response history", () => {
+test("program duration pairing and tuition yearly upsert never flatten response history", () => {
   const values = sectionValues("programs", program); assert.equal(values.includeTuition, ""); assert.throws(() => sectionPayload("programs", values, program));
   const payload = sectionPayload("programs", { ...values, includeTuition: "yes", amount: "1200.50", currency: "USD", billingPeriod: "YEAR", academicYear: "2026/2027" }, program);
   assert.deepEqual(payload, { tuition: { amount: "1200.50", currency: "USD", billingPeriod: "YEAR", academicYear: "2026/2027" } });
@@ -50,7 +50,8 @@ test("program duration pairing and tuition yearly upsert never flatten opaque re
 });
 test("admission immutable target patch, scopes and publishing prerequisites", () => {
   assert.equal(requirementPatchSchema.safeParse({ scope: "PROGRAM", contentAr: "قبول" }).success, false);
-  for (const input of [{ scope: "STUDY_LEVEL", contentAr: "قبول" }, { scope: "UNIVERSITY", studyLevel: "PHD", contentAr: "قبول" }, { scope: "PROGRAM", programId: recordId, studyLevel: "PHD", contentAr: "قبول" }, { scope: "UNIVERSITY", studyLevel: null, contentAr: "قبول" }]) assert.equal(requirementCreateSchema.safeParse(input).success, false);
+  for (const input of [{ scope: "STUDY_LEVEL", contentAr: "قبول" }, { scope: "UNIVERSITY", studyLevel: "PHD", contentAr: "قبول" }, { scope: "PROGRAM", programId: recordId, studyLevel: "PHD", contentAr: "قبول" }, { scope: "STUDY_LEVEL", studyLevel: null, contentAr: "قبول" }]) assert.equal(requirementCreateSchema.safeParse(input).success, false);
+  assert.equal(requirementCreateSchema.safeParse({ scope: "UNIVERSITY", studyLevel: null, contentAr: "قبول" }).success, true);
   assert.equal(requirementCreateSchema.safeParse({ scope: "PROGRAM", programId: recordId, contentAr: "قبول" }).success, true);
   const values = sectionValues("admission-requirements", requirement);
   assert.deepEqual(sectionPayload("admission-requirements", { ...values, contentEn: "Requirements" }, requirement), { contentEn: "Requirements" });

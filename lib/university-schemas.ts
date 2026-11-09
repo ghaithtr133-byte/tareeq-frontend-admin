@@ -23,6 +23,11 @@ export const tuitionInputSchema = z.object({
   // The export specifies this pattern only; no consecutive-year rule is invented.
   academicYear: z.string().regex(/^\d{4}\/\d{4}$/),
 }).strict();
+export const tuitionRecordSchema = tuitionInputSchema.extend({
+  id: uuidSchema,
+  createdAt: isoDateSchema,
+  updatedAt: isoDateSchema,
+});
 const programFields = {
   academicMajorId: uuidSchema, nameAr: text(300), nameEn: text(300).nullable().optional(),
   facultyNameAr: text(300).nullable().optional(), facultyNameEn: text(300).nullable().optional(),
@@ -41,7 +46,7 @@ export const programPatchSchema = programCreateBase.partial().superRefine((data,
   if (("durationValue" in data || "durationUnit" in data) && (data.durationValue != null) !== (data.durationUnit != null)) ctx.addIssue({ code: "custom", path: ["durationValue"], message: "أرسل حقلي المدة معًا." });
 });
 const requirementFields = {
-  scope: z.enum(admissionScopes), studyLevel: z.enum(programStudyLevels).optional(), programId: uuidSchema.nullable().optional(),
+  scope: z.enum(admissionScopes), studyLevel: z.enum(programStudyLevels).nullable().optional(), programId: uuidSchema.nullable().optional(),
   contentAr: text(20000), contentEn: text(20000).nullable().optional(), status: publication.optional(),
   officialSourceUrl: sourceSchema.nullable().optional(), verifiedAt: isoDateSchema.nullable().optional(),
 };

@@ -14,6 +14,7 @@ export const queryKeys = {
       auditList: (id: string, params: import("@/lib/phase4-schemas").AuditParams) => ["admin", "super-admin", id, "audit", params] as const,
     },
     settings: ["admin", "site-settings"] as const,
+    about: (userId?: string) => ["admin", "about", userId ?? null] as const,
     faqs: {
       group: (group: import("@/lib/faq-schemas").FaqGroup) => ["admin", "faqs", group.scope, group.parentId ?? null] as const,
       list: (params: import("@/lib/faq-schemas").FaqListParams) => ["admin", "faqs", params.scope, params.parentId ?? null, "list", params] as const,
@@ -40,6 +41,8 @@ export const queryKeys = {
       detail: <TResource extends string>(resource: TResource, id: string) => ["admin", "content", "detail", resource, id] as const,
       selectors: () => ["admin", "content", "selectors"] as const,
       selector: <TResource extends string>(resource: TResource) => ["admin", "content", "selectors", resource] as const,
+      detailItems: (resource: import("@/lib/content-detail-schemas").DetailResource, parentId: string) => ["admin", "content", "detail-items", resource, parentId] as const,
+      detailItemList: (resource: import("@/lib/content-detail-schemas").DetailResource, parentId: string, kind: import("@/lib/content-detail-schemas").DetailKind) => ["admin", "content", "detail-items", resource, parentId, kind] as const,
     },
   },
 } as const;

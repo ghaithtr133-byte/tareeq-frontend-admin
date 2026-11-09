@@ -153,6 +153,7 @@ export function getAllowedDevApiEndpoint(segments: readonly string[]): AllowedDe
     return segments.length === 3 && UUID_PATTERN.test(segments[2]) ? { path: `/admin/users/${segments[2]}`, methods: ["PATCH", "OPTIONS"] } : undefined;
   }
   if (resource === "site-settings") return segments.length === 2 ? { path: "/admin/site-settings", methods: ["PATCH", "OPTIONS"] } : undefined;
+  if (resource === "about") return segments.length === 2 ? { path: "/admin/about", methods: ["GET", "PATCH", "OPTIONS"] } : undefined;
   if (resource === "faqs") {
     if (segments.length === 2) return { path: "/admin/faqs", methods: ["GET", "POST", "OPTIONS"] };
     if (segments.length === 3 && (segments[2] === "order" || UUID_PATTERN.test(segments[2]))) return { path: `/admin/faqs/${segments[2]}`, methods: ["PATCH", "OPTIONS"] };
@@ -162,6 +163,14 @@ export function getAllowedDevApiEndpoint(segments: readonly string[]): AllowedDe
     return segments.length === 2 ? { path: `/admin/${resource}`, methods: ["GET", "POST", "OPTIONS"] } : undefined;
   }
   if (resource === "uploads") return segments.length === 3 && segments[2] === "images" ? { path: "/admin/uploads/images", methods: ["POST", "OPTIONS"] } : undefined;
+  if (["study-guide", "service-detail-items", "scholarship-detail-items"].includes(resource ?? "")) {
+    return segments.length === 3 && UUID_PATTERN.test(segments[2]) ? { path: `/admin/${resource}/${segments[2]}`, methods: ["PATCH", "DELETE", "OPTIONS"] } : undefined;
+  }
+  const detailCollection = resource === "countries" ? "study-guide" : resource === "services" ? "service-detail-items" : resource === "scholarships" ? "scholarship-detail-items" : undefined;
+  if (detailCollection && UUID_PATTERN.test(segments[2] ?? "")) {
+    if (segments.length === 4 && segments[3] === detailCollection) return { path: `/admin/${resource}/${segments[2]}/${detailCollection}`, methods: ["GET", "POST", "OPTIONS"] };
+    if (segments.length === 5 && segments[3] === detailCollection && segments[4] === "order") return { path: `/admin/${resource}/${segments[2]}/${detailCollection}/order`, methods: ["PATCH", "OPTIONS"] };
+  }
   if (["university-programs", "university-admission-requirements", "university-gallery"].includes(resource ?? "")) {
     return segments.length === 3 && UUID_PATTERN.test(segments[2]) ? { path: `/admin/${resource}/${segments[2]}`, methods: ["PATCH", ...(resource === "university-gallery" ? ["DELETE"] : []), "OPTIONS"] } : undefined;
   }

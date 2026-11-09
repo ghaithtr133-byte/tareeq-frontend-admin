@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
@@ -10,13 +10,14 @@ import type { AdminContentResource, Article, ContentRecord } from "@/lib/api-cli
 import { getApiFieldErrors, normalizeApiError } from "@/lib/api-client/error";
 import { ArticleBlockEditor } from "@/components/content/article-block-editor";
 import { ArticleScholarships } from "@/components/content/article-scholarships";
+import { DetailCollectionManager } from "@/components/content/detail-collection-manager";
 import { DirectorySelector } from "@/components/universities/controls";
 import { ImageUpload } from "@/components/media/image-upload";
 import { ErrorState, LoadingState } from "@/components/dashboard/states";
 import { useCreateContent, useUpdateContent } from "@/hook/mutations/use-content-mutations";
 import { useContentDetail, useContentSelectors } from "@/hook/queries/use-content-queries";
 import { contentDefinitions, type ContentFieldDefinition } from "@/lib/content-config";
-import { initialContentValues, toContentPatch, toContentPayload, type ContentFormValues, validateContentValues } from "@/lib/content-form";
+import { initialContentValues, parentSaveDestination, supportsContentDetails, toContentPatch, toContentPayload, type ContentFormValues, type ParentCreateIntent, validateContentValues } from "@/lib/content-form";
 import { StaleContentSessionError } from "@/lib/content-session";
 
 const inputClass = "mt-1 min-h-11 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-slate-900 focus:border-[var(--gold)]";
@@ -131,11 +132,13 @@ export function ContentFormPage({ resource, id }: { resource: AdminContentResour
   const update = useUpdateContent(resource);
   const [submitError, setSubmitError] = useState<string>();
   const [relationshipChecks, setRelationshipChecks] = useState(0);
+  const createIntent = useRef<ParentCreateIntent>("finish");
   const form = useForm<ContentFormValues>({ defaultValues: initialContentValues(resource) });
   const { register, handleSubmit, reset, setError, formState } = form;
   const imageField = resource === "articles" ? "coverImageUrl" : "imageUrl";
   const hasImageField = definition.fields.some((field) => field.name === imageField);
   const watchedImage = useWatch({ control: form.control, name: imageField });
+  const watchedOverviewImage = useWatch({ control: form.control, name: "overviewImageUrl" });
   const selectedCountryId = useWatch({ control: form.control, name: "countryId" });
   const selectedCityId = useWatch({ control: form.control, name: "cityId" });
   const selectedUniversityId = useWatch({ control: form.control, name: "universityId" });
@@ -144,7 +147,10 @@ export function ContentFormPage({ resource, id }: { resource: AdminContentResour
   const relationshipValue = (value: unknown) => typeof value === "string" ? value : undefined;
 
   async function countryChanged(countryId: string) {
-    if (resource === "universities") { form.setValue("cityId", "", { shouldDirty: true }); return; }
+    if (resource === "universities") {
+      if (countryId !== selectedCountryId) form.setValue("cityId", "", { shouldDirty: true });
+      return;
+    }
     if (!["articles", "scholarships"].includes(resource) || !countryId) return;
     const universityId = relationshipValue(form.getValues("universityId")); if (!universityId) return;
     setRelationshipChecks(count => count + 1);
@@ -188,7 +194,7 @@ export function ContentFormPage({ resource, id }: { resource: AdminContentResour
     try {
       const payload = id && detail.data ? toContentPatch(resource, values, detail.data as ContentRecord) : toContentPayload(resource, values);
       const result = id ? await update.mutateAsync({ id, input: payload }) : await create.mutateAsync(payload);
-      router.replace(`/admin/${resource}/${result.id}`);
+      router.replace(parentSaveDestination(resource, result.id, createIntent.current, Boolean(id)));
     } catch (error) {
       if (error instanceof StaleContentSessionError) return;
       const fieldErrors = getApiFieldErrors(error);
@@ -205,6 +211,7 @@ export function ContentFormPage({ resource, id }: { resource: AdminContentResour
   const formId = `content-form-${resource}-${id ?? "new"}`;
   const isPending = create.isPending || update.isPending || relationshipChecks > 0;
   const submitLabel = id ? "حفظ التغييرات" : createSubmitLabels[resource];
+  const canContinueToDetails = !id && supportsContentDetails(resource);
 
   return <section className="space-y-5"><div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><div><p className="text-sm font-semibold text-[var(--gold)]">إدارة المحتوى</p><h2 className="mt-1 text-2xl font-bold text-[var(--navy)]">{id ? `تعديل ${definition.singular}` : `إضافة ${definition.singular}`}</h2></div><Link href={`/admin/${resource}`} className="text-sm font-bold text-[var(--navy)] underline">العودة إلى القائمة</Link></div>
     <form id={formId} noValidate onSubmit={(event) => { form.clearErrors(); void handleSubmit(submit)(event); }} className="space-y-6 rounded-2xl border border-[var(--line)] bg-white p-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] shadow-sm sm:p-7">
@@ -214,10 +221,12 @@ export function ContentFormPage({ resource, id }: { resource: AdminContentResour
       {resource === "articles" ? <div className="space-y-4"><ArticleBlockEditor control={form.control} name="bodyAr" label="محتوى المقال بالعربية" required error={errors.bodyAr?.message} /><ArticleBlockEditor control={form.control} name="bodyEn" label="محتوى المقال بالإنجليزية" error={errors.bodyEn?.message} /></div> : null}
       {hasImageField ? <ImagePreview key={preview ?? ""} url={preview} /> : null}
       {hasImageField ? <ImageUpload resource={resource} disabled={isPending} onUploaded={url => form.setValue(imageField, url, { shouldDirty: true })} /> : null}
-      <div className="hidden flex-wrap gap-3 border-t border-[var(--line)] pt-5 sm:flex"><button type="submit" disabled={isPending} className="h-11 rounded-lg bg-[var(--navy)] px-5 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60">{isPending ? "جارٍ الحفظ…" : submitLabel}</button><Link href={`/admin/${resource}`} className="inline-flex h-11 items-center rounded-lg border border-[var(--line)] px-5 text-sm font-bold text-[var(--navy)]">إلغاء</Link></div>
+      {resource === "countries" ? <div className="space-y-3"><h3 className="text-base font-bold text-[var(--navy)]">صورة النظرة العامة</h3><ImagePreview key={`overview-${typeof watchedOverviewImage === "string" ? watchedOverviewImage : ""}`} url={typeof watchedOverviewImage === "string" ? watchedOverviewImage.trim() : undefined} /><ImageUpload resource="countries" disabled={isPending} onUploaded={url => form.setValue("overviewImageUrl", url, { shouldDirty: true })} /></div> : null}
+      <div className="hidden flex-wrap gap-3 border-t border-[var(--line)] pt-5 sm:flex">{canContinueToDetails ? <><button type="submit" disabled={isPending} onClick={() => { createIntent.current = "finish"; }} className="h-11 rounded-lg bg-[var(--navy)] px-5 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60">{isPending ? "جارٍ الحفظ…" : "حفظ وإنهاء"}</button><button type="submit" disabled={isPending} onClick={() => { createIntent.current = "details"; }} className="h-11 rounded-lg border border-[var(--navy)] px-5 text-sm font-bold text-[var(--navy)] disabled:cursor-wait disabled:opacity-60">حفظ ومتابعة العناصر التفصيلية</button></> : <button type="submit" disabled={isPending} onClick={() => { createIntent.current = "finish"; }} className="h-11 rounded-lg bg-[var(--navy)] px-5 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60">{isPending ? "جارٍ الحفظ…" : submitLabel}</button>}<Link href={`/admin/${resource}`} className="inline-flex h-11 items-center rounded-lg border border-[var(--line)] px-5 text-sm font-bold text-[var(--navy)]">إلغاء</Link></div>
     </form>
+    {id && (resource === "countries" || resource === "services" || resource === "scholarships") ? <DetailCollectionManager resource={resource} parentId={id} /> : null}
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--line)] bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,35,66,0.12)] backdrop-blur sm:hidden" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }} aria-label="إجراءات النموذج">
-      <div className="mx-auto flex max-w-xl gap-3"><button type="submit" form={formId} disabled={isPending} className="h-11 min-w-0 flex-1 rounded-lg bg-[var(--navy)] px-4 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60">{isPending ? "جارٍ الحفظ…" : submitLabel}</button><Link href={`/admin/${resource}`} className="inline-flex h-11 items-center rounded-lg border border-[var(--line)] px-4 text-sm font-bold text-[var(--navy)]">إلغاء</Link></div>
+      <div className="mx-auto flex max-w-xl flex-wrap gap-3">{canContinueToDetails ? <><button type="submit" form={formId} disabled={isPending} onClick={() => { createIntent.current = "finish"; }} className="h-11 min-w-0 flex-1 rounded-lg bg-[var(--navy)] px-4 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60">{isPending ? "جارٍ الحفظ…" : "حفظ وإنهاء"}</button><button type="submit" form={formId} disabled={isPending} onClick={() => { createIntent.current = "details"; }} className="min-h-11 rounded-lg border border-[var(--navy)] px-4 text-sm font-bold text-[var(--navy)] disabled:cursor-wait disabled:opacity-60">متابعة التفاصيل</button></> : <button type="submit" form={formId} disabled={isPending} onClick={() => { createIntent.current = "finish"; }} className="h-11 min-w-0 flex-1 rounded-lg bg-[var(--navy)] px-4 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60">{isPending ? "جارٍ الحفظ…" : submitLabel}</button>}<Link href={`/admin/${resource}`} className="inline-flex h-11 items-center rounded-lg border border-[var(--line)] px-4 text-sm font-bold text-[var(--navy)]">إلغاء</Link></div>
     </div>
   </section>;
 }

@@ -1,7 +1,7 @@
 import type { AxiosRequestConfig } from "axios";
 import { z } from "zod";
 import { apiClient } from "@/lib/api-client/client";
-import { admissionScopes, cityInputSchema, galleryInputSchema, galleryOrderSchema, galleryPatchSchema, isoDateSchema, majorInputSchema, programCreateSchema, programPatchSchema, programStudyLevels, publicationStates, requirementCreateSchema, requirementPatchSchema, teachingLanguages, uuidSchema, type CityInput, type GalleryInput, type MajorInput, type ProgramInput, type RequirementInput } from "@/lib/university-schemas";
+import { admissionScopes, cityInputSchema, galleryInputSchema, galleryOrderSchema, galleryPatchSchema, isoDateSchema, majorInputSchema, programCreateSchema, programPatchSchema, programStudyLevels, publicationStates, requirementCreateSchema, requirementPatchSchema, teachingLanguages, tuitionRecordSchema, uuidSchema, type CityInput, type GalleryInput, type MajorInput, type ProgramInput, type RequirementInput } from "@/lib/university-schemas";
 
 export type DirectoryKind = "academic-majors" | "cities";
 export type UniversitySection = "programs" | "admission-requirements" | "gallery";
@@ -19,12 +19,11 @@ export type DirectoryInputs = { "academic-majors": MajorInput; cities: CityInput
 const recordFields = { id: uuidSchema, universityId: uuidSchema, status: z.enum(publicationStates), publishedAt: isoDateSchema.nullable(), ...timestamps };
 const sectionSchemas = {
   programs: z.object({ ...recordFields, nameAr: z.string().nullable(), nameEn: z.string().nullable(), facultyNameAr: z.string().nullable(), facultyNameEn: z.string().nullable(), durationValue: z.number().int().nullable(), durationUnit: z.enum(["MONTHS", "YEARS"]).nullable(), academicMajorId: uuidSchema, academicMajor: majorSummary, studyLevel: z.enum(programStudyLevels), languages: z.array(z.enum(teachingLanguages)), officialSourceUrl: z.string(), verifiedAt: isoDateSchema,
-    // Contradictory allOf response composition: keep opaque, never invent a tuition model.
-    tuition: z.unknown(), tuitionFees: z.unknown(),
+    // Both current tuition and history items reference the published nullable schema.
+    tuition: tuitionRecordSchema.nullable(), tuitionFees: z.array(tuitionRecordSchema.nullable()),
   }),
   "admission-requirements": z.object({ ...recordFields, scope: z.enum(admissionScopes),
-    // Opaque until Backend resolves nullable enum intersection. Never emit null studyLevel.
-    studyLevel: z.unknown(), programId: uuidSchema.nullable(), contentAr: z.string(), contentEn: z.string().nullable(), officialSourceUrl: z.string().nullable(), verifiedAt: isoDateSchema.nullable(), program: z.object({ id: uuidSchema, nameAr: z.string().nullable(), nameEn: z.string().nullable(), studyLevel: z.enum(programStudyLevels) }).nullable(),
+    studyLevel: z.enum(programStudyLevels).nullable(), programId: uuidSchema.nullable(), contentAr: z.string(), contentEn: z.string().nullable(), officialSourceUrl: z.string().nullable(), verifiedAt: isoDateSchema.nullable(), program: z.object({ id: uuidSchema, nameAr: z.string().nullable(), nameEn: z.string().nullable(), studyLevel: z.enum(programStudyLevels) }).nullable(),
   }),
   gallery: z.object({ ...recordFields, imageUrl: z.string(), altAr: z.string().nullable(), altEn: z.string().nullable(), displayOrder: z.number().int() }),
 };

@@ -10,7 +10,7 @@ export function sectionValues(section: UniversitySection, record?: SectionRecord
     else if (value === null) values[name] = "";
   }
   values.verifiedAt = localDateValue(record && "verifiedAt" in record ? record.verifiedAt : undefined);
-  // Never read/flatten contradictory tuition response schemas into editable inputs.
+  // Only opt-in input for one year; response history is never copied into a write.
   values.includeTuition = "";
   if (section === "admission-requirements" && !record) values.studyLevel = "";
   return values;
@@ -24,7 +24,11 @@ export function sectionPayload(section: UniversitySection, values: ManagementVal
   };
   else if (section === "admission-requirements") {
     input = { contentAr: values.contentAr?.trim(), contentEn: nullable("contentEn"), status: values.status, officialSourceUrl: nullable("officialSourceUrl"), verifiedAt: isoFormDate(values.verifiedAt) };
-    if (!record) Object.assign(input, { scope: values.scope, ...(values.scope === "STUDY_LEVEL" ? { studyLevel: values.studyLevel } : values.scope === "PROGRAM" ? { programId: values.programId } : {}) });
+    if (!record) Object.assign(input, {
+      scope: values.scope,
+      studyLevel: values.scope === "STUDY_LEVEL" ? nullable("studyLevel") : null,
+      ...(values.scope === "PROGRAM" ? { programId: values.programId } : {}),
+    });
     if (input.status === "PUBLISHED" && (typeof input.officialSourceUrl !== "string" || !input.officialSourceUrl.startsWith("https://") || typeof input.verifiedAt !== "string" || Date.parse(input.verifiedAt) > Date.now())) throw new Error("النشر يتطلب مصدر HTTPS وتاريخ تحقق غير مستقبلي.");
   } else input = { imageUrl: values.imageUrl?.trim(), altAr: nullable("altAr"), altEn: nullable("altEn"), status: values.status };
   if (record) {

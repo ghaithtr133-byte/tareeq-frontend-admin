@@ -27,7 +27,7 @@ function NavigationIcon({ item }: { item: AdminNavigationId }) {
   if (item === "universities") return <svg {...common}><path d="m3 9 9-5 9 5-9 5-9-5ZM5 11v6m4-4v5m6-5v5m4-7v6M4 20h16" /></svg>;
   if (item === "scholarships") return <svg {...common}><path d="m3 9 9-5 9 5-9 5-9-5ZM7 12v4c2.5 2 7.5 2 10 0v-4" /></svg>;
   if (item === "services") return <svg {...common}><path d="M4 7h16M7 4v6m10-6v6M6 11h12v9H6z" /></svg>;
-  if (item === "articles") return <svg {...common}><path d="M6 3h9l3 3v15H6zM15 3v4h4M9 12h6M9 16h6" /></svg>;
+  if (item === "articles" || item === "about") return <svg {...common}><path d="M6 3h9l3 3v15H6zM15 3v4h4M9 12h6M9 16h6" /></svg>;
   if (item === "media") return <svg {...common}><rect x="4" y="5" width="16" height="14" rx="2" /><circle cx="9" cy="10" r="1.5" /><path d="m6 17 4-4 3 3 2-2 3 3" /></svg>;
   if (item === "analytics") return <svg {...common}><path d="M5 19V10M12 19V5M19 19v-7" /></svg>;
   if (item === "audit-log") return <svg {...common}><path d="M12 5v7l4 2" /><circle cx="12" cy="12" r="8" /></svg>;
@@ -46,6 +46,7 @@ const contentRoutes: Partial<Record<AdminNavigationId, string>> = {
   scholarships: "/admin/scholarships",
   services: "/admin/services",
   articles: "/admin/articles",
+  about: "/admin/about",
   faqs: "/admin/faqs",
   settings: "/admin/settings",
   analytics: "/admin/analytics",

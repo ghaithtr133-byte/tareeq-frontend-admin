@@ -5,7 +5,8 @@ export const managedRoles = ["ADMIN", "SUPER_ADMIN"] as const;
 export const granularities = ["day", "week", "month"] as const;
 export const eventTypes = ["PAGE_VIEW", "CTA_CLICK", "ENGAGEMENT", "APPLICATION_SUBMITTED", "INQUIRY_SUBMITTED"] as const;
 export const ctaIds = ["APPLY_NOW", "REQUEST_CONSULTATION", "CONTACT_US", "VIEW_UNIVERSITY", "VIEW_SCHOLARSHIP", "VIEW_SERVICE"] as const;
-export const auditResourceTypes = ["COUNTRY", "UNIVERSITY", "SCHOLARSHIP", "SERVICE", "ARTICLE", "STUDENT_APPLICATION", "GENERAL_INQUIRY", "ADMIN_USER", "SITE_SETTINGS", "FAQ_ENTRY", "UNIVERSITY_PROGRAM", "ACADEMIC_MAJOR", "CITY", "UNIVERSITY_ADMISSION_REQUIREMENT", "UNIVERSITY_GALLERY_IMAGE"] as const;
+export const engagementTypes = ["SCROLL_50", "SCROLL_90", "ACTIVE_30_SECONDS", "ACTIVE_60_SECONDS"] as const;
+export const auditResourceTypes = ["COUNTRY", "UNIVERSITY", "SCHOLARSHIP", "SERVICE", "ARTICLE", "STUDENT_APPLICATION", "GENERAL_INQUIRY", "ADMIN_USER", "SITE_SETTINGS", "FAQ_ENTRY", "UNIVERSITY_PROGRAM", "ACADEMIC_MAJOR", "CITY", "UNIVERSITY_ADMISSION_REQUIREMENT", "UNIVERSITY_GALLERY_IMAGE", "ABOUT_US", "MARKETING_PAGE_IMAGE", "STUDENT_JOURNEY_STEP", "COUNTRY_STUDY_GUIDE_SECTION", "SERVICE_DETAIL_ITEM", "SCHOLARSHIP_DETAIL_ITEM"] as const;
 const count = z.number().int().nonnegative(); const rate = z.number().nonnegative();
 const date = z.iso.date();
 const analyticsFields = { from: date.optional(), to: date.optional(), granularity: z.enum(granularities).default("day"), topLimit: z.number().int().min(1).max(25).default(10) };
@@ -30,8 +31,7 @@ export const analyticsSummarySchema = z.object({ range, totals: z.object({ pageV
 export type AnalyticsSummary = z.infer<typeof analyticsSummarySchema>;
 export type Trend = z.infer<typeof trendSchema>;
 export const journeySchema = z.object({ range, items: z.array(z.object({ sessionId: uuidSchema, startedAt: isoDateSchema, endedAt: isoDateSchema, eventCount: count, truncated: z.boolean(), clientReportedApplication: z.boolean(), clientReportedInquiry: z.boolean(), steps: z.array(z.object({ eventId: uuidSchema, type: z.enum(eventTypes), path: z.string(), targetPath: z.string().nullable(), occurredAt: isoDateSchema,
-  // Published allOf intersections still reject null. Quarantine these fields, never widen silently or render unknown values.
-  ctaId: z.unknown(), engagementType: z.unknown(),
+  ctaId: z.enum(ctaIds).nullable(), engagementType: z.enum(engagementTypes).nullable(),
 })) })), pagination: paginationSchema });
 export const auditSchema = z.object({ id: uuidSchema, actorAdminId: uuidSchema, action: z.string(), resourceType: z.enum(auditResourceTypes), resourceId: uuidSchema, metadata: z.record(z.string(), z.unknown()), createdAt: isoDateSchema, actor: z.object({ id: uuidSchema, name: z.string() }) });
 export type AuditLog = z.infer<typeof auditSchema>;

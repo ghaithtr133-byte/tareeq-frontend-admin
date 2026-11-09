@@ -34,7 +34,7 @@ test("metrics preserve raw counts/rates, zero/null/missing distinctions and exac
   assert.equal(formatRate(6.47), `${new Intl.NumberFormat("ar", { maximumFractionDigits: 2 }).format(6.47)}٪`); assert.equal(formatCount(0), new Intl.NumberFormat("ar").format(0)); assert.equal(formatCount(undefined), "غير متاح"); assert.equal(formatRate(null), "غير متاح");
   assert.equal(analyticsSummarySchema.safeParse({ ...summaryFixture, totals: { ...summaryFixture.totals, pageViews: null } }).success, false); assert.equal(analyticsSummarySchema.safeParse({ ...summaryFixture, conversionRates: undefined }).success, false);
   const rows = [...summaryFixture.trends].reverse(); const before = JSON.stringify(rows); const points = trendPoints(rows, "pageViews"); assert.deepEqual(points.map(point => point.value), [12, 20]); assert.equal(points[0].y, 78); assert.equal(JSON.stringify(rows), before); assert.deepEqual(trendPoints([], "pageViews"), []); assert.equal(trendPoints([{ ...rows[0], pageViews: 0 }], "pageViews")[0].y, 150);
-  assert.equal(journeySchema.safeParse(journeyFixture).success, true); // Only opaque disputed fields are excluded from validation.
+  assert.equal(journeySchema.safeParse(journeyFixture).success, true);
 });
 test("account update is exactly one role or activation flag; invalid writes never reach Axios", async () => {
   for (const input of [{ role: "ADMIN" }, { role: "SUPER_ADMIN" }, { isActive: true }, { isActive: false }]) assert.equal(accountUpdateSchema.safeParse(input).success, true);

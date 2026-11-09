@@ -20,6 +20,13 @@ export interface Pagination {
 }
 
 export interface Country {
+  countryCode?: string | null;
+  overviewImageUrl?: string | null;
+  overviewImageAltAr?: string | null;
+  studyLanguageAr?: string | null;
+  tuitionSummaryAr?: string | null;
+  admissionSummaryAr?: string | null;
+  applicationDatesSummaryAr?: string | null;
   id: string;
   slug: string;
   featured: boolean;
@@ -46,12 +53,16 @@ export interface CountryReference {
   slug: string;
   nameAr: string;
   nameEn?: string | null;
+  countryCode?: string | null;
 }
 
 export interface University {
   cityId?: string | null;
   city?: { id: string; slug: string; nameAr: string; nameEn: string } | null;
-  universityType?: "PUBLIC" | "PRIVATE";
+  universityType?: "PUBLIC" | "PRIVATE" | null;
+  logoUrl?: string | null;
+  logoAltAr?: string | null;
+  logoAltEn?: string | null;
   id: string;
   slug: string;
   featured: boolean;
@@ -100,7 +111,7 @@ export interface Scholarship {
   officialSourceUrl: string | null;
   applicationStatus: ScholarshipApplicationStatus;
   effectiveApplicationStatus?: ScholarshipApplicationStatus;
-  country?: Pick<CountryReference, "id" | "slug" | "nameAr"> | null;
+  country?: Pick<CountryReference, "id" | "slug" | "nameAr" | "countryCode"> | null;
   university?: Pick<University, "id" | "slug" | "nameAr"> | null;
   status: PublicationStatus;
   createdAt: string;
@@ -151,7 +162,7 @@ export interface Article {
   countryId: string | null;
   universityId: string | null;
   scholarshipId: string | null;
-  country?: Pick<CountryReference, "id" | "slug" | "nameAr"> | null;
+  country?: Pick<CountryReference, "id" | "slug" | "nameAr" | "countryCode"> | null;
   university?: Pick<University, "id" | "slug" | "nameAr"> | null;
   scholarship?: Pick<Scholarship, "id" | "slug" | "titleAr"> | null;
   status: PublicationStatus;
@@ -170,12 +181,14 @@ export interface ArticleRelatedScholarship {
 export interface ArticleDetail extends Article { scholarshipIds: string[]; relatedScholarships: ArticleRelatedScholarship[] }
 
 export interface CountryInput {
+  overviewImageUrl?: string | null; overviewImageAltAr?: string | null; studyLanguageAr?: string | null; tuitionSummaryAr?: string | null; admissionSummaryAr?: string | null; applicationDatesSummaryAr?: string | null;
   nameAr?: string; nameEn?: string; introductionAr?: string; introductionEn?: string; detailsAr?: string; detailsEn?: string;
   imageUrl?: string; imageAltAr?: string; imageAltEn?: string; displayOrder?: number; slug?: string; featured?: boolean;
   status?: PublicationStatus; seoTitleAr?: string; seoDescriptionAr?: string;
 }
 export interface UniversityInput {
-  cityId?: string | null; universityType?: "PUBLIC" | "PRIVATE";
+  cityId?: string | null; universityType?: "PUBLIC" | "PRIVATE" | null;
+  logoUrl?: string; logoAltAr?: string; logoAltEn?: string;
   nameAr?: string; nameEn?: string; officialName?: string; countryId?: string; cityAr?: string; cityEn?: string;
   overviewAr?: string; overviewEn?: string; officialWebsite?: string; imageUrl?: string; imageAltAr?: string; imageAltEn?: string;
   slug?: string; featured?: boolean; status?: PublicationStatus; seoTitleAr?: string; seoDescriptionAr?: string;
