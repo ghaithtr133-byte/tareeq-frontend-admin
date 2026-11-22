@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { AdminContentResource, Article, ArticleRichTextBlock, ContentRecord, ContentTypeMap } from "@/lib/api-client/content";
+import type { AdminContentResource, Article, ArticleRichTextBlock, ContentRecord, ContentTypeMap, University } from "@/lib/api-client/content";
 import { articleBlockOptions, contentDefinitions } from "@/lib/content-config";
 import { uuidSchema } from "@/lib/university-schemas";
 
@@ -43,6 +43,93 @@ export function initialContentValues(resource: AdminContentResource, record?: Co
 
 function isBlank(value: unknown): boolean {
   return typeof value !== "string" || value.trim() === "";
+}
+
+function universitySeoTitle(nameAr: unknown): string | undefined {
+  const value = String(nameAr ?? "").trim();
+  return value ? value.slice(0, 120) : undefined;
+}
+
+function universitySeoDescription(summaryAr: unknown, overviewAr: unknown): string | undefined {
+  const value = String(summaryAr ?? "").trim() || String(overviewAr ?? "").trim();
+  return value ? value.slice(0, 320) : undefined;
+}
+
+/**
+ * SEO stays automatic and hidden in the University form. On edits only absent
+ * or previously generated values are refreshed, so existing custom metadata is
+ * never overwritten. The short Arabic description is the preferred source.
+ */
+export function applyUniversitySeoDefaults(values: ContentFormValues, record?: University): ContentFormValues {
+  const next = { ...values };
+  const title = universitySeoTitle(next.nameAr);
+  const description = universitySeoDescription(next.summaryAr, next.overviewAr);
+
+  if (!record) {
+    if (isBlank(next.seoTitleAr) && title) next.seoTitleAr = title;
+    if (isBlank(next.seoDescriptionAr) && description) next.seoDescriptionAr = description;
+    return next;
+  }
+
+  const oldTitle = universitySeoTitle(record.nameAr);
+  const oldDescription = universitySeoDescription(record.summaryAr, record.overviewAr);
+  const titleChanged = String(next.nameAr ?? "") !== record.nameAr;
+  const descriptionChanged =
+    String(next.summaryAr ?? "") !== String(record.summaryAr ?? "") ||
+    String(next.overviewAr ?? "") !== record.overviewAr;
+
+  if (titleChanged && title && (record.seoTitleAr === null || record.seoTitleAr === oldTitle)) {
+    next.seoTitleAr = title;
+  }
+  if (
+    descriptionChanged &&
+    description &&
+    (record.seoDescriptionAr === null || record.seoDescriptionAr === oldDescription)
+  ) {
+    next.seoDescriptionAr = description;
+  }
+  return next;
+}
+
+function articleSeoTitle(titleAr: unknown): string | undefined {
+  const title = String(titleAr ?? "").trim();
+  if (!title) return undefined;
+  const branded = `${title} | طريق الأكاديمية`;
+  return branded.slice(0, 120);
+}
+
+function articleSeoDescription(summaryAr: unknown): string | undefined {
+  const value = String(summaryAr ?? "").trim();
+  return value ? value.slice(0, 320) : undefined;
+}
+
+/** Preserve custom Article SEO while refreshing only absent or previously generated values. */
+export function applyArticleSeoDefaults(values: ContentFormValues, record?: Article): ContentFormValues {
+  const next = { ...values };
+  const title = articleSeoTitle(next.titleAr);
+  const description = articleSeoDescription(next.summaryAr);
+
+  if (!record) {
+    if (isBlank(next.seoTitleAr) && title) next.seoTitleAr = title;
+    if (isBlank(next.seoDescriptionAr) && description) next.seoDescriptionAr = description;
+    return next;
+  }
+
+  if (
+    String(next.titleAr ?? "") !== record.titleAr &&
+    title &&
+    (record.seoTitleAr === null || record.seoTitleAr === articleSeoTitle(record.titleAr))
+  ) {
+    next.seoTitleAr = title;
+  }
+  if (
+    String(next.summaryAr ?? "") !== record.summaryAr &&
+    description &&
+    (record.seoDescriptionAr === null || record.seoDescriptionAr === articleSeoDescription(record.summaryAr))
+  ) {
+    next.seoDescriptionAr = description;
+  }
+  return next;
 }
 
 function toDateTimeLocal(value: unknown): string {
@@ -89,7 +176,16 @@ export function validateContentValues(resource: AdminContentResource, values: Co
     if (!associations.success) errors.scholarshipIds = associations.error.issues[0]?.message ?? "تحقق من المنح المرتبطة.";
     const bodyAr = values.bodyAr ?? [];
     const parsedAr = z.array(articleBlockSchema).min(1, "أضف كتلة عربية واحدة على الأقل.").max(500).safeParse(bodyAr);
-    if (!parsedAr.success) errors.bodyAr = parsedAr.error.issues[0]?.message ?? "تحقق من محتوى المقال العربي.";
+    if (!parsedAr.success) {
+      const issue = parsedAr.error.issues[0];
+      const blockIndex = typeof issue?.path[0] === "number" ? issue.path[0] + 1 : undefined;
+      errors.bodyAr =
+        blockIndex && issue?.path[1] === "type"
+          ? `نوع المحتوى في الكتلة رقم ${blockIndex} غير مدعوم في المحرر الحالي. لم يُغيّر محتواها.`
+          : blockIndex
+            ? `تحقق من محتوى الكتلة رقم ${blockIndex}.`
+            : issue?.message ?? "تحقق من محتوى المقال العربي.";
+    }
     const bodyEn = Array.isArray(values.bodyEn) ? values.bodyEn : [];
     if (bodyEn.length) {
       const parsedEn = z.array(articleBlockSchema).min(1).max(500).safeParse(bodyEn);

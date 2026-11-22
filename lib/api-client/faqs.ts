@@ -14,6 +14,7 @@ export const faqApi = {
   },
   async create(input: FaqCreate) { const response = await apiClient.post("/admin/faqs", faqCreateSchema.parse(input)); return unwrap(faqSchema, response.data); },
   async update(id: string, input: FaqUpdate) { uuidSchema.parse(id); const response = await apiClient.patch(`/admin/faqs/${id}`, faqUpdateSchema.parse(input)); return unwrap(faqSchema, response.data); },
+  async delete(id: string) { uuidSchema.parse(id); const response = await apiClient.delete(`/admin/faqs/${id}`); return unwrap(z.object({ id: uuidSchema }), response.data); },
   async reorder(group: FaqGroup, orderedIds: string[]) { const response = await apiClient.patch("/admin/faqs/order", faqOrderSchema.parse({ ...group, orderedIds })); return unwrap(z.object({ items: z.array(faqSchema) }), response.data); },
 };
 /** Read every page without a status filter; a filtered page is never an order payload. */

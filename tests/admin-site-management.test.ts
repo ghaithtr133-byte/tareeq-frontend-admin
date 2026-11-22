@@ -20,12 +20,12 @@ test("six exact operations, envelope mapping, credentialed writes and credential
   apiClient.defaults.adapter = async config => {
     calls.push(`${config.method} ${config.url}`); assert.equal(config.withCredentials, config.url === "/site-settings" ? false : true);
     if (config.method === "patch" || config.method === "post") assert.equal(config.headers.get("Content-Type"), "application/json");
-    const data = config.url?.includes("site-settings") ? settingsFixture : config.url?.endsWith("/order") ? { items: [faqFixture] } : config.method === "get" ? { items: [faqFixture], pagination: { page: 1, limit: 50, total: 1, totalPages: 1 } } : faqFixture;
+    const data = config.url?.includes("site-settings") ? settingsFixture : config.url?.endsWith("/order") ? { items: [faqFixture] } : config.method === "delete" ? { id: faqId } : config.method === "get" ? { items: [faqFixture], pagination: { page: 1, limit: 50, total: 1, totalPages: 1 } } : faqFixture;
     return { config, status: 200, statusText: "OK", headers: {}, data: { success: true, data } };
   };
-  try { assert.equal((await faqApi.list({ scope: "GLOBAL" })).items[0].answerEn, faqFixture.answerEn); await faqApi.create({ scope: "GLOBAL", questionAr: "سؤال", answerAr: "إجابة" }); await faqApi.update(faqId, { questionEn: null, status: "PUBLISHED" }); await faqApi.reorder({ scope: "GLOBAL" }, [faqId]); assert.deepEqual(await siteSettingsApi.get(), settingsFixture); await siteSettingsApi.update({ addressAr: null }); }
+  try { assert.equal((await faqApi.list({ scope: "GLOBAL" })).items[0].answerEn, faqFixture.answerEn); await faqApi.create({ scope: "GLOBAL", questionAr: "سؤال", answerAr: "إجابة" }); await faqApi.update(faqId, { questionEn: null, status: "PUBLISHED" }); await faqApi.delete(faqId); await faqApi.reorder({ scope: "GLOBAL" }, [faqId]); assert.deepEqual(await siteSettingsApi.get(), settingsFixture); await siteSettingsApi.update({ addressAr: null }); }
   finally { apiClient.defaults.adapter = old; }
-  assert.deepEqual(calls, ["get /admin/faqs", "post /admin/faqs", `patch /admin/faqs/${faqId}`, "patch /admin/faqs/order", "get /site-settings", "patch /admin/site-settings"]);
+  assert.deepEqual(calls, ["get /admin/faqs", "post /admin/faqs", `patch /admin/faqs/${faqId}`, `delete /admin/faqs/${faqId}`, "patch /admin/faqs/order", "get /site-settings", "patch /admin/site-settings"]);
 });
 test("FAQ scoped query defaults, enum, UUID, pagination and immutable fields", () => {
   assert.deepEqual(faqParams({ scope: "GLOBAL" }), { scope: "GLOBAL", parentId: undefined, page: 1, limit: 50 });
@@ -34,11 +34,14 @@ test("FAQ scoped query defaults, enum, UUID, pagination and immutable fields", (
   for (const input of [{ scope: "GLOBAL", limit: 101 }, { scope: "GLOBAL", page: 0 }, { scope: "GLOBAL", search: "unsupported" }]) assert.throws(() => faqParams(input as never));
   for (const input of [{ scope: "GLOBAL" }, { parentId: null }, { displayOrder: 4 }, {}]) assert.equal(faqUpdateSchema.safeParse(input).success, false);
   assert.equal(faqOrderSchema.safeParse({ scope: "GLOBAL", orderedIds: [] }).success, false); assert.equal(faqOrderSchema.safeParse({ scope: "GLOBAL", orderedIds: [faqId, faqId] }).success, false);
+  assert.equal(faqUpdateSchema.safeParse({ scope: "UNIVERSITY", parentId: parentIds.UNIVERSITY }).success, true);
+  assert.equal(faqUpdateSchema.safeParse({ scope: "UNIVERSITY" }).success, false);
 });
 test("FAQ bilingual input limits and omitted/empty/null partial semantics", () => {
   for (const [field, value] of [["questionAr", "x"], ["answerAr", "x"], ["questionAr", "x".repeat(501)], ["answerAr", "x".repeat(10001)], ["questionEn", ""], ["answerEn", "x"]]) assert.equal(faqCreateSchema.safeParse({ scope: "GLOBAL", questionAr: "سؤال", answerAr: "إجابة", [field]: value }).success, false);
   const group = { scope: "GLOBAL" as const }; const values = faqFormValues(faqFixture);
   assert.deepEqual(faqFormPayload(group, { ...values, answerAr: "إجابة معدلة" }, faqFixture), { answerAr: "إجابة معدلة" });
+  assert.deepEqual(faqFormPayload({ scope: "UNIVERSITY", parentId: parentIds.UNIVERSITY }, values, faqFixture), { scope: "UNIVERSITY", parentId: parentIds.UNIVERSITY });
   assert.deepEqual(faqFormPayload(group, values, faqFixture, ["answerEn"]), { answerEn: null });
   assert.throws(() => faqFormPayload(group, { ...values, answerEn: "" }, faqFixture));
   assert.deepEqual(faqFormPayload(group, { ...faqFormValues(), questionAr: "سؤال", answerAr: "إجابة" }), { scope: "GLOBAL", questionAr: "سؤال", answerAr: "إجابة", status: "DRAFT" });
@@ -75,7 +78,7 @@ test("Phase 3 errors preserve status/cause and do not replay failed writes", asy
   finally { apiClient.defaults.adapter = old; }
 });
 test("narrow proxy surface, production exclusion, trusted writes and public credential stripping", () => {
-  for (const [path, methods] of [["admin/faqs", ["GET", "POST", "OPTIONS"]], [`admin/faqs/${faqId}`, ["PATCH", "OPTIONS"]], ["admin/faqs/order", ["PATCH", "OPTIONS"]], ["site-settings", ["GET", "OPTIONS"]], ["admin/site-settings", ["PATCH", "OPTIONS"]]] as const) assert.deepEqual(getAllowedDevApiEndpoint(path.split("/"))?.methods, methods);
+  for (const [path, methods] of [["admin/faqs", ["GET", "POST", "OPTIONS"]], [`admin/faqs/${faqId}`, ["PATCH", "DELETE", "OPTIONS"]], ["admin/faqs/order", ["PATCH", "OPTIONS"]], ["site-settings", ["GET", "OPTIONS"]], ["admin/site-settings", ["PATCH", "OPTIONS"]]] as const) assert.deepEqual(getAllowedDevApiEndpoint(path.split("/"))?.methods, methods);
   for (const path of ["admin/faqs/arbitrary", "admin/faqs/order/extra", "admin/site-settings/extra", "site-settings/extra"]) assert.equal(getAllowedDevApiEndpoint(path.split("/")), undefined);
   assert.equal(isAdminDevApiProxyEnabled({ NODE_ENV: "production" } as NodeJS.ProcessEnv), false);
   assert.equal(validateTrustedDevelopmentRequest(new Headers({ host: "localhost:3001", origin: "https://untrusted.invalid", referer: "https://untrusted.invalid/" }), "PATCH", { NODE_ENV: "development", ADMIN_DEV_PROXY_LOCAL_ORIGIN: "http://localhost:3001" } as NodeJS.ProcessEnv).trusted, false);

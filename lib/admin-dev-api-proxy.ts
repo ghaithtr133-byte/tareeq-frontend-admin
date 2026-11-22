@@ -156,11 +156,19 @@ export function getAllowedDevApiEndpoint(segments: readonly string[]): AllowedDe
   if (resource === "about") return segments.length === 2 ? { path: "/admin/about", methods: ["GET", "PATCH", "OPTIONS"] } : undefined;
   if (resource === "faqs") {
     if (segments.length === 2) return { path: "/admin/faqs", methods: ["GET", "POST", "OPTIONS"] };
-    if (segments.length === 3 && (segments[2] === "order" || UUID_PATTERN.test(segments[2]))) return { path: `/admin/faqs/${segments[2]}`, methods: ["PATCH", "OPTIONS"] };
+    if (segments.length === 3 && segments[2] === "order") return { path: "/admin/faqs/order", methods: ["PATCH", "OPTIONS"] };
+    if (segments.length === 3 && UUID_PATTERN.test(segments[2])) return { path: `/admin/faqs/${segments[2]}`, methods: ["PATCH", "DELETE", "OPTIONS"] };
     return undefined;
   }
   if (["academic-majors", "cities"].includes(resource ?? "")) {
-    return segments.length === 2 ? { path: `/admin/${resource}`, methods: ["GET", "POST", "OPTIONS"] } : undefined;
+    if (segments.length === 2) return { path: `/admin/${resource}`, methods: ["GET", "POST", "OPTIONS"] };
+    if (segments.length === 3 && UUID_PATTERN.test(segments[2])) {
+      return { path: `/admin/${resource}/${segments[2]}`, methods: ["PATCH", "DELETE", "OPTIONS"] };
+    }
+    return undefined;
+  }
+  if (resource === "study-languages") {
+    return segments.length === 2 ? { path: "/admin/study-languages", methods: ["GET", "OPTIONS"] } : undefined;
   }
   if (resource === "uploads") return segments.length === 3 && segments[2] === "images" ? { path: "/admin/uploads/images", methods: ["POST", "OPTIONS"] } : undefined;
   if (["study-guide", "service-detail-items", "scholarship-detail-items"].includes(resource ?? "")) {

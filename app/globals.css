@@ -1,34 +1,84 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8f6f1;
-  --foreground: #17233a;
+  --font-arabic: "Noto Sans Arabic";
+  --font-mono: "IBM Plex Mono";
+  --background: #f5f6f8;
+  --surface: #ffffff;
+  --surface-subtle: #f9fafb;
+  --foreground: #12213d;
   --navy: #12213d;
-  --navy-light: #1d3154;
+  --navy-light: #1b2f52;
+  --navy-deep: #0d1930;
   --gold: #b58b3a;
-  --gold-soft: #f6edda;
-  --line: #e7e1d5;
-  --muted: #687387;
+  --gold-dark: #946f29;
+  --gold-soft: #f7f1e3;
+  --line: #e2e6ed;
+  --line-strong: #cfd6e2;
+  --muted: #5a6578;
+  --shadow-card: 0 1px 3px rgba(18, 33, 61, 0.04), 0 8px 24px -16px rgba(18, 33, 61, 0.14);
+  --shadow-dropdown: 0 12px 32px -8px rgba(18, 33, 61, 0.16), 0 2px 6px rgba(18, 33, 61, 0.06);
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
-html { max-width: 100%; background: var(--background); overflow-x: hidden; }
+html {
+  max-width: 100%;
+  background: var(--background);
+  overflow-x: clip;
+}
 
 body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, "Tahoma", sans-serif;
+  font-family: var(--font-arabic), "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
 }
 
-body > div { max-width: 100%; overflow-x: hidden; }
+body > div {
+  max-width: 100%;
+  overflow-x: clip;
+}
 
-button, input, textarea, select { font: inherit; }
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
 
-button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, a:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--gold) 55%, white);
+code,
+pre,
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--gold);
   outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

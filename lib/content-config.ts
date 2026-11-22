@@ -11,6 +11,8 @@ export interface ContentFieldDefinition {
   nullable?: boolean;
   options?: readonly { value: string; label: string }[];
   hint?: string;
+  /** Hide field from the redesigned form UI while keeping stored backend values untouched on PATCH. */
+  uiHidden?: boolean;
 }
 
 export interface ResourceDefinition {
@@ -48,20 +50,20 @@ const sharedFields = [
 const imageFields = [
   { name: "imageUrl", label: "رابط الصورة", kind: "url", maxLength: 2048 },
   { name: "imageAltAr", label: "النص البديل للصورة بالعربية", kind: "text", maxLength: 300 },
-  { name: "imageAltEn", label: "النص البديل للصورة بالإنجليزية", kind: "text", maxLength: 300 },
+  { name: "imageAltEn", label: "النص البديل للصورة بالإنجليزية", kind: "text", maxLength: 300, uiHidden: true },
 ] as const satisfies readonly ContentFieldDefinition[];
 
 export const contentDefinitions: Record<AdminContentResource, ResourceDefinition> = {
   countries: {
     label: "الدول", singular: "دولة", titleField: "nameAr", filters: ["search", "featured", "status", "sort"],
-    sorts: [{ value: "manual", label: "الترتيب اليدوي" }, { value: "newest", label: "الأحدث" }],
+    sorts: [{ value: "newest", label: "الأحدث أولًا" }],
     fields: [
       { name: "nameAr", label: "اسم الدولة بالعربية", kind: "text", required: true, maxLength: 200 },
       { name: "nameEn", label: "اسم الدولة بالإنجليزية", kind: "text", maxLength: 200 },
       { name: "introductionAr", label: "المقدمة بالعربية", kind: "textarea", required: true, maxLength: 20000 },
-      { name: "introductionEn", label: "المقدمة بالإنجليزية", kind: "textarea", maxLength: 20000 },
+      { name: "introductionEn", label: "المقدمة بالإنجليزية", kind: "textarea", maxLength: 20000, uiHidden: true },
       { name: "detailsAr", label: "التفاصيل بالعربية", kind: "textarea", required: true, maxLength: 20000 },
-      { name: "detailsEn", label: "التفاصيل بالإنجليزية", kind: "textarea", maxLength: 20000 },
+      { name: "detailsEn", label: "التفاصيل بالإنجليزية", kind: "textarea", maxLength: 20000, uiHidden: true },
       ...imageFields,
       { name: "overviewImageUrl", label: "رابط صورة النظرة العامة", kind: "url", maxLength: 2048, nullable: true },
       { name: "overviewImageAltAr", label: "النص البديل لصورة النظرة العامة بالعربية", kind: "text", maxLength: 300, nullable: true },
@@ -69,35 +71,36 @@ export const contentDefinitions: Record<AdminContentResource, ResourceDefinition
       { name: "tuitionSummaryAr", label: "ملخص الرسوم بالعربية", kind: "textarea", maxLength: 20000, nullable: true },
       { name: "admissionSummaryAr", label: "ملخص القبول بالعربية", kind: "textarea", maxLength: 20000, nullable: true },
       { name: "applicationDatesSummaryAr", label: "ملخص مواعيد التقديم بالعربية", kind: "textarea", maxLength: 20000, nullable: true },
-      { name: "displayOrder", label: "ترتيب العرض", kind: "number", maxLength: 7 },
+      { name: "displayOrder", label: "ترتيب العرض", kind: "number", maxLength: 7, uiHidden: true },
       ...sharedFields,
     ],
   },
   universities: {
     label: "الجامعات", singular: "جامعة", titleField: "nameAr", filters: ["search", "country", "major", "city", "studyLevel", "language", "universityType", "featured", "status", "sort"],
-    sorts: [{ value: "newest", label: "الأحدث" }, { value: "name", label: "الاسم العربي" }],
+    sorts: [{ value: "newest", label: "الأحدث أولًا" }, { value: "name", label: "الاسم العربي" }],
     fields: [
       { name: "nameAr", label: "اسم الجامعة بالعربية", kind: "text", required: true, maxLength: 200 },
       { name: "nameEn", label: "اسم الجامعة بالإنجليزية", kind: "text", maxLength: 200 },
       { name: "officialName", label: "الاسم الرسمي", kind: "text", required: true, maxLength: 300 },
       { name: "universityType", label: "نوع الجامعة", kind: "select", nullable: true, options: [{ value: "", label: "غير محدد" }, { value: "PUBLIC", label: "حكومية" }, { value: "PRIVATE", label: "خاصة" }], hint: "اختر غير محدد لمسح نوع الجامعة. التعديلات الأخرى لا تغيّر النوع." },
       { name: "countryId", label: "الدولة", kind: "country", required: true },
-      { name: "cityId", label: "المدينة المرتبطة", kind: "city", nullable: true, hint: "اختر مدينة تابعة للدولة. الحقول النصية أدناه مستقلة ولا تُستبدل تلقائيًا." },
+      { name: "cityId", label: "المدينة المرتبطة", kind: "city", nullable: true, hint: "اختر مدينة تابعة للدولة المختارة لتسهيل التصنيف الجغرافي." },
       { name: "cityAr", label: "المدينة بالعربية", kind: "text", required: true, maxLength: 200 },
-      { name: "cityEn", label: "المدينة بالإنجليزية", kind: "text", maxLength: 200 },
+      { name: "cityEn", label: "المدينة بالإنجليزية", kind: "text", maxLength: 200, uiHidden: true },
+      { name: "summaryAr", label: "الوصف المختصر", kind: "textarea", maxLength: 20000, nullable: true },
       { name: "overviewAr", label: "نبذة بالعربية", kind: "textarea", required: true, maxLength: 20000 },
-      { name: "overviewEn", label: "نبذة بالإنجليزية", kind: "textarea", maxLength: 20000 },
+      { name: "overviewEn", label: "نبذة بالإنجليزية", kind: "textarea", maxLength: 20000, uiHidden: true },
       { name: "officialWebsite", label: "الموقع الرسمي", kind: "url", maxLength: 2048 },
       ...imageFields,
       { name: "logoUrl", label: "رابط شعار الجامعة", kind: "url", maxLength: 2048 },
       { name: "logoAltAr", label: "النص البديل للشعار بالعربية", kind: "text", maxLength: 300 },
-      { name: "logoAltEn", label: "النص البديل للشعار بالإنجليزية", kind: "text", maxLength: 300 },
+      { name: "logoAltEn", label: "النص البديل للشعار بالإنجليزية", kind: "text", maxLength: 300, uiHidden: true },
       ...sharedFields,
     ],
   },
   scholarships: {
     label: "المنح الدراسية", singular: "منحة", titleField: "titleAr", filters: ["search", "country", "university", "studyLevel", "fundingType", "applicationStatus", "featured", "status", "sort", "universitySearch", "universityCountry", "universityMajor", "universityStudyLevel", "universityLanguage", "universityCity", "universityType", "universityFeatured"],
-    sorts: [{ value: "newest", label: "الأحدث" }, { value: "deadline", label: "أقرب موعد" }],
+    sorts: [{ value: "newest", label: "الأحدث أولًا" }, { value: "deadline", label: "أقرب موعد نهائي" }],
     fields: [
       { name: "titleAr", label: "العنوان بالعربية", kind: "text", required: true, maxLength: 300 },
       { name: "titleEn", label: "العنوان بالإنجليزية", kind: "text", maxLength: 300 },
@@ -107,9 +110,9 @@ export const contentDefinitions: Record<AdminContentResource, ResourceDefinition
       { name: "studyLevel", label: "المستوى الدراسي", kind: "text", required: true, maxLength: 120 },
       { name: "fundingType", label: "نوع التمويل", kind: "text", required: true, maxLength: 120 },
       { name: "requirementsAr", label: "المتطلبات بالعربية", kind: "textarea", required: true, maxLength: 20000 },
-      { name: "requirementsEn", label: "المتطلبات بالإنجليزية", kind: "textarea", maxLength: 20000 },
+      { name: "requirementsEn", label: "المتطلبات بالإنجليزية", kind: "textarea", maxLength: 20000, uiHidden: true },
       { name: "descriptionAr", label: "الوصف بالعربية", kind: "textarea", required: true, maxLength: 20000 },
-      { name: "descriptionEn", label: "الوصف بالإنجليزية", kind: "textarea", maxLength: 20000 },
+      { name: "descriptionEn", label: "الوصف بالإنجليزية", kind: "textarea", maxLength: 20000, uiHidden: true },
       { name: "verifiedDeadline", label: "الموعد النهائي الموثق", kind: "datetime-local", nullable: true },
       { name: "officialSourceUrl", label: "المصدر الرسمي", kind: "url", maxLength: 2048, nullable: true },
       { name: "applicationStatus", label: "حالة التقديم المخزنة", kind: "select", options: [{ value: "OPEN", label: "مفتوح" }, { value: "CLOSED", label: "مغلق" }] },
@@ -117,31 +120,31 @@ export const contentDefinitions: Record<AdminContentResource, ResourceDefinition
     ],
   },
   services: {
-    label: "الخدمات", singular: "خدمة", titleField: "titleAr", filters: ["featured", "status", "sort"],
-    sorts: [{ value: "manual", label: "الترتيب اليدوي" }, { value: "newest", label: "الأحدث" }],
+    label: "الخدمات", singular: "خدمة", titleField: "titleAr", filters: ["featured", "sort"],
+    sorts: [{ value: "newest", label: "الأحدث أولًا" }],
     fields: [
       { name: "titleAr", label: "العنوان بالعربية", kind: "text", required: true, maxLength: 300 },
       { name: "titleEn", label: "العنوان بالإنجليزية", kind: "text", maxLength: 300 },
       { name: "summaryAr", label: "الملخص بالعربية", kind: "textarea", required: true, maxLength: 20000 },
-      { name: "summaryEn", label: "الملخص بالإنجليزية", kind: "textarea", maxLength: 20000 },
+      { name: "summaryEn", label: "الملخص بالإنجليزية", kind: "textarea", maxLength: 20000, uiHidden: true },
       { name: "descriptionAr", label: "الوصف بالعربية", kind: "textarea", required: true, maxLength: 20000 },
-      { name: "descriptionEn", label: "الوصف بالإنجليزية", kind: "textarea", maxLength: 20000 },
+      { name: "descriptionEn", label: "الوصف بالإنجليزية", kind: "textarea", maxLength: 20000, uiHidden: true },
       ...imageFields,
-      { name: "displayOrder", label: "ترتيب العرض", kind: "number", maxLength: 7 },
+      { name: "displayOrder", label: "ترتيب العرض", kind: "number", maxLength: 7, uiHidden: true },
       ...sharedFields,
     ],
   },
   articles: {
     label: "المقالات", singular: "مقال", titleField: "titleAr", filters: ["search", "country", "featured", "status", "sort"],
-    sorts: [{ value: "newest", label: "الأحدث" }],
+    sorts: [{ value: "newest", label: "الأحدث أولًا" }],
     fields: [
       { name: "titleAr", label: "العنوان بالعربية", kind: "text", required: true, maxLength: 300 },
-      { name: "titleEn", label: "العنوان بالإنجليزية", kind: "text", maxLength: 300 },
+      { name: "titleEn", label: "العنوان بالإنجليزية", kind: "text", maxLength: 300, uiHidden: true },
       { name: "summaryAr", label: "الملخص بالعربية", kind: "textarea", required: true, maxLength: 20000 },
-      { name: "summaryEn", label: "الملخص بالإنجليزية", kind: "textarea", maxLength: 20000 },
+      { name: "summaryEn", label: "الملخص بالإنجليزية", kind: "textarea", maxLength: 20000, uiHidden: true },
       { name: "coverImageUrl", label: "رابط صورة الغلاف", kind: "url", maxLength: 2048 },
       { name: "coverImageAltAr", label: "النص البديل للغلاف بالعربية", kind: "text", maxLength: 300 },
-      { name: "coverImageAltEn", label: "النص البديل للغلاف بالإنجليزية", kind: "text", maxLength: 300 },
+      { name: "coverImageAltEn", label: "النص البديل للغلاف بالإنجليزية", kind: "text", maxLength: 300, uiHidden: true },
       { name: "countryId", label: "الدولة المرتبطة", kind: "country", nullable: true },
       { name: "universityId", label: "الجامعة المرتبطة", kind: "university", nullable: true },
       { name: "scholarshipIds", label: "المنح المرتبطة بالترتيب", kind: "scholarships" },

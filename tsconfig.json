@@ -71,6 +71,7 @@
   ],
   "exclude": [
     "node_modules",
-    "design-handoff"
+    "design-handoff",
+    "tareeq-frontend-admin-google-ai-studio"
   ]
 }

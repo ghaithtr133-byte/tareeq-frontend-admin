@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
 import { normalizeApiError } from "@/lib/api-client/error";
 import type { AdminContentResource, ContentTypeMap } from "@/lib/api-client/content";
@@ -21,6 +21,37 @@ export function useContentList<K extends AdminContentResource>(resource: K, para
         throw error;
       }
     },
+    enabled,
+  });
+}
+
+/** Server-paginated list for mobile cards. Pages are never merged or sorted client-side. */
+export function useInfiniteContentList<K extends AdminContentResource>(
+  resource: K,
+  params: Omit<ContentTypeMap[K]["params"], "page" | "limit">,
+  limit: number,
+  enabled = true,
+) {
+  const getApi = useContentRepository();
+  const { reportContentUnauthorized } = useAdminAccess();
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.admin.content.list(resource, params), "infinite", limit],
+    initialPageParam: 1,
+    queryFn: async ({ pageParam, signal }) => {
+      try {
+        return await getApi(resource).list(
+          { ...params, page: Number(pageParam), limit } as ContentTypeMap[K]["params"],
+          { signal },
+        );
+      } catch (error) {
+        if (normalizeApiError(error).status === 401) reportContentUnauthorized();
+        throw error;
+      }
+    },
+    getNextPageParam: (lastPage) =>
+      lastPage.pagination.page < lastPage.pagination.totalPages
+        ? lastPage.pagination.page + 1
+        : undefined,
     enabled,
   });
 }

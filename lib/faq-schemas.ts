@@ -9,7 +9,17 @@ export const faqGroupSchema = z.object({ scope: z.enum(faqScopes), parentId: uui
 export type FaqGroup = z.infer<typeof faqGroupSchema>;
 const fields = { questionAr: z.string().min(2).max(500), answerAr: z.string().min(2).max(10000), questionEn: z.string().min(2).max(500).nullable().optional(), answerEn: z.string().min(2).max(10000).nullable().optional(), status: z.enum(publicationStates).optional() };
 export const faqCreateSchema = z.object({ scope: z.enum(faqScopes), parentId: uuidSchema.nullable().optional(), ...fields }).strict().superRefine((value, context) => { const result = faqGroupSchema.safeParse({ scope: value.scope, parentId: value.parentId }); if (!result.success) for (const issue of result.error.issues) context.addIssue({ code: "custom", path: issue.path, message: issue.message }); });
-export const faqUpdateSchema = z.object(fields).partial().strict().refine(value => Object.keys(value).length > 0, "لا توجد تغييرات للحفظ.");
+export const faqUpdateSchema = z.object({ ...fields, scope: z.enum(faqScopes).optional(), parentId: uuidSchema.nullable().optional() }).partial().strict().superRefine((value, context) => {
+  if (!Object.keys(value).length) context.addIssue({ code: "custom", message: "لا توجد تغييرات للحفظ." });
+  const movesGroup = "scope" in value || "parentId" in value;
+  if (movesGroup) {
+    if (!("scope" in value) || !("parentId" in value)) context.addIssue({ code: "custom", path: ["parentId"], message: "نقل السؤال يتطلب النطاق والارتباط معًا." });
+    else {
+      const group = faqGroupSchema.safeParse({ scope: value.scope, parentId: value.parentId });
+      if (!group.success) for (const issue of group.error.issues) context.addIssue({ code: "custom", path: issue.path, message: issue.message });
+    }
+  }
+});
 export const faqOrderSchema = z.object({ scope: z.enum(faqScopes), parentId: uuidSchema.nullable().optional(), orderedIds: z.array(uuidSchema).min(1).refine(ids => new Set(ids).size === ids.length, "لا تكرر الأسئلة.") }).strict().superRefine((value, context) => { const result = faqGroupSchema.safeParse({ scope: value.scope, parentId: value.parentId }); if (!result.success) for (const issue of result.error.issues) context.addIssue({ code: "custom", path: issue.path, message: issue.message }); });
 export const faqListParamsSchema = z.object({ scope: z.enum(faqScopes), parentId: uuidSchema.nullable().optional(), page: z.number().int().min(1).default(1), limit: z.number().int().min(1).max(100).default(50), status: z.enum(publicationStates).optional() }).strict().superRefine((value, context) => { const result = faqGroupSchema.safeParse({ scope: value.scope, parentId: value.parentId }); if (!result.success) for (const issue of result.error.issues) context.addIssue({ code: "custom", path: issue.path, message: issue.message }); });
 export const faqSchema = z.object({ id: uuidSchema, scope: z.enum(faqScopes), parentId: uuidSchema.nullable(), questionAr: z.string(), answerAr: z.string(), questionEn: z.string().nullable(), answerEn: z.string().nullable(), status: z.enum(publicationStates), displayOrder: z.number().int(), publishedAt: isoDateSchema.nullable(), createdAt: isoDateSchema, updatedAt: isoDateSchema });
@@ -18,3 +28,5 @@ export type FaqCreate = z.infer<typeof faqCreateSchema>;
 export type FaqUpdate = z.infer<typeof faqUpdateSchema>;
 export type FaqListParams = z.input<typeof faqListParamsSchema>;
 export const faqScopeLabels: Record<FaqScope, string> = { GLOBAL: "عام / الصفحة الرئيسية", COUNTRY: "دولة", UNIVERSITY: "جامعة", SERVICE: "خدمة", SCHOLARSHIP: "منحة" };
+/** Services are suspended: legacy service FAQs remain readable, but no new service association can be selected. */
+export const selectableFaqScopes = ["GLOBAL", "COUNTRY", "UNIVERSITY", "SCHOLARSHIP"] as const satisfies readonly FaqScope[];

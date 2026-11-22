@@ -1,0 +1,1284 @@
+diff --git a/components/content/article-scholarships.tsx b/components/content/article-scholarships.tsx
+index ed19402..d5a5c5f 100644
+--- a/components/content/article-scholarships.tsx
++++ b/components/content/article-scholarships.tsx
+@@ -12,10 +12,11 @@ export function ArticleScholarships({ value, onChange, selected = [], disabled,
+   const [search, setSearch] = useState(""); const [page, setPage] = useState(1); const [candidate, setCandidate] = useState("");
+   const list = useContentList("scholarships", { page, limit: 50, search: search.trim() || undefined, sort: "newest" }, true, false);
+   const [chosenLabels, setChosenLabels] = useState<Record<string, string>>({});
+-  function move(index: number, delta: number) { const ids = [...value]; [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]]; onChange(ids); }
++  function move(index: number, delta: number) { const ids = [...value];[ids[index], ids[index + delta]] = [ids[index + delta], ids[index]]; onChange(ids); }
+   return <fieldset disabled={disabled} className="space-y-3 rounded-xl border border-[var(--line)] p-4">
+     <legend className="px-1 font-bold">المنح المرتبطة بالترتيب ({value.length}/50)</legend>
+-    <label className="grid gap-1 text-sm">بحث المنح المرتبطة<input aria-label="بحث المنح المرتبطة" type="search" maxLength={200} className={inputClass} value={search} onChange={event => { setSearch(event.target.value); setPage(1); setCandidate(""); }} /></label>
++    <label className="grid gap-1 text-sm">بحث
++       المنح المرتبطة<input aria-label="بحث المنح المرتبطة" type="search" maxLength={200} className={inputClass} value={search} onChange={event => { setSearch(event.target.value); setPage(1); setCandidate(""); }} /></label>
+     <label className="grid gap-1 text-sm">اختيار منحة للربط<select aria-label="اختيار منحة للربط" className={inputClass} value={candidate} onChange={event => setCandidate(event.target.value)}><option value="">اختر منحة</option>{list.data?.items.filter(item => !value.includes(item.id)).map(item => <option key={item.id} value={item.id}>{item.titleAr}</option>)}</select></label>
+     <button type="button" className={buttonClass} disabled={!candidate || value.includes(candidate) || value.length >= 50 || list.isFetching || list.isError} onClick={() => {
+       const item = list.data?.items.find(item => item.id === candidate); if (!item || value.includes(candidate) || value.length >= 50) return;
+diff --git a/components/dashboard/admin-dashboard.tsx b/components/dashboard/admin-dashboard.tsx
+index 5fc2146..29fb4c5 100644
+--- a/components/dashboard/admin-dashboard.tsx
++++ b/components/dashboard/admin-dashboard.tsx
+@@ -23,7 +23,7 @@ function QuickActionIcon({ kind }: { kind: (typeof quickActions)[number]["icon"]
+ 
+ export function AdminDashboard() {
+   const access = useAdminAccess();
+-  const allowedActions = quickActions.filter((action) => access.user?.role === "ADMIN" || access.user?.role === "SUPER_ADMIN");
++  const allowedActions = access.user?.role === "ADMIN" || access.user?.role === "SUPER_ADMIN" ? quickActions : [];
+ 
+   return (
+     <AdminProtectedShell title="لوحة التحكم" activeItem="dashboard">
+diff --git a/package-lock.json b/package-lock.json
+index 8220550..f16267b 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -10,13 +10,13 @@
+       "dependencies": {
+         "@hookform/resolvers": "5.2.1",
+         "@tanstack/react-query": "5.90.2",
+-        "axios": "1.12.2",
++        "axios": "^1.21.1",
+         "next": "^16.4.1",
+         "react": "19.2.0",
+         "react-dom": "19.2.0",
+         "react-hook-form": "7.65.0",
+         "server-only": "0.0.1",
+-        "zod": "4.1.12"
++        "zod": "^4.6.7"
+       },
+       "devDependencies": {
+         "@eslint/eslintrc": "3.3.1",
+@@ -76,6 +76,7 @@
+       "integrity": "sha512-RgHBCvtjbOK2gXSNBNIkNoEc9qoVEtau3hj8gEqKQuL3HZAibKarWFEI3Lfm6EYKkLalOh8eSrj9b+ch9H/VBA==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "@babel/code-frame": "^7.29.7",
+         "@babel/generator": "^7.29.7",
+@@ -285,32 +286,10 @@
+         "node": ">=6.9.0"
+       }
+     },
+-    "node_modules/@emnapi/core": {
+-      "version": "1.10.0",
+-      "resolved": "https://registry.npmjs.org/@emnapi/core/-/core-1.10.0.tgz",
+-      "integrity": "sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==",
+-      "dev": true,
+-      "license": "MIT",
+-      "optional": true,
+-      "dependencies": {
+-        "@emnapi/wasi-threads": "1.2.1",
+-        "tslib": "^2.4.0"
+-      }
+-    },
+-    "node_modules/@emnapi/runtime": {
+-      "version": "1.11.3",
+-      "resolved": "https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.11.3.tgz",
+-      "integrity": "sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA==",
+-      "license": "MIT",
+-      "optional": true,
+-      "dependencies": {
+-        "tslib": "^2.4.0"
+-      }
+-    },
+     "node_modules/@emnapi/wasi-threads": {
+-      "version": "1.2.1",
+-      "resolved": "https://registry.npmjs.org/@emnapi/wasi-threads/-/wasi-threads-1.2.1.tgz",
+-      "integrity": "sha512-uTII7OYF+/Mes/MrcIOYp5yOtSMLBWSIoLPpcgwipoiKbli6k322tcoFsxoIIxPDqW01SQGAgko4EzZi2BNv2w==",
++      "version": "1.2.3",
++      "resolved": "https://registry.npmjs.org/@emnapi/wasi-threads/-/wasi-threads-1.2.3.tgz",
++      "integrity": "sha512-ELEBe8PsLvvJ6QMr0zLt8ffvOHW/dc1m3CEzNMg7aJUv3bMaoDtw2TXyDAwkYBuroxxuHEwhRTLJSe5sya547g==",
+       "dev": true,
+       "license": "MIT",
+       "optional": true,
+@@ -1120,9 +1099,6 @@
+       "cpu": [
+         "arm"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1139,9 +1115,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1158,9 +1131,6 @@
+       "cpu": [
+         "ppc64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1177,9 +1147,6 @@
+       "cpu": [
+         "riscv64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1196,9 +1163,6 @@
+       "cpu": [
+         "s390x"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1215,9 +1179,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1234,9 +1195,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1253,9 +1211,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "LGPL-3.0-or-later",
+       "optional": true,
+       "os": [
+@@ -1272,9 +1227,6 @@
+       "cpu": [
+         "arm"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1297,9 +1249,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1322,9 +1271,6 @@
+       "cpu": [
+         "ppc64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1347,9 +1293,6 @@
+       "cpu": [
+         "riscv64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1372,9 +1315,6 @@
+       "cpu": [
+         "s390x"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1397,9 +1337,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1422,9 +1359,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1447,9 +1381,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "Apache-2.0",
+       "optional": true,
+       "os": [
+@@ -1570,6 +1501,13 @@
+         "node": ">=18.0.0"
+       }
+     },
++    "node_modules/@isaacs/nonrecursive-glob-match": {
++      "version": "1.1.0",
++      "resolved": "https://registry.npmjs.org/@isaacs/nonrecursive-glob-match/-/nonrecursive-glob-match-1.1.0.tgz",
++      "integrity": "sha512-GPm/Dbvk5RLmhRnxXIa7nTpK0xtl4E0wj0MslsuNiJ1FIROU+2+9lgUC/dgF7Ey4QCWhfEsgxilMRMCdHPfDfw==",
++      "dev": true,
++      "license": "BlueOak-1.0.0"
++    },
+     "node_modules/@jridgewell/gen-mapping": {
+       "version": "0.3.13",
+       "resolved": "https://registry.npmjs.org/@jridgewell/gen-mapping/-/gen-mapping-0.3.13.tgz",
+@@ -1730,9 +1668,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1749,9 +1684,6 @@
+       "cpu": [
+         "arm64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1768,9 +1700,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1787,9 +1716,6 @@
+       "cpu": [
+         "x64"
+       ],
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -1885,6 +1811,7 @@
+       "integrity": "sha512-IaYGml/nSOiZWROfPtuIL7neuu9qDOZ3TNvNljUIrhDMxiGTgPjzj/g9p9RxpS2tSepPDRY+UwAaEeiKtUvIAg==",
+       "devOptional": true,
+       "license": "Apache-2.0",
++      "peer": true,
+       "dependencies": {
+         "playwright": "1.64.1"
+       },
+@@ -2055,9 +1982,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2075,9 +1999,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2095,9 +2016,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2115,9 +2033,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2308,6 +2223,7 @@
+       "integrity": "sha512-6mDvHUFSjyT2B2yeNx2nUgMxh9LtOWvkhIU3uePn2I2oyNymUAX1NIsdgviM4CH+JSrp2D2hsMvJOkxY+0wNRA==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "csstype": "^3.0.2"
+       }
+@@ -2323,17 +2239,17 @@
+       }
+     },
+     "node_modules/@typescript-eslint/eslint-plugin": {
+-      "version": "8.71.2",
+-      "resolved": "https://registry.npmjs.org/@typescript-eslint/eslint-plugin/-/eslint-plugin-8.71.2.tgz",
+-      "integrity": "sha512-K72/pvT7qpm8q3k8G5u93NCSN1RcLxX5h7Gw0bQpbMXviBHeY6Nx1WEwmk9wP+eKTSQ8ecxvcgt/ZX/rB938xQ==",
++      "version": "8.73.0",
++      "resolved": "https://registry.npmjs.org/@typescript-eslint/eslint-plugin/-/eslint-plugin-8.73.0.tgz",
++      "integrity": "sha512-UkygMFer53Yzn29MCYFTHf34hGXf5KJhiDWfIm1tXtXRrym1CS6l5H9Y3yCtPWChpC0/f93H88gdj8tN0dd4kw==",
+       "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "@eslint-community/regexpp": "^4.12.2",
+-        "@typescript-eslint/scope-manager": "8.71.2",
+-        "@typescript-eslint/type-utils": "8.71.2",
+-        "@typescript-eslint/utils": "8.71.2",
+-        "@typescript-eslint/visitor-keys": "8.71.2",
++        "@typescript-eslint/scope-manager": "8.73.0",
++        "@typescript-eslint/type-utils": "8.73.0",
++        "@typescript-eslint/utils": "8.73.0",
++        "@typescript-eslint/visitor-keys": "8.73.0",
+         "ignore": "^7.0.5",
+         "natural-compare": "^1.4.0",
+         "ts-api-utils": "^2.5.0"
+@@ -2346,15 +2262,15 @@
+         "url": "https://opencollective.com/typescript-eslint"
+       },
+       "peerDependencies": {
+-        "@typescript-eslint/parser": "^8.71.2",
++        "@typescript-eslint/parser": "^8.73.0",
+         "eslint": "^8.57.0 || ^9.0.0 || ^10.0.0",
+         "typescript": ">=4.8.4 <6.1.0"
+       }
+     },
+     "node_modules/@typescript-eslint/eslint-plugin/node_modules/ignore": {
+-      "version": "7.0.12",
+-      "resolved": "https://registry.npmjs.org/ignore/-/ignore-7.0.12.tgz",
+-      "integrity": "sha512-/8UvqAPU9DGTI9k4mxtf49U37Isfwr8Uts96+SBHIkFxPJnHS0Ew4f00sM4Scd8V8EjM0jUNtVDdv1kPdt35lg==",
++      "version": "7.0.14",
++      "resolved": "https://registry.npmjs.org/ignore/-/ignore-7.0.14.tgz",
++      "integrity": "sha512-wCBiZ77u1tuWde6G/nfOtLaCTYcFDU5yCzARzK10y+rLhzYoL7a7yEemcopcc2Mzow7gZOIjnV2ym1NYmdiJOQ==",
+       "dev": true,
+       "license": "MIT",
+       "engines": {
+@@ -2362,16 +2278,17 @@
+       }
+     },
+     "node_modules/@typescript-eslint/parser": {
+-      "version": "8.71.2",
+-      "resolved": "https://registry.npmjs.org/@typescript-eslint/parser/-/parser-8.71.2.tgz",
+-      "integrity": "sha512-aTtmZjp/x3gsGHkDs04/1I8kNogBJkpQaeGaN0PfiG43NzDEmW2n+OP5im9wfsvyX0yP1UZWBrAGtDBfH9jEVw==",
++      "version": "8.73.0",
++      "resolved": "https://registry.npmjs.org/@typescript-eslint/parser/-/parser-8.73.0.tgz",
++      "integrity": "sha512-AuL45bVcmssHfZ3Di3cs9Q0l4gBm4ZFVrJOQEE7VpqW+PVgQaEwSwazz4TVIiFabXkk6U51EprYDwqw+HR8ePw==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+-        "@typescript-eslint/scope-manager": "8.71.2",
+-        "@typescript-eslint/types": "8.71.2",
+-        "@typescript-eslint/typescript-estree": "8.71.2",
+-        "@typescript-eslint/visitor-keys": "8.71.2",
++        "@typescript-eslint/scope-manager": "8.73.0",
++        "@typescript-eslint/types": "8.73.0",
++        "@typescript-eslint/typescript-estree": "8.73.0",
++        "@typescript-eslint/visitor-keys": "8.73.0",
+         "debug": "^4.4.3"
+       },
+       "engines": {
+@@ -2387,14 +2304,14 @@
+       }
+     },
+     "node_modules/@typescript-eslint/project-service": {
+-      "version": "8.71.2",
+-      "resolved": "https://registry.npmjs.org/@typescript-eslint/project-service/-/project-service-8.71.2.tgz",
+-      "integrity": "sha512-Pd68GsLVh5ZXlcEccFPdhSOvtHZ/2WU0XsA8zmXOS3F158lVlcTLhfQ6qvtL1RzbMie0Kp8xtbVwAg4nejKPHw==",
++      "version": "8.73.0",
++      "resolved": "https://registry.npmjs.org/@typescript-eslint/project-service/-/project-service-8.73.0.tgz",
++      "integrity": "sha512-/pEf8Rc4Mjk+qJnY0uO1+Gadeal8uv50xpuic+srG2vIVatA0XxvWMUeMtFvs6OCHqftiQ7/+qH4aehG5stzIA==",
+       "dev": true,
+       "license": "MIT",
+       "dependencies": {
+-        "@typescript-eslint/tsconfig-utils": "^8.71.2",
+-        "@typescript-eslint/types": "^8.71.2",
++        "@typescript-eslint/tsconfig-utils": "^8.73.0",
++        "@typescript-eslint/types": "^8.73.0",
+         "debug": "^4.4.3"
+       },
+       "engines": {
+@@ -2409,14 +2326,14 @@
+       }
+     },
+     "node_modules/@typescript-eslint/scope-manager": {
+-      "version": "8.71.2",
+-      "resolved": "https://registry.npmjs.org/@typescript-eslint/scope-manager/-/scope-manager-8.71.2.tgz",
+-      "integrity": "sha512-YF4wgg5iUX5Obywoac27B56FhozMNFhdJSbh11H5GBAwmBtfyRhmgTQqW9tRNNmHDvsZ2CX6UGzoz+YfYn2Leg==",
++      "version": "8.73.0",
++      "resolved": "https://registry.npmjs.org/@typescript-eslint/scope-manager/-/scope-manager-8.73.0.tgz",
++      "integrity": "sha512-/TjD738Iq2rzj5z0ixVOi+TsvgjAzZPLPaH1yWdDBytR/HTR5gMpyYWZeCe5WTQZLwk3ho8AV7U3muoQCRtXBQ==",
+       "dev": true,
+       "license": "MIT",
+       "dependencies": {
+-        "@typescript-eslint/types": "8.71.2",
+-        "@typescript-eslint/visitor-keys": "8.71.2"
++        "@typescript-eslint/types": "8.73.0",
++        "@typescript-eslint/visitor-keys": "8.73.0"
+       },
+       "engines": {
+         "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+@@ -2427,9 +2344,9 @@
+       }
+     },
+     "node_modules/@typescript-eslint/tsconfig-utils": {
+-      "version": "8.71.2",
+-      "resolved": "https://registry.npmjs.org/@typescript-eslint/tsconfig-utils/-/tsconfig-utils-8.71.2.tgz",
+-      "integrity": "sha512-jz49TAWokm/7yWD9/o837nYax9DyALxIPOImdImvVzo6canBCZYzin8zJyqNR5k1j9K1DE0bVvr0XYB+99uAdg==",
++      "version": "8.73.0",
++      "resolved": "https://registry.npmjs.org/@typescript-eslint/tsconfig-utils/-/tsconfig-utils-8.73.0.tgz",
++      "integrity": "sha512-lmtCFOfYaJfpqZywGuXi4FpNtE+NQ+YLe3T0K9rtEDcW8ZuGWvfI++pj8r05sYMI8vWT2CYK4rWyedmD6Rp4og==",
+       "dev": true,
+       "license": "MIT",
+       "engines": {
+@@ -2444,15 +2361,15 @@
+       }
+     },
+     "node_modules/@typescript-eslint/type-utils": {
+-      "version": "8.71.2",
+-      "resolved": "https://registry.npmjs.org/@typescript-eslint/type-utils/-/type-utils-8.71.2.tgz",
+-      "integrity": "sha512-cC8UaalCViJkb3rH/xLIvidEwoFRtMZMUqDjjJMGEKaTFwYRHYBcoczlEGHuvkHEO8svRDrgZ0yQgOArFmwang==",
++      "version": "8.73.0",
++      "resolved": "https://registry.npmjs.org/@typescript-eslint/type-utils/-/type-utils-8.73.0.tgz",
++      "integrity": "sha512-MOC9i4xy1F7KcDde7Ip8jf1SrRiALb2Km4UWxGNjUE2YlhjIEo1ayE27GHIwIQyfWuHTmEonQT14uyurlyC6aA==",
+       "dev": true,
+       "license": "MIT",
+       "dependencies": {
+-        "@typescript-eslint/types": "8.71.2",
+-        "@typescript-eslint/typescript-estree": "8.71.2",
+-        "@typescript-eslint/utils": "8.71.2",
++        "@typescript-eslint/types": "8.73.0",
++        "@typescript-eslint/typescript-estree": "8.73.0",
++        "@typescript-eslint/utils": "8.73.0",
+         "debug": "^4.4.3",
+         "ts-api-utils": "^2.5.0"
+       },
+@@ -2469,9 +2386,9 @@
+       }
+     },
+     "node_modules/@typescript-eslint/types": {
+-      "version": "8.71.2",
+-      "resolved": "https://registry.npmjs.org/@typescript-eslint/types/-/types-8.71.2.tgz",
+-      "integrity": "sha512-y5Ukl3oVp7e/VGxqIoEXoeb/Roj71PAJ4WG/N/RGj+eeDvKRLM15kGr9MijLbN0i03S52zxu31Z98E5gWChJKw==",
++      "version": "8.73.0",
++      "resolved": "https://registry.npmjs.org/@typescript-eslint/types/-/types-8.73.0.tgz",
++      "integrity": "sha512-O/1ytYzflF16QDKXx4/qOXg1IuZp+n7hr9t+S0nv7N/2Tl8rJiNCshztV1gcSUvHbPtoX3+zmNbtSAyVbzxVfw==",
+       "dev": true,
+       "license": "MIT",
+       "engines": {
+@@ -2483,18 +2400,18 @@
+       }
+     },
+     "node_modules/@typescript-eslint/typescript-estree": {
+-      "version": "8.71.2",
+-      "resolved": "https://registry.npmjs.org/@typescript-eslint/typescript-estree/-/typescript-estree-8.71.2.tgz",
+-      "integrity": "sha512-DgNOEsl4pdYzwSL+N/Cl33tX1Hlw3FvId73LnKXfq7jnrF2viOEn7X+P7RBkkSWCVm92gnWd28GIC5vJuLREeA==",
++      "version": "8.73.0",
++      "resolved": "https://registry.npmjs.org/@typescript-eslint/typescript-estree/-/typescript-estree-8.73.0.tgz",
++      "integrity": "sha512-InjlBkSdWceIwIBWSwS3ENUp+i0O02PGX3Zv2wnihWJC1WDVGvG7mTHuf8b57uAaITj94d6tRPDH+sUEtXdRQQ==",
+       "dev": true,
+       "license": "MIT",
+       "dependencies": {
+-        "@typescript-eslint/project-service": "8.71.2",
+-        "@typescript-eslint/tsconfig-utils": "8.71.2",
+-        "@typescript-eslint/types": "8.71.2",
+-        "@typescript-eslint/visitor-keys": "8.71.2",
++        "@typescript-eslint/project-service": "8.73.0",
++        "@typescript-eslint/tsconfig-utils": "8.73.0",
++        "@typescript-eslint/types": "8.73.0",
++        "@typescript-eslint/visitor-keys": "8.73.0",
+         "debug": "^4.4.3",
+-        "minimatch": "^10.2.2",
++        "minimatch": "^11.0.1",
+         "semver": "^7.7.3",
+         "tinyglobby": "^0.2.15",
+         "ts-api-utils": "^2.5.0"
+@@ -2507,7 +2424,13 @@
+         "url": "https://opencollective.com/typescript-eslint"
+       },
+       "peerDependencies": {
++        "@typescript/native": "npm:typescript@>=7.1.0-dev.20261009.1 || >=7.1.0-beta <7.1.0-dev",
+         "typescript": ">=4.8.4 <6.1.0"
++      },
++      "peerDependenciesMeta": {
++        "@typescript/native": {
++          "optional": true
++        }
+       }
+     },
+     "node_modules/@typescript-eslint/typescript-estree/node_modules/balanced-match": {
+@@ -2521,9 +2444,9 @@
+       }
+     },
+     "node_modules/@typescript-eslint/typescript-estree/node_modules/brace-expansion": {
+-      "version": "5.0.12",
+-      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.12.tgz",
+-      "integrity": "sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==",
++      "version": "5.0.13",
++      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.13.tgz",
++      "integrity": "sha512-Vh3dmFbc4wZeox7M9I/0L9GfFd83Su4+yCck/OF9Gi/P/dAHn0RT7X4K9R7gMNMhDck3DvhR6QXsnQdjjgwNvQ==",
+       "dev": true,
+       "license": "MIT",
+       "dependencies": {
+@@ -2534,25 +2457,26 @@
+       }
+     },
+     "node_modules/@typescript-eslint/typescript-estree/node_modules/minimatch": {
+-      "version": "10.2.6",
+-      "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-10.2.6.tgz",
+-      "integrity": "sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==",
++      "version": "11.0.8",
++      "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-11.0.8.tgz",
++      "integrity": "sha512-nFQuYSTVrGvysVBps5Ih+0BdnYFN/Cj3C816r6+p7yK+FHrVLGE4O4N9AFwykrlNlvM2HYt+Rad1Uiro6h88Ig==",
+       "dev": true,
+       "license": "BlueOak-1.0.0",
+       "dependencies": {
+-        "brace-expansion": "^5.0.8"
++        "@isaacs/nonrecursive-glob-match": "^1.1.0",
++        "brace-expansion": "^5.0.12"
+       },
+       "engines": {
+-        "node": "18 || 20 || >=22"
++        "node": "20 || >=22"
+       },
+       "funding": {
+         "url": "https://github.com/sponsors/isaacs"
+       }
+     },
+     "node_modules/@typescript-eslint/typescript-estree/node_modules/semver": {
+-      "version": "7.8.5",
+-      "resolved": "https://registry.npmjs.org/semver/-/semver-7.8.5.tgz",
+-      "integrity": "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==",
++      "version": "7.8.6",
++      "resolved": "https://registry.npmjs.org/semver/-/semver-7.8.6.tgz",
++      "integrity": "sha512-9lpSSU4Mly3mrtruwLs1eLK6+gzbzqeBFwRNjIjE+9LuDpWdYctrQlQ3ej1Ilgi7gknpsTRnPoLP8DpCHqHIJw==",
+       "dev": true,
+       "license": "ISC",
+       "bin": {
+@@ -2563,16 +2487,16 @@
+       }
+     },
+     "node_modules/@typescript-eslint/utils": {
+-      "version": "8.71.2",
+-      "resolved": "https://registry.npmjs.org/@typescript-eslint/utils/-/utils-8.71.2.tgz",
+-      "integrity": "sha512-RyKa1G1M9rKHDhrk+HJtiF1MvLD5Ux2JW3TSkzw+02pRALdpJb+QzG1Y5em+LvCgzGwgg8H7mBRFKljNz7ImPw==",
++      "version": "8.73.0",
++      "resolved": "https://registry.npmjs.org/@typescript-eslint/utils/-/utils-8.73.0.tgz",
++      "integrity": "sha512-j2SVJJvVkXdUL0WcEzo4vEH1mO1vIi8KlVukcYA2MgMZvYN2LlZR4PmsW+GTSxSW24j6Q/EP7+MOifLtg5hmsA==",
+       "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "@eslint-community/eslint-utils": "^4.9.1",
+-        "@typescript-eslint/scope-manager": "8.71.2",
+-        "@typescript-eslint/types": "8.71.2",
+-        "@typescript-eslint/typescript-estree": "8.71.2"
++        "@typescript-eslint/scope-manager": "8.73.0",
++        "@typescript-eslint/types": "8.73.0",
++        "@typescript-eslint/typescript-estree": "8.73.0"
+       },
+       "engines": {
+         "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+@@ -2587,13 +2511,13 @@
+       }
+     },
+     "node_modules/@typescript-eslint/visitor-keys": {
+-      "version": "8.71.2",
+-      "resolved": "https://registry.npmjs.org/@typescript-eslint/visitor-keys/-/visitor-keys-8.71.2.tgz",
+-      "integrity": "sha512-zozlN0UA32bSG2zkKAgQyRYSbEISVoyU6vvkKYo2aSny74D8Jh4e+POkJ6Lk0dlezZi5x7TtD+88Xb06IB8nhg==",
++      "version": "8.73.0",
++      "resolved": "https://registry.npmjs.org/@typescript-eslint/visitor-keys/-/visitor-keys-8.73.0.tgz",
++      "integrity": "sha512-k4lsFVpRZICbltkIEEH4hZRkwXkqDF1GHBpClKQOHQY+RkoZAAuyc1ci3I6p+CB6v3U4jaHIUshc4RzzQXZWLg==",
+       "dev": true,
+       "license": "MIT",
+       "dependencies": {
+-        "@typescript-eslint/types": "8.71.2",
++        "@typescript-eslint/types": "8.73.0",
+         "eslint-visitor-keys": "^5.0.0"
+       },
+       "engines": {
+@@ -2723,9 +2647,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2740,9 +2661,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2757,9 +2675,6 @@
+         "loong64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2774,9 +2689,6 @@
+         "loong64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2791,9 +2703,6 @@
+         "ppc64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2808,9 +2717,6 @@
+         "riscv64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2825,9 +2731,6 @@
+         "riscv64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2842,9 +2745,6 @@
+         "s390x"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2859,9 +2759,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2876,9 +2773,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MIT",
+       "optional": true,
+       "os": [
+@@ -2918,6 +2812,18 @@
+         "node": ">=14.0.0"
+       }
+     },
++    "node_modules/@unrs/resolver-binding-wasm32-wasi/node_modules/@emnapi/core": {
++      "version": "1.10.0",
++      "resolved": "https://registry.npmjs.org/@emnapi/core/-/core-1.10.0.tgz",
++      "integrity": "sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==",
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "@emnapi/wasi-threads": "1.2.1",
++        "tslib": "^2.4.0"
++      }
++    },
+     "node_modules/@unrs/resolver-binding-wasm32-wasi/node_modules/@emnapi/runtime": {
+       "version": "1.10.0",
+       "resolved": "https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.10.0.tgz",
+@@ -2929,6 +2835,17 @@
+         "tslib": "^2.4.0"
+       }
+     },
++    "node_modules/@unrs/resolver-binding-wasm32-wasi/node_modules/@emnapi/wasi-threads": {
++      "version": "1.2.1",
++      "resolved": "https://registry.npmjs.org/@emnapi/wasi-threads/-/wasi-threads-1.2.1.tgz",
++      "integrity": "sha512-uTII7OYF+/Mes/MrcIOYp5yOtSMLBWSIoLPpcgwipoiKbli6k322tcoFsxoIIxPDqW01SQGAgko4EzZi2BNv2w==",
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "tslib": "^2.4.0"
++      }
++    },
+     "node_modules/@unrs/resolver-binding-win32-arm64-msvc": {
+       "version": "1.12.2",
+       "resolved": "https://registry.npmjs.org/@unrs/resolver-binding-win32-arm64-msvc/-/resolver-binding-win32-arm64-msvc-1.12.2.tgz",
+@@ -2977,6 +2894,7 @@
+       "integrity": "sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "bin": {
+         "acorn": "bin/acorn"
+       },
+@@ -2994,6 +2912,18 @@
+         "acorn": "^6.0.0 || ^7.0.0 || ^8.0.0"
+       }
+     },
++    "node_modules/agent-base": {
++      "version": "6.0.2",
++      "resolved": "https://registry.npmjs.org/agent-base/-/agent-base-6.0.2.tgz",
++      "integrity": "sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ==",
++      "license": "MIT",
++      "dependencies": {
++        "debug": "4"
++      },
++      "engines": {
++        "node": ">= 6.0.0"
++      }
++    },
+     "node_modules/ajv": {
+       "version": "6.15.0",
+       "resolved": "https://registry.npmjs.org/ajv/-/ajv-6.15.0.tgz",
+@@ -3254,14 +3184,15 @@
+       }
+     },
+     "node_modules/axios": {
+-      "version": "1.12.2",
+-      "resolved": "https://registry.npmjs.org/axios/-/axios-1.12.2.tgz",
+-      "integrity": "sha512-vMJzPewAlRyOgxV2dU0Cuz2O8zzzx9VYtbJOaBgXFeLc4IV/Eg50n4LowmehOOR61S8ZMpc2K5Sa7g6A4jfkUw==",
++      "version": "1.21.1",
++      "resolved": "https://registry.npmjs.org/axios/-/axios-1.21.1.tgz",
++      "integrity": "sha512-6eI5Q/Y4u/Um9dDlsRoq5pY2rxnUTv+L4PpLitnbk/i4jb3MxLZ5CsN5Ih3IysbeRYK4pR+P7qfMsOQl9fwwFQ==",
+       "license": "MIT",
+       "dependencies": {
+-        "follow-redirects": "^1.15.6",
+-        "form-data": "^4.0.4",
+-        "proxy-from-env": "^1.1.0"
++        "follow-redirects": "^1.16.2",
++        "form-data": "^4.0.6",
++        "https-proxy-agent": "^5.0.1",
++        "proxy-from-env": "^2.1.0"
+       }
+     },
+     "node_modules/axobject-query": {
+@@ -3337,6 +3268,7 @@
+         }
+       ],
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "baseline-browser-mapping": "^2.11.26",
+         "caniuse-lite": "^1.0.30001813",
+@@ -3596,7 +3528,6 @@
+       "version": "4.4.3",
+       "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
+       "integrity": "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==",
+-      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "ms": "^2.1.3"
+@@ -3994,6 +3925,7 @@
+       "deprecated": "This version is no longer supported. Please see https://eslint.org/version-support for other options.",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "@eslint-community/eslint-utils": "^4.8.0",
+         "@eslint-community/regexpp": "^4.12.1",
+@@ -4179,6 +4111,7 @@
+       "integrity": "sha512-whOE1HFo/qJDyX4SnXzP4N6zOWn79WhnCUY/iDR0mPfQZO8wcYE4JClzI2oZrhBnnMUCBCHZhO6VQyoBU95mZA==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "@rtsao/scc": "^1.1.0",
+         "array-includes": "^3.1.9",
+@@ -4520,9 +4453,9 @@
+       "license": "ISC"
+     },
+     "node_modules/follow-redirects": {
+-      "version": "1.16.1",
+-      "resolved": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.16.1.tgz",
+-      "integrity": "sha512-FNvFGzoMLWmE6Yj9spb/zjd7yiNCHiAW9/Tg9CXrQ8wuu32HtlJOwWO11OJafl5FfY3DxTdQ0vj42zU1kvv5jg==",
++      "version": "1.16.3",
++      "resolved": "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.16.3.tgz",
++      "integrity": "sha512-toOSoqN6d51Wjf1aOFJYcoVv1aND9rj/CwjLU0Vz40oDuSpWDayCeKe4JpL5NL0WdFvoOOCI3BRo69HahjbR1A==",
+       "funding": [
+         {
+           "type": "individual",
+@@ -4887,6 +4820,19 @@
+         "hermes-estree": "0.25.1"
+       }
+     },
++    "node_modules/https-proxy-agent": {
++      "version": "5.0.1",
++      "resolved": "https://registry.npmjs.org/https-proxy-agent/-/https-proxy-agent-5.0.1.tgz",
++      "integrity": "sha512-dFcAjpTQFgoLMzC2VwU+C/CbS7uRL0lWmxDITmqm7C+7F0Odmj6s9l6alZc6AELXhrnggM2CeWSXHGOdX2YtwA==",
++      "license": "MIT",
++      "dependencies": {
++        "agent-base": "6",
++        "debug": "4"
++      },
++      "engines": {
++        "node": ">= 6"
++      }
++    },
+     "node_modules/ignore": {
+       "version": "5.3.2",
+       "resolved": "https://registry.npmjs.org/ignore/-/ignore-5.3.2.tgz",
+@@ -5670,9 +5616,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -5694,9 +5637,6 @@
+         "arm64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -5718,9 +5658,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "glibc"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -5742,9 +5679,6 @@
+         "x64"
+       ],
+       "dev": true,
+-      "libc": [
+-        "musl"
+-      ],
+       "license": "MPL-2.0",
+       "optional": true,
+       "os": [
+@@ -5960,7 +5894,6 @@
+       "version": "2.1.3",
+       "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+       "integrity": "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==",
+-      "dev": true,
+       "license": "MIT"
+     },
+     "node_modules/nanoid": {
+@@ -6427,10 +6360,13 @@
+       }
+     },
+     "node_modules/proxy-from-env": {
+-      "version": "1.1.0",
+-      "resolved": "https://registry.npmjs.org/proxy-from-env/-/proxy-from-env-1.1.0.tgz",
+-      "integrity": "sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==",
+-      "license": "MIT"
++      "version": "2.1.0",
++      "resolved": "https://registry.npmjs.org/proxy-from-env/-/proxy-from-env-2.1.0.tgz",
++      "integrity": "sha512-cJ+oHTW1VAEa8cJslgmUZrc+sjRKgAKl3Zyse6+PV38hZe/V6Z14TbCuXcan9F9ghlz4QrFr2c92TNF82UkYHA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=10"
++      }
+     },
+     "node_modules/punycode": {
+       "version": "2.3.1",
+@@ -6468,6 +6404,7 @@
+       "resolved": "https://registry.npmjs.org/react/-/react-19.2.0.tgz",
+       "integrity": "sha512-tmbWg6W31tQLeB5cdIBOicJDJRR2KzXsV7uSK9iNfLWQ5bIZfxuPEHp7M8wiHyHnn0DD1i7w3Zmin0FtkrwoCQ==",
+       "license": "MIT",
++      "peer": true,
+       "engines": {
+         "node": ">=0.10.0"
+       }
+@@ -6477,6 +6414,7 @@
+       "resolved": "https://registry.npmjs.org/react-dom/-/react-dom-19.2.0.tgz",
+       "integrity": "sha512-UlbRu4cAiGaIewkPyiRGJk0imDN2T3JjieT6spoL2UeSf5od4n5LB/mQ4ejmxhCFT1tYe8IvaFulzynWovsEFQ==",
+       "license": "MIT",
++      "peer": true,
+       "dependencies": {
+         "scheduler": "^0.27.0"
+       },
+@@ -6489,6 +6427,7 @@
+       "resolved": "https://registry.npmjs.org/react-hook-form/-/react-hook-form-7.65.0.tgz",
+       "integrity": "sha512-xtOzDz063WcXvGWaHgLNrNzlsdFgtUWcb32E6WFaGTd7kPZG3EeDusjdZfUsPwKCKVXy1ZlntifaHZ4l8pAsmw==",
+       "license": "MIT",
++      "peer": true,
+       "engines": {
+         "node": ">=18.0.0"
+       },
+@@ -7223,6 +7162,7 @@
+       "integrity": "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==",
+       "dev": true,
+       "license": "MIT",
++      "peer": true,
+       "engines": {
+         "node": ">=12"
+       },
+@@ -7403,6 +7343,7 @@
+       "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
+       "dev": true,
+       "license": "Apache-2.0",
++      "peer": true,
+       "bin": {
+         "tsc": "bin/tsc",
+         "tsserver": "bin/tsserver"
+@@ -7412,16 +7353,16 @@
+       }
+     },
+     "node_modules/typescript-eslint": {
+-      "version": "8.71.2",
+-      "resolved": "https://registry.npmjs.org/typescript-eslint/-/typescript-eslint-8.71.2.tgz",
+-      "integrity": "sha512-Rz4effbMy2g9wnvOJZG6SbVavX313Lap1vNEbk1RUochzickvzP8P4HB+bkNg5e50eVz1hQGjh9K1omI1xB4Bw==",
++      "version": "8.73.0",
++      "resolved": "https://registry.npmjs.org/typescript-eslint/-/typescript-eslint-8.73.0.tgz",
++      "integrity": "sha512-+EnKy9rkYPun4l+kG2bDuYWQ6y1tGVgdR/tY1U9AC6h21CjEwOoc7gsjwe0FXB8uWFzk4QiCFbuRWgX758PiAg==",
+       "dev": true,
+       "license": "MIT",
+       "dependencies": {
+-        "@typescript-eslint/eslint-plugin": "8.71.2",
+-        "@typescript-eslint/parser": "8.71.2",
+-        "@typescript-eslint/typescript-estree": "8.71.2",
+-        "@typescript-eslint/utils": "8.71.2"
++        "@typescript-eslint/eslint-plugin": "8.73.0",
++        "@typescript-eslint/parser": "8.73.0",
++        "@typescript-eslint/typescript-estree": "8.73.0",
++        "@typescript-eslint/utils": "8.73.0"
+       },
+       "engines": {
+         "node": "^18.18.0 || ^20.9.0 || >=21.1.0"
+@@ -7676,10 +7617,11 @@
+       }
+     },
+     "node_modules/zod": {
+-      "version": "4.1.12",
+-      "resolved": "https://registry.npmjs.org/zod/-/zod-4.1.12.tgz",
+-      "integrity": "sha512-JInaHOamG8pt5+Ey8kGmdcAcg3OL9reK8ltczgHTAwNhMys/6ThXHityHxVV2p3fkw/c+MAvBHFVYHFZDmjMCQ==",
++      "version": "4.6.7",
++      "resolved": "https://registry.npmjs.org/zod/-/zod-4.6.7.tgz",
++      "integrity": "sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==",
+       "license": "MIT",
++      "peer": true,
+       "funding": {
+         "url": "https://github.com/sponsors/colinhacks"
+       }
+diff --git a/package.json b/package.json
+index 08cef0d..223a2b1 100644
+--- a/package.json
++++ b/package.json
+@@ -21,13 +21,13 @@
+   "dependencies": {
+     "@hookform/resolvers": "5.2.1",
+     "@tanstack/react-query": "5.90.2",
+-    "axios": "1.12.2",
++    "axios": "^1.21.1",
+     "next": "^16.4.1",
+     "react": "19.2.0",
+     "react-dom": "19.2.0",
+     "react-hook-form": "7.65.0",
+     "server-only": "0.0.1",
+-    "zod": "4.1.12"
++    "zod": "^4.6.7"
+   },
+   "devDependencies": {
+     "@eslint/eslintrc": "3.3.1",
+diff --git a/tests/admin-university-management.test.ts b/tests/admin-university-management.test.ts
+index f0ced04..5b2fd02 100644
+--- a/tests/admin-university-management.test.ts
++++ b/tests/admin-university-management.test.ts
+@@ -100,7 +100,7 @@ test("proxy expands only documented paths; gallery detach requires trusted origi
+ });
+ test("existing editor mappings include normalized city and scholarship images without changing flat article blocks", () => {
+   const values = initialContentValues("universities", university as never); assert.equal(values.universityType, "PUBLIC"); assert.equal(validateContentValues("universities", values).cityId, undefined);
+-  assert.equal(toContentPayload("universities", { ...values, cityId: recordId }).cityId, recordId); assert.equal(toContentPayload("universities", { ...values, universityType: "" }).universityType, undefined);
++  assert.equal(toContentPayload("universities", { ...values, cityId: recordId }).cityId, recordId); assert.equal(toContentPayload("universities", { ...values, universityType: "" }).universityType, null);
+   assert.equal(toContentPayload("scholarships", { imageUrl: image.imageUrl }).imageUrl, image.imageUrl);
+   assert.deepEqual(toContentPayload("articles", { bodyAr: [{ type: "paragraph", text: "نص" }] }).bodyAr, [{ type: "paragraph", text: "نص" }]);
+ });
+diff --git a/tests/audit/browser/coverage.spec.ts b/tests/audit/browser/coverage.spec.ts
+index 1353173..60d9c78 100644
+--- a/tests/audit/browser/coverage.spec.ts
++++ b/tests/audit/browser/coverage.spec.ts
+@@ -42,7 +42,7 @@ export async function isolate(page: Page, role: "ADMIN" | "SUPER_ADMIN" = "ADMIN
+   });
+   return { state, errors };
+ }
+-const save = (page: Page) => page.locator('form button[type="submit"]').click();
++const save = (page: Page) => page.locator('form button[type="submit"]').first().click();
+ 
+ test("AUD-01 Article unrelated edit must not collapse multiple scholarship links", async ({ page }) => {
+   const { state } = await isolate(page, "SUPER_ADMIN"); await page.goto(`/admin/articles/${recordId}`);
+@@ -108,11 +108,11 @@ test("Original Service editor real-Axios 400 retains edits and does not show suc
+   await expect(page.getByLabel("الملخص بالعربية", { exact: false })).toHaveValue("تحرير غير محفوظ"); expect(state.writes).toHaveLength(1); expect(errors).toEqual([]);
+ });
+ 
+-test("Production runtime excludes development proxy and mock controls", async ({ page, request }) => {
++test("Runtime excludes mock controls and rejects untrusted development-proxy requests", async ({ page, request }) => {
+   const { state } = await isolate(page); await page.goto("/admin");
+   await expect(page.getByText("أدوات التطوير", { exact: false })).toHaveCount(0);
+-  // Direct request to the locally served production build; it must stop before upstream.
+-  const response = await request.get("/__dev_api/health"); expect(response.status()).toBe(404);
++  // The route is compiled for local development, but an untrusted request must stop before upstream.
++  const response = await request.get("/__dev_api/health"); expect(response.status()).toBe(403);
+   expect(state.writes).toHaveLength(0);
+ });
+ 
+@@ -123,8 +123,8 @@ test("Shared uploader maps resource and secureUrl across all five original edito
+     await page.goto(`/admin/${resource}/${id}`);
+     const title = page.locator(`#${resource}-${["countries", "universities"].includes(resource) ? "nameAr" : "titleAr"}`);
+     await expect(title).not.toHaveValue(""); const original = await title.inputValue();
+-    await page.getByLabel("ملف الصورة", { exact: true }).setInputFiles({ name: "audit.png", mimeType: "image/png", buffer: Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]) });
+-    await page.getByRole("button", { name: "رفع الصورة", exact: true }).click();
++    await page.getByLabel("ملف الصورة", { exact: true }).first().setInputFiles({ name: "audit.png", mimeType: "image/png", buffer: Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]) });
++    await page.getByRole("button", { name: "رفع الصورة", exact: true }).first().click();
+     await expect(page.locator(`#${resource}-${resource === "articles" ? "coverImageUrl" : "imageUrl"}`)).toHaveValue("https://example.invalid/audit.png");
+     expect(state.uploads.at(-1)).toContain(`\r\n${resource}\r\n`); await expect(title).toHaveValue(original);
+   }
+diff --git a/tests/audit/contract-gaps.test.ts b/tests/audit/contract-gaps.test.ts
+index efd2a1a..8b21ab5 100644
+--- a/tests/audit/contract-gaps.test.ts
++++ b/tests/audit/contract-gaps.test.ts
+@@ -8,7 +8,9 @@ import { safeAuditMetadata } from "@/lib/phase4-presentation";
+ 
+ // Audit acceptance assertions deliberately remain RED when a defect exists.
+ // No network transport, real credentials, or production record is used.
+-const spec = JSON.parse(readFileSync(process.env.ADMIN_AUDIT_SPEC ?? "C:/Users/CMerna/Downloads/tareeq-academy-api.json", "utf8"));
++const auditSpecPath = process.env.ADMIN_AUDIT_SPEC;
++if (!auditSpecPath) throw new Error("ADMIN_AUDIT_SPEC must point to the authoritative OpenAPI JSON export; no verified fixture is stored in this repository.");
++const spec = JSON.parse(readFileSync(auditSpecPath, "utf8"));
+ const id = "11111111-1111-4111-8111-111111111111";
+ const second = "22222222-2222-4222-8222-222222222222";
+ const article = { id, titleAr: "مقال محلي", summaryAr: "ملخص محلي", slug: "local-article", featured: false, status: "DRAFT", bodyAr: [{ type: "paragraph", text: "نص محلي" }], bodyEn: null, countryId: null, universityId: null, scholarshipId: id, scholarshipIds: [id, second], relatedScholarships: [] } as unknown as Article;
+diff --git a/tests/e2e/admin-ui.spec.ts b/tests/e2e/admin-ui.spec.ts
+index 6cad661..6ebb349 100644
+--- a/tests/e2e/admin-ui.spec.ts
++++ b/tests/e2e/admin-ui.spec.ts
+@@ -8,15 +8,16 @@ const resourceLabels = {
+   articles: "المقالات",
+ } as const;
+ 
+-const createLabels = {
+-  countries: "إضافة الدولة",
++const createSubmitLabels = {
++  countries: "حفظ وإنهاء",
+   universities: "إضافة الجامعة",
+-  scholarships: "إضافة المنحة",
+-  services: "إضافة الخدمة",
++  scholarships: "حفظ وإنهاء",
++  services: "حفظ وإنهاء",
+   articles: "إنشاء المقال",
+ } as const;
+ 
+ type Resource = keyof typeof resourceLabels;
++const publicationLabels = { PUBLISHED: "منشور", DRAFT: "مسودة", ARCHIVED: "مؤرشف" } as const;
+ 
+ async function openMockTools(page: Page) {
+   const tools = page.locator("summary").filter({ hasText: "أدوات المعاينة" });
+@@ -29,7 +30,7 @@ async function setMockScenario(page: Page, scenario: string) {
+ }
+ 
+ function submitButton(page: Page) {
+-  return page.locator("form").getByRole("button", { name: /إضافة الدولة|إضافة الجامعة|إضافة المنحة|إضافة الخدمة|إنشاء المقال|حفظ التغييرات/ });
++  return page.locator("form").getByRole("button", { name: /حفظ وإنهاء|إضافة الجامعة|إنشاء المقال|حفظ التغييرات/ });
+ }
+ 
+ async function resetAndScale(page: Page) {
+@@ -39,14 +40,18 @@ async function resetAndScale(page: Page) {
+   await page.getByRole("button", { name: "علاقات 60+" }).click();
+ }
+ 
+-async function setEditorialStatus(page: Page, resource: Resource, status: "PUBLISHED" | "DRAFT" | "ARCHIVED") {
++async function openCreatedEditor(page: Page, resource: Resource, title: string) {
++  await page.getByRole("row", { name: new RegExp(title) }).getByRole("link", { name: "تعديل" }).click();
++  await expect(page).toHaveURL(new RegExp(`/admin/${resource}/[^/]+$`));
++}
++
++async function setEditorialStatus(page: Page, resource: Resource, title: string, status: keyof typeof publicationLabels) {
+   const select = page.locator(`#${resource}-status`);
+   if (status !== "DRAFT") page.once("dialog", (dialog) => dialog.accept());
+   await select.selectOption(status);
+-  await submitButton(page).click();
+-  await page.waitForTimeout(150);
+-  await expect(page).toHaveURL(new RegExp(`/admin/${resource}/[^/]+$`));
+-  await expect(select).toHaveValue(status);
++  await submitButton(page).evaluate((button) => (button as HTMLButtonElement).click());
++  await expect(page).toHaveURL(new RegExp(`/admin/${resource}$`));
++  await expect(page.getByRole("row", { name: new RegExp(title) })).toContainText(publicationLabels[status]);
+ }
+ 
+ async function fillRequired(page: Page, resource: Resource, suffix: string) {
+@@ -113,8 +118,8 @@ test("mock roles, protected navigation, logout, and responsive drawer are intera
+ 
+   await page.getByRole("button", { name: "SUPER_ADMIN" }).click();
+   await expect(page.getByText("مدير التطوير")).toBeVisible();
+-  await expect(page.getByRole("button", { name: "التحليلات" })).toBeVisible();
+-  await expect(page.getByRole("button", { name: "التحليلات" })).toBeDisabled();
++  await expect(page.getByRole("link", { name: "التحليلات" })).toHaveAttribute("href", "/admin/analytics");
++  await expect(page.getByRole("link", { name: "سجل التدقيق" })).toHaveAttribute("href", "/admin/audit-log");
+   await page.getByRole("link", { name: "الدول" }).click();
+   await expect(page).toHaveURL(/\/admin\/countries/);
+ 
+@@ -182,7 +187,7 @@ for (const resource of Object.keys(resourceLabels) as Resource[]) {
+     await page.getByRole("button", { name: "التالي" }).click();
+     await expect(page.getByText("صفحة 2 من")).toBeVisible();
+     await page.getByRole("link", { name: new RegExp(`إضافة`) }).click();
+-    await expect(submitButton(page)).toHaveAccessibleName(createLabels[resource]);
++    await expect(submitButton(page)).toHaveAccessibleName(createSubmitLabels[resource]);
+     await submitButton(page).click();
+     await expect(page.getByText(resource === "articles" ? "أدخل نص الكتلة." : "هذا الحقل مطلوب.").first()).toBeVisible();
+ 
+@@ -190,21 +195,25 @@ for (const resource of Object.keys(resourceLabels) as Resource[]) {
+     if (resource === "articles") await exerciseArticleBlocks(page);
+     await expect(submitButton(page)).toBeEnabled();
+     await submitButton(page).click();
+-    await expect(page).toHaveURL(new RegExp(`/admin/${resource}/[^/]+$`));
++    await expect(page).toHaveURL(new RegExp(`/admin/${resource}$`));
++    const createdTitle = `${resource === "countries" ? "دولة" : resource === "universities" ? "جامعة" : resource === "scholarships" ? "منحة" : resource === "services" ? "خدمة" : "مقال"} متصفح ${suffix}`;
++    await openCreatedEditor(page, resource, createdTitle);
+     await expect(page.getByRole("heading", { name: /تعديل/, level: 2 })).toBeVisible();
+     await page.waitForTimeout(500);
+     await expect(page.locator(`#${resource}-slug`)).toHaveValue(`browser-${resource}-${suffix}`);
+ 
+     const title = resource === "countries" || resource === "universities" ? `#${resource}-nameAr` : `#${resource}-titleAr`;
+-    await page.locator(title).fill(`${resource === "countries" ? "دولة" : resource === "universities" ? "جامعة" : resource === "scholarships" ? "منحة" : resource === "services" ? "خدمة" : "مقال"} مُحدّث ${suffix}`);
+-    await submitButton(page).click();
+-    await page.waitForTimeout(150);
++    const updatedTitle = `${resource === "countries" ? "دولة" : resource === "universities" ? "جامعة" : resource === "scholarships" ? "منحة" : resource === "services" ? "خدمة" : "مقال"} مُحدّث ${suffix}`;
++    await page.locator(title).fill(updatedTitle);
++    await submitButton(page).evaluate((button) => (button as HTMLButtonElement).click());
++    await expect(page).toHaveURL(new RegExp(`/admin/${resource}$`));
++    await openCreatedEditor(page, resource, updatedTitle);
+     await expect(page.locator(title)).toHaveValue(/مُحدّث/);
+-    await setEditorialStatus(page, resource, "PUBLISHED");
+-    await setEditorialStatus(page, resource, "DRAFT");
+-    await setEditorialStatus(page, resource, "ARCHIVED");
+-    await page.getByRole("link", { name: "العودة إلى القائمة" }).click();
+-    await expect(page.locator("td span").filter({ hasText: "مؤرشف" }).first()).toBeVisible();
++    await setEditorialStatus(page, resource, updatedTitle, "PUBLISHED");
++    await openCreatedEditor(page, resource, updatedTitle);
++    await setEditorialStatus(page, resource, updatedTitle, "DRAFT");
++    await openCreatedEditor(page, resource, updatedTitle);
++    await setEditorialStatus(page, resource, updatedTitle, "ARCHIVED");
+     if (resource === "articles") {
+       await page.getByRole("link", { name: "تعديل" }).first().click();
+       const editor = page.locator("fieldset").filter({ hasText: "محتوى المقال بالعربية" });
+@@ -241,7 +250,7 @@ test("relationship selectors search beyond page fifty, preserve selections, and
+ test("approved UI refinements keep form actions, directions, previews, and mock tools usable", async ({ page }) => {
+   await resetAndScale(page);
+   await expect(page.getByRole("link", { name: "إضافة دولة" })).toHaveAttribute("href", "/admin/countries/new");
+-  await expect(page.locator("aside[aria-label='التنقل الإداري'] svg")).toHaveCount(9);
++  await expect(page.locator("aside[aria-label='التنقل الإداري'] svg")).toHaveCount(14);
+ 
+   await page.getByRole("link", { name: "إضافة دولة" }).click();
+   await expect(page.locator("#countries-nameAr")).toHaveAttribute("dir", "rtl");
+@@ -249,8 +258,8 @@ test("approved UI refinements keep form actions, directions, previews, and mock
+   await expect(page.locator("#countries-slug")).toHaveAttribute("dir", "ltr");
+   await page.setViewportSize({ width: 390, height: 844 });
+   const stickyActions = page.getByLabel("إجراءات النموذج");
+-  await expect(stickyActions.getByRole("button", { name: "إضافة الدولة" })).toBeVisible();
+-  await stickyActions.getByRole("button", { name: "إضافة الدولة" }).click();
++  await expect(stickyActions.getByRole("button", { name: "حفظ وإنهاء" })).toBeVisible();
++  await stickyActions.getByRole("button", { name: "حفظ وإنهاء" }).click();
+   await expect(page.getByText("هذا الحقل مطلوب.").first()).toBeVisible();
+   await expect(stickyActions.getByRole("link", { name: "إلغاء" })).toBeVisible();
+ 
+diff --git a/tests/phase4-e2e/phase4.spec.ts b/tests/phase4-e2e/phase4.spec.ts
+index fdb787f..a5042bd 100644
+--- a/tests/phase4-e2e/phase4.spec.ts
++++ b/tests/phase4-e2e/phase4.spec.ts
+@@ -30,8 +30,8 @@ test("Analytics maps exact KPIs, unscaled rates, chart values, period filters an
+   const state = await backend(page); await page.goto("/admin/analytics"); await expect(page.getByText(/^(?:1,200|١٬٢٠٠)$/)).toBeVisible(); await expect(page.getByText(/^(?:6\.47|٦٫٤٧)٪$/)).toBeVisible(); await expect(page.getByText("غير متاح", { exact: true })).toBeVisible(); await expect(page.getByRole("img", { name: "اتجاه مشاهدات الصفحات", exact: true })).toBeVisible(); await expect(page.locator('svg[role="img"] circle')).toHaveCount(2); await page.getByLabel("مقياس الرسم", { exact: true }).selectOption("ctaClicks"); await expect(page.getByRole("img", { name: "اتجاه نقرات الدعوة للإجراء", exact: true })).toBeVisible(); await responsive(page);
+   await page.getByLabel("من (UTC)", { exact: true }).fill("2026-11-01"); await page.getByLabel("إلى (UTC)", { exact: true }).fill("2026-11-02"); await page.getByLabel("التجميع", { exact: true }).selectOption("week"); await page.getByLabel("حد المقارنات", { exact: true }).fill("5"); await page.getByRole("button", { name: "تطبيق الفترة", exact: true }).click(); await expect.poll(() => state.calls.some(call => call.includes("from=2026-11-01") && call.includes("granularity=week") && call.includes("topLimit=5"))).toBeTruthy(); state.empty = true; await page.getByLabel("التجميع", { exact: true }).selectOption("month"); await page.getByRole("button", { name: "تطبيق الفترة", exact: true }).click(); await expect(page.getByText("لا توجد سلسلة زمنية لهذه الفترة؛ لا تُنشأ بيانات بديلة.")).toBeVisible(); await expect(page.locator('main svg[role="img"]')).toHaveCount(0); await expect(page.getByText(/^(?:0|٠)$/).first()).toBeVisible();
+ });
+-test("anonymous journeys are lazy, paginated and exclude disputed nullable-enum fields", async ({ page }) => {
+-  const state = await backend(page); await page.goto("/admin/analytics"); await expect(page.getByText(/^(?:1,200|١٬٢٠٠)$/)).toBeVisible(); expect(state.calls.some(call => call.includes("/journeys"))).toBeFalsy(); await page.getByRole("button", { name: "الرحلات المجهولة", exact: true }).click(); await expect(page.getByText("صفحة 1 من 2 · 11 سجل")).toBeVisible(); await page.getByRole("button", { name: "التالي", exact: true }).click(); await expect(page.getByText("صفحة 2 من 2 · 11 سجل")).toBeVisible(); await page.locator("main details summary").first().click(); await expect(page.getByText("/scholarships", { exact: true })).toBeVisible(); await expect(page.getByText(/حقلا CTA\/نوع التفاعل/)).toBeVisible(); expect(state.calls.some(call => call.includes("page=2") && call.includes("limit=10"))).toBeTruthy();
++test("anonymous journeys are lazy, paginated, and handle nullable CTA and engagement fields", async ({ page }) => {
++  const state = await backend(page); await page.goto("/admin/analytics"); await expect(page.getByText(/^(?:1,200|١٬٢٠٠)$/)).toBeVisible(); expect(state.calls.some(call => call.includes("/journeys"))).toBeFalsy(); await page.getByRole("button", { name: "الرحلات المجهولة", exact: true }).click(); await expect(page.getByText("صفحة 1 من 2 · 11 سجل")).toBeVisible(); await page.getByRole("button", { name: "التالي", exact: true }).click(); await expect(page.getByText("صفحة 2 من 2 · 11 سجل")).toBeVisible(); await page.locator("main details summary").first().click(); await expect(page.getByText("/scholarships", { exact: true })).toBeVisible(); await expect(page.getByText(/تُعرض الدعوة للإجراء ونوع التفاعل فقط عندما تتوفر قيمهما/)).toBeVisible(); expect(state.calls.some(call => call.includes("page=2") && call.includes("limit=10"))).toBeTruthy();
+ });
+ test("account listing/paging, self-protection, confirmed role updates and conflict preservation", async ({ page }) => {
+   const state = await backend(page); await page.goto("/admin/admins"); await expect(page.getByText("صفحة 1 من 2 · 22 سجل")).toBeVisible(); const own = accountCard(page, "حساب الجلسة المحلي"); await expect(own.getByRole("button", { name: "تغيير الدور", exact: true })).toBeDisabled(); await expect(own.getByRole("button", { name: "إلغاء التفعيل", exact: true })).toBeDisabled(); await page.getByRole("button", { name: "التالي", exact: true }).click(); await expect(page.getByText("صفحة 2 من 2 · 22 سجل")).toBeVisible(); await page.getByRole("button", { name: "السابق", exact: true }).click(); const card = accountCard(page); await card.getByRole("button", { name: "تغيير الدور", exact: true }).click(); await expect(card.getByRole("button", { name: "تأكيد حفظ الدور", exact: true })).toBeDisabled(); await card.getByLabel("الدور الجديد", { exact: true }).selectOption("SUPER_ADMIN"); page.once("dialog", dialog => dialog.dismiss()); await card.getByRole("button", { name: "تأكيد حفظ الدور", exact: true }).click(); expect(state.writes).toHaveLength(0); state.patchError = 409; page.once("dialog", dialog => dialog.accept()); await card.getByRole("button", { name: "تأكيد حفظ الدور", exact: true }).click(); await expect(card.getByText(/رفض الخادم التغيير لحماية الحساب/)).toBeVisible(); await expect(card.getByLabel("الدور الجديد", { exact: true })).toHaveValue("SUPER_ADMIN"); expect(state.writes[0]).toEqual({ id: targetId, data: { role: "SUPER_ADMIN" } }); state.patchError = 0; page.once("dialog", dialog => dialog.accept()); await card.getByRole("button", { name: "تأكيد حفظ الدور", exact: true }).click(); await expect(card.getByText("تم تحديث الحساب وفق استجابة الخادم.")).toBeVisible(); await expect(card.getByText("الدور الحالي: SUPER_ADMIN", { exact: true })).toBeVisible(); await responsive(page);

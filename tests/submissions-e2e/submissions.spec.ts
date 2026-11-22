@@ -60,12 +60,11 @@ for (const role of ["ADMIN", "SUPER_ADMIN"] as const) {
       await page.getByRole("combobox", { name: "الحالة", exact: true }).selectOption("NEW");
       if (resource === "applications") await page.getByRole("combobox", { name: "نوع الطلب", exact: true }).selectOption("SCHOLARSHIP_ASSISTANCE");
       await page.getByLabel("الترتيب").selectOption("updated");
-      await page.getByRole("button", { name: "تطبيق", exact: true }).click();
       await expect(page).toHaveURL(/page=1/);
       await expect(page).toHaveURL(/sort=updated/);
       await expect(page.getByText("صفحة 1 من 3 · 25 سجل")).toBeVisible();
       await page.getByRole("link", { name: /عرض تفاصيل/ }).first().click();
-      await expect(page.getByText("تاريخ قبول الخصوصية", { exact: true })).toBeVisible();
+      await expect(page.getByText("موافقة سياسة الخصوصية", { exact: true })).toBeVisible();
       await expect(page.getByText(resource === "applications" ? applicationFixture.message : inquiryFixture.message, { exact: true })).toBeVisible();
       const save = page.getByRole("button", { name: "حفظ التغييرات", exact: true });
       const note = page.getByRole("textbox", { name: "الملاحظة الداخلية", exact: true });
@@ -100,7 +99,6 @@ for (const role of ["ADMIN", "SUPER_ADMIN"] as const) {
       expect(state.patches[3]).toEqual({ internalNote: "" });
       await page.getByRole("link", { name: /العودة إلى/ }).click();
       await page.getByRole("combobox", { name: "الحالة", exact: true }).selectOption("IN_REVIEW");
-      await page.getByRole("button", { name: "تطبيق", exact: true }).click();
       await expect(page.getByText("صفحة 1 من 1 · 1 سجل")).toBeVisible();
       await expect(page.getByRole("button", { name: "التالي", exact: true })).toBeDisabled();
     });
@@ -110,7 +108,8 @@ for (const role of ["ADMIN", "SUPER_ADMIN"] as const) {
     await page.goto("/admin/applications");
     await page.getByRole("link", { name: /عرض تفاصيل/ }).first().click();
     await expect(page.getByText(applicationFixture.message)).toBeVisible();
-    await page.getByRole("button", { name: "تسجيل الخروج", exact: true }).click();
+    await page.getByRole("button", { name: "قائمة الحساب: مشرف الاختبار" }).click();
+    await page.getByRole("menuitem", { name: "تسجيل الخروج" }).click();
     await expect(page).toHaveURL(/\/admin\/login/);
     await page.goBack();
     await expect(page).toHaveURL(/\/admin\/login/);

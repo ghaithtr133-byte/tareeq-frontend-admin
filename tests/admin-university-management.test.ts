@@ -3,15 +3,16 @@ import test from "node:test";
 import { AxiosError, CanceledError } from "axios";
 import { QueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client/client";
-import { contentApi } from "@/lib/api-client/content";
+import { contentApi, type University } from "@/lib/api-client/content";
 import { directoryApi, loadGalleryOrder, managementParams, universitySectionApi } from "@/lib/api-client/university-management";
+import { studyLanguageCatalogApi } from "@/lib/api-client/study-languages";
 import { uploadImage, validateImageFile } from "@/lib/api-client/images";
 import { normalizeApiError, getApiFieldErrors } from "@/lib/api-client/error";
 import { queryKeys } from "@/lib/api-client/query-keys";
 import { invalidateUniversitySection } from "@/hook/mutations/use-university-management";
 import { galleryOrderSchema, programCreateSchema, requirementCreateSchema, requirementPatchSchema, tuitionInputSchema } from "@/lib/university-schemas";
 import { sectionPayload, sectionValues } from "@/lib/university-form";
-import { initialContentValues, toContentPayload, validateContentValues } from "@/lib/content-form";
+import { applyUniversitySeoDefaults, initialContentValues, toContentPatch, toContentPayload, validateContentValues } from "@/lib/content-form";
 import { getAllowedDevApiEndpoint, validateTrustedDevelopmentRequest } from "@/lib/admin-dev-api-proxy";
 import { countryId, dates, image, major, majorId, program, recordId, requirement, university, universityId, city } from "./fixtures/university-management";
 
@@ -26,12 +27,22 @@ test("all twenty Phase 2 operations preserve exact paths, methods, envelopes and
   try {
     await contentApi.universities.list({ major: "computer-science", city: "amman", studyLevel: "BACHELORS", language: "ENGLISH", universityType: "PUBLIC", status: "DRAFT" }); await contentApi.universities.get(universityId); await contentApi.universities.create({ nameAr: "جامعة", cityId: recordId, universityType: "PUBLIC" }); await contentApi.universities.update(universityId, { cityId: null });
     for (const kind of ["academic-majors", "cities"] as const) { await directoryApi.list(kind, { page: 1, limit: 50, search: "علوم", countryId }); await directoryApi.create(kind, kind === "cities" ? { countryId, slug: "amman", nameAr: "عمّان", nameEn: "Amman" } : { slug: "cs", nameAr: "حاسوب", nameEn: "CS" }); }
+    await directoryApi.updateAcademicMajor(majorId, { nameAr: "علوم الحاسوب التطبيقية" }); await directoryApi.deleteAcademicMajor(majorId);
+    await directoryApi.updateCity(recordId, { nameAr: "عمّان الجديدة" }); await directoryApi.deleteCity(recordId);
     for (const section of ["programs", "admission-requirements", "gallery"] as const) { await universitySectionApi.list(section, universityId, { status: "DRAFT" }); await universitySectionApi.save(section, universityId, section === "programs" ? { academicMajorId: majorId, nameAr: "برنامج", studyLevel: "BACHELORS", languages: ["ENGLISH"], officialSourceUrl: "https://example.invalid", verifiedAt: dates.createdAt } : section === "gallery" ? { imageUrl: image.imageUrl } : { scope: "UNIVERSITY", contentAr: "قبول" }); await universitySectionApi.save(section, universityId, { status: "ARCHIVED" }, recordId); }
     await universitySectionApi.detach(recordId); await universitySectionApi.reorder(universityId, [recordId]);
-    assert.equal(calls.length, 19); // Twentieth is multipart upload, verified separately below.
+    assert.equal(calls.length, 23); // Multipart upload is verified separately below.
     for (const call of calls) { const endpoint = getAllowedDevApiEndpoint(call.url!.split("/").filter(Boolean)); assert.ok(endpoint?.methods.includes(call.method!.toUpperCase()), `${call.method} ${call.url}`); }
     assert.deepEqual(calls[0].params, { major: "computer-science", city: "amman", studyLevel: "BACHELORS", language: "ENGLISH", universityType: "PUBLIC", status: "DRAFT" });
     assert.equal(calls[3].data, '{"cityId":null}');
+    assert.equal(calls[8].url, `/admin/academic-majors/${majorId}`);
+    assert.equal(calls[8].method, "patch");
+    assert.equal(calls[9].url, `/admin/academic-majors/${majorId}`);
+    assert.equal(calls[9].method, "delete");
+    assert.equal(calls[10].url, `/admin/cities/${recordId}`);
+    assert.equal(calls[10].method, "patch");
+    assert.equal(calls[11].url, `/admin/cities/${recordId}`);
+    assert.equal(calls[11].method, "delete");
   } finally { apiClient.defaults.adapter = old; }
 });
 test("pagination defaults, caps and supported filters only", () => {
@@ -94,13 +105,90 @@ test("failed new mutations retain original status/cause and never replay HTTP, n
 test("proxy expands only documented paths; gallery detach requires trusted origin", () => {
   for (const path of ["admin/academic-majors/anything", `admin/university-programs/${recordId}/tuition`, `admin/universities/${universityId}/programs/${recordId}`, "admin/uploads/other"]) assert.equal(getAllowedDevApiEndpoint(path.split("/")), undefined);
   assert.deepEqual(getAllowedDevApiEndpoint(["admin", "university-programs", recordId])?.methods, ["PATCH", "OPTIONS"]);
+  assert.deepEqual(getAllowedDevApiEndpoint(["admin", "cities", recordId])?.methods, ["PATCH", "DELETE", "OPTIONS"]);
+  assert.deepEqual(getAllowedDevApiEndpoint(["admin", "academic-majors", recordId])?.methods, ["PATCH", "DELETE", "OPTIONS"]);
   assert.deepEqual(getAllowedDevApiEndpoint(["admin", "university-gallery", recordId])?.methods, ["PATCH", "DELETE", "OPTIONS"]);
   const env = { NODE_ENV: "development", ADMIN_DEV_PROXY_LOCAL_ORIGIN: "http://localhost:3001" } as NodeJS.ProcessEnv;
   assert.equal(validateTrustedDevelopmentRequest(new Headers({ host: "localhost:3001" }), "DELETE", env).trusted, false);
 });
 test("existing editor mappings include normalized city and scholarship images without changing flat article blocks", () => {
   const values = initialContentValues("universities", university as never); assert.equal(values.universityType, "PUBLIC"); assert.equal(validateContentValues("universities", values).cityId, undefined);
-  assert.equal(toContentPayload("universities", { ...values, cityId: recordId }).cityId, recordId); assert.equal(toContentPayload("universities", { ...values, universityType: "" }).universityType, undefined);
+  assert.equal(toContentPayload("universities", { ...values, cityId: recordId }).cityId, recordId); assert.equal(toContentPayload("universities", { ...values, universityType: "" }).universityType, null);
   assert.equal(toContentPayload("scholarships", { imageUrl: image.imageUrl }).imageUrl, image.imageUrl);
   assert.deepEqual(toContentPayload("articles", { bodyAr: [{ type: "paragraph", text: "نص" }] }).bodyAr, [{ type: "paragraph", text: "نص" }]);
+});
+
+test("university summary and automatic SEO preserve unrelated stored fields on PATCH", () => {
+  const record = {
+    ...university,
+    summaryAr: null,
+    nameEn: "Local University",
+    cityEn: "Amman",
+    overviewEn: "Stored English overview",
+    logoUrl: "https://example.invalid/logo.png",
+    imageUrl: "https://example.invalid/cover.png",
+    seoTitleAr: university.nameAr,
+    seoDescriptionAr: university.overviewAr,
+  } as unknown as University;
+  const values = initialContentValues("universities", record);
+  const next = applyUniversitySeoDefaults({ ...values, summaryAr: "وصف مختصر مستقل" }, record);
+  assert.deepEqual(toContentPatch("universities", next, record), {
+    summaryAr: "وصف مختصر مستقل",
+    seoDescriptionAr: "وصف مختصر مستقل",
+  });
+  assert.equal(toContentPayload("universities", { ...values, summaryAr: "" }).summaryAr, null);
+
+  const custom = { ...record, seoDescriptionAr: "وصف SEO مخصص" };
+  const customNext = applyUniversitySeoDefaults({ ...initialContentValues("universities", custom), overviewAr: "نبذة محدثة" }, custom);
+  assert.deepEqual(toContentPatch("universities", customNext, custom), { overviewAr: "نبذة محدثة" });
+  const unrelatedEdit = toContentPatch("universities", { ...values, featured: true }, record);
+  assert.deepEqual(unrelatedEdit, { featured: true });
+  for (const key of ["nameEn", "cityEn", "overviewEn", "slug", "seoTitleAr", "seoDescriptionAr", "logoUrl", "imageUrl", "cityId", "programs", "admissionRequirements", "gallery"]) {
+    assert.equal(key in unrelatedEdit, false);
+  }
+});
+
+test("study-language catalog retains backend codes and the local proxy allows only its documented read", async () => {
+  const original = apiClient.defaults.adapter;
+  apiClient.defaults.adapter = async (config) => ({
+    config,
+    headers: {},
+    status: 200,
+    statusText: "OK",
+    data: {
+      success: true,
+      data: {
+        items: [
+          {
+            id: recordId,
+            code: "KOREAN",
+            nameAr: "الكورية",
+            isActive: true,
+            sortOrder: 30,
+            createdAt: dates.createdAt,
+            updatedAt: dates.updatedAt,
+          },
+        ],
+      },
+    },
+  });
+  try {
+    assert.deepEqual(await studyLanguageCatalogApi.list(), [
+      {
+        id: recordId,
+        code: "KOREAN",
+        nameAr: "الكورية",
+        isActive: true,
+        sortOrder: 30,
+        createdAt: dates.createdAt,
+        updatedAt: dates.updatedAt,
+      },
+    ]);
+  } finally {
+    apiClient.defaults.adapter = original;
+  }
+  assert.equal(programCreateSchema.safeParse({ academicMajorId: majorId, nameAr: "برنامج", studyLevel: "BACHELORS", languages: ["KOREAN"], officialSourceUrl: "https://example.invalid", verifiedAt: dates.createdAt }).success, true);
+  assert.deepEqual(managementParams("programs", { language: "KOREAN" }), { page: 1, limit: 12, language: "KOREAN" });
+  assert.deepEqual(getAllowedDevApiEndpoint(["admin", "study-languages"]), { path: "/admin/study-languages", methods: ["GET", "OPTIONS"] });
+  assert.equal(getAllowedDevApiEndpoint(["admin", "study-languages", "anything"]), undefined);
 });

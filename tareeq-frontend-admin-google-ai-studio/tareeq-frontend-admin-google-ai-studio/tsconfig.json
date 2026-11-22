@@ -1,0 +1,76 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    ".next-playwright/types/**/*.ts",
+    ".next-playwright/dev/types/**/*.ts",
+    ".next-real-auth/types/**/*.ts",
+    ".next-real-auth/dev/types/**/*.ts",
+    ".next-playwright-3102/types/**/*.ts",
+    ".next-playwright-3102/dev/types/**/*.ts",
+    ".next-real-auth-3001/types/**/*.ts",
+    ".next-real-auth-3001/dev/types/**/*.ts",
+    ".next-playwright-3106/types/**/*.ts",
+    ".next-playwright-3106/dev/types/**/*.ts",
+    ".next-submissions-e2e/types/**/*.ts",
+    ".next-submissions-e2e/dev/types/**/*.ts",
+    ".next-phase1-build/types/**/*.ts",
+    ".next-phase1-build/dev/types/**/*.ts",
+    ".next-live-acceptance-3001/types/**/*.ts",
+    ".next-live-acceptance-3001/dev/types/**/*.ts",
+    ".next-phase2-e2e/types/**/*.ts",
+    ".next-phase2-e2e/dev/types/**/*.ts",
+    ".next-phase2-build/types/**/*.ts",
+    ".next-phase2-build/dev/types/**/*.ts",
+    ".next-phase3-e2e/types/**/*.ts",
+    ".next-phase3-e2e/dev/types/**/*.ts",
+    ".next-phase3-build/types/**/*.ts",
+    ".next-phase3-build/dev/types/**/*.ts",
+    ".next-phase4-e2e/types/**/*.ts",
+    ".next-phase4-e2e/dev/types/**/*.ts",
+    ".next-phase4-build/types/**/*.ts",
+    ".next-phase4-build/dev/types/**/*.ts",
+    ".next-audit-remediation-e2e/types/**/*.ts",
+    ".next-audit-remediation-e2e/dev/types/**/*.ts",
+    ".next-audit-remediation-build/types/**/*.ts",
+    ".next-audit-remediation-build/dev/types/**/*.ts",
+    ".next-hobby-layout-build/types/**/*.ts",
+    ".next-hobby-layout-build/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "design-handoff"
+  ]
+}

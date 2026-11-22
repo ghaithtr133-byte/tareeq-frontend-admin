@@ -8,5 +8,9 @@ export function faqFormPayload(group: FaqGroup, values: FaqFormValues, record?: 
     if (translation && cleared.includes(key)) { if (!record || record[key] !== null) payload[key] = null; }
     else if (record ? values[key] !== original[key] : !translation || values[key] !== "") payload[key] = values[key];
   }
+  if (record && (record.scope !== group.scope || record.parentId !== (group.parentId ?? null))) {
+    payload.scope = group.scope;
+    payload.parentId = group.parentId ?? null;
+  }
   return record ? faqUpdateSchema.parse(payload) : faqCreateSchema.parse({ ...group, ...payload });
 }

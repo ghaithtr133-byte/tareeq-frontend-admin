@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { ContentFormPage } from "@/components/content/content-form-page";
+import { CountryFormPage } from "@/components/content/country-form-page";
+import { ScholarshipFormPage } from "@/components/content/scholarship-form-page";
 import { UniversityWorkspace } from "@/components/universities/university-workspace";
 import { AdminProtectedShell } from "@/components/layout/admin-protected-shell";
 import { contentDefinitions, isContentResource } from "@/lib/content-config";
@@ -8,5 +10,17 @@ import { contentDefinitions, isContentResource } from "@/lib/content-config";
 export default async function EditContentRoute({ params }: { params: Promise<{ resource: string; id: string }> }) {
   const { resource, id } = await params;
   if (!isContentResource(resource)) notFound();
-  return <AdminProtectedShell title={`تعديل ${contentDefinitions[resource].singular}`} activeItem={resource}>{resource === "universities" ? <UniversityWorkspace id={id} /> : <ContentFormPage resource={resource} id={id} />}</AdminProtectedShell>;
+  return (
+    <AdminProtectedShell title={`تعديل ${contentDefinitions[resource].singular}`} activeItem={resource}>
+      {resource === "universities" ? (
+        <UniversityWorkspace id={id} />
+      ) : resource === "countries" ? (
+        <CountryFormPage id={id} />
+      ) : resource === "scholarships" ? (
+        <ScholarshipFormPage id={id} />
+      ) : (
+        <ContentFormPage resource={resource} id={id} />
+      )}
+    </AdminProtectedShell>
+  );
 }

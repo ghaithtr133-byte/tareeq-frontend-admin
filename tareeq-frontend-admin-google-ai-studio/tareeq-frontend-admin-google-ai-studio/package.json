@@ -1,0 +1,45 @@
+{
+  "name": "tareeq-admin",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build --webpack",
+    "start": "next start",
+    "test": "tsx --test tests/admin-dev-mock.test.ts tests/admin-dev-api-proxy.test.ts tests/admin-live-contract.test.ts tests/admin-submissions.test.ts tests/admin-university-management.test.ts tests/admin-site-management.test.ts tests/admin-phase4.test.ts tests/api-client-layout.test.ts",
+    "test:ui": "playwright test",
+    "test:submissions:ui": "playwright test --config=playwright.submissions.config.ts",
+    "test:phase2": "tsx --test tests/admin-university-management.test.ts tests/admin-dev-api-proxy.test.ts",
+    "test:phase2:ui": "playwright test --config=playwright.phase2.config.ts",
+    "test:phase3": "tsx --test tests/admin-site-management.test.ts",
+    "test:phase3:ui": "playwright test --config=playwright.phase3.config.ts",
+    "test:phase4": "tsx --test tests/admin-phase4.test.ts",
+    "test:phase4:ui": "playwright test --config=playwright.phase4.config.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "5.2.1",
+    "@tanstack/react-query": "5.90.2",
+    "axios": "^1.21.1",
+    "next": "^16.4.1",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-hook-form": "7.65.0",
+    "server-only": "0.0.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "3.3.1",
+    "@playwright/test": "^1.64.1",
+    "@tailwindcss/postcss": "4.1.14",
+    "@types/node": "24.10.0",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "eslint": "9.38.0",
+    "eslint-config-next": "^16.4.1",
+    "tailwindcss": "4.1.14",
+    "tsx": "^4.23.15",
+    "typescript": "5.9.3"
+  }
+}

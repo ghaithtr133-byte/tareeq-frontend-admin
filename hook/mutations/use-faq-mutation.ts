@@ -13,5 +13,12 @@ export function useFaqMutation(group: FaqGroup) {
     if (access.mockEnabled || !access.user) throw new Error("An authenticated administrator session is required.");
     try { return "create" in action ? await faqApi.create(action.create) : "orderedIds" in action ? await faqApi.reorder(group, action.orderedIds) : await faqApi.update(action.id, action.update); }
     catch (error) { if (normalizeApiError(error).status === 401) access.reportContentUnauthorized(); throw error; }
-  }, onSuccess: () => invalidateFaqGroup(client, group) });
+  }, onSuccess: () => client.invalidateQueries({ queryKey: ["admin", "faqs"] }) });
+}
+export function useFaqDelete() {
+  const access = useAdminAccess(); const client = useQueryClient();
+  return useMutation({ retry: false, gcTime: 0, mutationFn: async (id: string) => {
+    if (access.mockEnabled || !access.user) throw new Error("An authenticated administrator session is required.");
+    try { return await faqApi.delete(id); } catch (error) { if (normalizeApiError(error).status === 401) access.reportContentUnauthorized(); throw error; }
+  }, onSuccess: () => client.invalidateQueries({ queryKey: ["admin", "faqs"] }) });
 }

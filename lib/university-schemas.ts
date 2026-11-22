@@ -6,7 +6,9 @@ export const teachingLanguages = ["ARABIC", "ENGLISH", "FRENCH", "GERMAN", "TURK
 export const publicationStates = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 export const admissionScopes = ["UNIVERSITY", "STUDY_LEVEL", "PROGRAM"] as const;
 export type ProgramStudyLevel = typeof programStudyLevels[number];
-export type TeachingLanguage = typeof teachingLanguages[number];
+/** The Backend's persisted catalog owns the values; these are only local fallbacks for offline mock UI. */
+export const teachingLanguageCodeSchema = z.string().regex(/^[A-Z][A-Z0-9_]{1,63}$/);
+export type TeachingLanguage = string;
 export type UniversityType = "PUBLIC" | "PRIVATE";
 export const slugSchema = z.string().min(2).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -15,7 +17,11 @@ const sourceSchema = z.url().max(2048);
 const publication = z.enum(publicationStates);
 
 export const majorInputSchema = z.object({ slug: slugSchema, nameAr: text(200), nameEn: text(200), category: text(120).nullable().optional() }).strict();
+/** Matches the published AcademicMajorUpdateRequest; category remains optional so old catalog metadata is not cleared by name edits. */
+export const majorPatchSchema = majorInputSchema.partial().refine((data) => Object.keys(data).length > 0, "لا توجد تغييرات للحفظ.");
 export const cityInputSchema = z.object({ countryId: uuidSchema, slug: slugSchema, nameAr: text(200), nameEn: text(200) }).strict();
+/** Matches the published CityUpdateRequest: all mutable fields are optional, and an empty PATCH is invalid. */
+export const cityPatchSchema = cityInputSchema.partial().refine((data) => Object.keys(data).length > 0, "لا توجد تغييرات للحفظ.");
 export const tuitionInputSchema = z.object({
   amount: z.string().regex(/^(?:0|[1-9]\d{0,9})(?:\.\d{1,2})?$/),
   currency: z.string().regex(/^[A-Z]{3}$/),
@@ -33,7 +39,7 @@ const programFields = {
   facultyNameAr: text(300).nullable().optional(), facultyNameEn: text(300).nullable().optional(),
   durationValue: z.number().int().min(1).max(240).nullable().optional(),
   durationUnit: z.enum(["MONTHS", "YEARS"]).nullable().optional(),
-  studyLevel: z.enum(programStudyLevels), languages: z.array(z.enum(teachingLanguages)).min(1).max(9),
+  studyLevel: z.enum(programStudyLevels), languages: z.array(teachingLanguageCodeSchema).min(1).max(100),
   status: publication.optional(), officialSourceUrl: sourceSchema, verifiedAt: isoDateSchema,
   tuition: tuitionInputSchema.optional(),
 };
@@ -62,7 +68,9 @@ export const galleryPatchSchema = galleryInputSchema.partial().refine((data) => 
 export const galleryOrderSchema = z.object({ orderedIds: z.array(uuidSchema).max(100).refine((ids) => new Set(ids).size === ids.length, "لا تكرر الصور في الترتيب.") }).strict();
 
 export type MajorInput = z.infer<typeof majorInputSchema>;
+export type MajorPatch = z.infer<typeof majorPatchSchema>;
 export type CityInput = z.infer<typeof cityInputSchema>;
+export type CityPatch = z.infer<typeof cityPatchSchema>;
 export type ProgramInput = z.infer<typeof programCreateSchema>;
 export type RequirementInput = z.infer<typeof requirementCreateSchema>;
 export type GalleryInput = z.infer<typeof galleryInputSchema>;
