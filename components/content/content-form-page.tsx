@@ -40,12 +40,9 @@ import {
   applyArticleSeoDefaults,
   applyUniversitySeoDefaults,
   initialContentValues,
-  parentSaveDestination,
-  supportsContentDetails,
   toContentPatch,
   toContentPayload,
   type ContentFormValues,
-  type ParentCreateIntent,
   validateContentValues,
 } from "@/lib/content-form";
 import { StaleContentSessionError } from "@/lib/content-session";
@@ -104,8 +101,8 @@ const RESOURCE_SECTIONS: Record<AdminContentResource, FormSectionGroup[]> = {
     },
     {
       id: "publishing",
-      title: "النشر وتحسين محركات البحث (SEO)",
-      fieldNames: ["status", "featured", "seoTitleAr", "seoDescriptionAr"],
+      title: "النشر",
+      fieldNames: ["status", "featured"],
     },
   ],
   universities: [
@@ -164,8 +161,8 @@ const RESOURCE_SECTIONS: Record<AdminContentResource, FormSectionGroup[]> = {
     },
     {
       id: "publishing",
-      title: "النشر وتحسين محركات البحث (SEO)",
-      fieldNames: ["status", "featured", "seoTitleAr", "seoDescriptionAr"],
+      title: "النشر",
+      fieldNames: ["status", "featured"],
     },
   ],
   services: [
@@ -350,7 +347,7 @@ export function ContentFormPage({
 
   const [submitError, setSubmitError] = useState<string>();
   const [relationshipChecks, setRelationshipChecks] = useState(0);
-  const createIntent = useRef<ParentCreateIntent>("finish");
+  const submissionRef = useRef(false);
 
   const form = useForm<ContentFormValues>({
     defaultValues: initialContentValues(resource),
@@ -516,17 +513,18 @@ export function ContentFormPage({
     ) {
       return;
     }
+    if (submissionRef.current || create.isPending || update.isPending) return;
+    submissionRef.current = true;
     try {
       const payload =
         id && detail.data
-          ? toContentPatch(resource, values, detail.data as ContentRecord)
+          ? toContentPatch(resource, values, detail.data as ContentRecord, {
+              statusChanged: Boolean(formState.dirtyFields.status),
+            })
           : toContentPayload(resource, values);
-      const result = id
-        ? await update.mutateAsync({ id, input: payload })
-        : await create.mutateAsync(payload);
-      router.replace(
-        parentSaveDestination(resource, result.id, createIntent.current, Boolean(id)),
-      );
+      if (id) await update.mutateAsync({ id, input: payload });
+      else await create.mutateAsync(payload);
+      router.replace(`/admin/${resource}`);
     } catch (error) {
       if (error instanceof StaleContentSessionError) return;
       const fieldErrors = getApiFieldErrors(error);
@@ -551,6 +549,8 @@ export function ContentFormPage({
           field?.focus();
         });
       }
+    } finally {
+      submissionRef.current = false;
     }
   }
 
@@ -620,7 +620,6 @@ export function ContentFormPage({
   const formId = `content-form-${resource}-${id ?? "new"}`;
   const isPending = create.isPending || update.isPending || relationshipChecks > 0;
   const submitLabel = id ? "حفظ التغييرات" : createSubmitLabels[resource];
-  const canContinueToDetails = !id && supportsContentDetails(resource);
   const universityCityLabel =
     resource === "universities" ? (detail.data as University | undefined)?.city?.nameAr : undefined;
 
@@ -1003,43 +1002,14 @@ export function ContentFormPage({
 
         {/* Desktop Actions */}
         <div className="hidden flex-wrap items-center gap-3 border-t border-[var(--line)] pt-5 sm:flex">
-          {canContinueToDetails ? (
-            <>
-              <button
-                type="submit"
-                disabled={isPending}
-                onClick={() => {
-                  createIntent.current = "finish";
-                }}
-                className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--navy)] px-5 text-sm font-bold text-white transition-colors hover:bg-[var(--navy-light)] disabled:cursor-wait disabled:opacity-60"
-              >
-                {isPending ? <SpinnerIcon className="size-4 animate-spin" /> : null}
-                <span>{isPending ? "جارٍ الحفظ…" : "حفظ وإنهاء"}</span>
-              </button>
-              <button
-                type="submit"
-                disabled={isPending}
-                onClick={() => {
-                  createIntent.current = "details";
-                }}
-                className="inline-flex h-11 items-center rounded-xl border border-[var(--navy)] bg-white px-5 text-sm font-bold text-[var(--navy)] transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
-              >
-                حفظ ومتابعة العناصر التفصيلية
-              </button>
-            </>
-          ) : (
-            <button
-              type="submit"
-              disabled={isPending}
-              onClick={() => {
-                createIntent.current = "finish";
-              }}
-              className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--navy)] px-5 text-sm font-bold text-white transition-colors hover:bg-[var(--navy-light)] disabled:cursor-wait disabled:opacity-60"
-            >
-              {isPending ? <SpinnerIcon className="size-4 animate-spin" /> : null}
-              <span>{isPending ? "جارٍ الحفظ…" : submitLabel}</span>
-            </button>
-          )}
+          <button
+            type="submit"
+            disabled={isPending}
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--navy)] px-5 text-sm font-bold text-white transition-colors hover:bg-[var(--navy-light)] disabled:cursor-wait disabled:opacity-60"
+          >
+            {isPending ? <SpinnerIcon className="size-4 animate-spin" /> : null}
+            <span>{isPending ? "جارٍ الحفظ…" : submitLabel}</span>
+          </button>
 
           <Link
             href={`/admin/${resource}`}
@@ -1065,44 +1035,14 @@ export function ContentFormPage({
         aria-label="إجراءات النموذج"
       >
         <div className="mx-auto flex max-w-xl items-center gap-2">
-          {canContinueToDetails ? (
-            <>
-              <button
-                type="submit"
-                form={formId}
-                disabled={isPending}
-                onClick={() => {
-                  createIntent.current = "finish";
-                }}
-                className="h-10 min-w-0 flex-1 rounded-xl bg-[var(--navy)] px-3 text-xs font-bold text-white disabled:cursor-wait disabled:opacity-60"
-              >
-                {isPending ? "جارٍ الحفظ…" : "حفظ وإنهاء"}
-              </button>
-              <button
-                type="submit"
-                form={formId}
-                disabled={isPending}
-                onClick={() => {
-                  createIntent.current = "details";
-                }}
-                className="h-10 rounded-xl border border-[var(--navy)] bg-white px-3 text-xs font-bold text-[var(--navy)] disabled:cursor-wait disabled:opacity-60 whitespace-nowrap"
-              >
-                متابعة التفاصيل
-              </button>
-            </>
-          ) : (
-            <button
-              type="submit"
-              form={formId}
-              disabled={isPending}
-              onClick={() => {
-                createIntent.current = "finish";
-              }}
-              className="h-10 min-w-0 flex-1 rounded-xl bg-[var(--navy)] px-4 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60"
-            >
-              {isPending ? "جارٍ الحفظ…" : submitLabel}
-            </button>
-          )}
+          <button
+            type="submit"
+            form={formId}
+            disabled={isPending}
+            className="h-10 min-w-0 flex-1 rounded-xl bg-[var(--navy)] px-4 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60"
+          >
+            {isPending ? "جارٍ الحفظ…" : submitLabel}
+          </button>
           <Link
             href={`/admin/${resource}`}
             className="inline-flex h-10 items-center rounded-xl border border-[var(--line)] px-3 text-xs font-semibold text-[var(--navy)]"

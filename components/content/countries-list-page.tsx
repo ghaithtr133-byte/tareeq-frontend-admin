@@ -26,14 +26,13 @@ import {
   StarIcon,
 } from "@/components/ui/admin-icons";
 import { useUpdateContent } from "@/hook/mutations/use-content-mutations";
-import { useContentList } from "@/hook/queries/use-content-queries";
+import { useContentList, useInfiniteContentList } from "@/hook/queries/use-content-queries";
 import {
   buildContentFilterUrlParams,
   parseContentListFilters,
   type ListSearchParams,
 } from "@/lib/content-filters";
 import {
-  COUNTRY_PAGE_LIMIT_OPTIONS,
   COUNTRY_STATUS_FILTER_OPTIONS,
   countryFlagFromCode,
   countryPublicationStatusLabel,
@@ -48,6 +47,18 @@ const statusBadgeStyles: Record<PublicationStatus, string> = {
   PUBLISHED: "border-emerald-200/90 bg-emerald-50/90 text-emerald-900",
   ARCHIVED: "border-slate-200 bg-slate-100 text-slate-700",
 };
+
+function useDesktopLayout() {
+  const [desktop, setDesktop] = useState<boolean | undefined>();
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)");
+    const update = () => setDesktop(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  return desktop;
+}
 
 function CountryStatusBadge({ status }: { status: PublicationStatus }) {
   return (
@@ -339,6 +350,8 @@ function CountriesEmptyState({
 export function CountriesListPage({ searchParams }: { searchParams: ListSearchParams }) {
   const router = useRouter();
   const pathname = usePathname();
+  const desktop = useDesktopLayout();
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const filters = useMemo(
     () => parseContentListFilters("countries", searchParams),
@@ -347,7 +360,15 @@ export function CountriesListPage({ searchParams }: { searchParams: ListSearchPa
   const filterValues = filters as Record<string, string | number | undefined>;
   const filtersActive = useMemo(() => hasActiveCountriesFilters(filters), [filters]);
 
-  const list = useContentList("countries", filters);
+  const desktopFilters = useMemo(() => ({ ...filters, limit: 12 }), [filters]);
+  const mobileFilters = useMemo(() => {
+    const { page: _page, limit: _limit, ...rest } = desktopFilters;
+    void _page;
+    void _limit;
+    return rest;
+  }, [desktopFilters]);
+  const list = useContentList("countries", desktopFilters, desktop === true);
+  const mobileList = useInfiniteContentList("countries", mobileFilters, 5, desktop === false);
   const updateCountry = useUpdateContent("countries");
 
   const [resetCount, setResetCount] = useState(0);
@@ -400,15 +421,34 @@ export function CountriesListPage({ searchParams }: { searchParams: ListSearchPa
     }
   }
 
-  const items = list.data?.items ?? [];
+  const desktopItems = list.data?.items ?? [];
+  const mobileItems = useMemo(() => {
+    const unique = new Map<string, Country>();
+    for (const page of mobileList.data?.pages ?? []) {
+      for (const country of page.items) unique.set(country.id, country);
+    }
+    return [...unique.values()];
+  }, [mobileList.data?.pages]);
+  const items = desktop ? desktopItems : mobileItems;
   const pagination = list.data?.pagination;
-  const currentLimit = Number(filters.limit ?? 12);
   const paginationSummary = pagination
     ? formatCountriesPaginationSummary(pagination.page, pagination.limit, pagination.total)
     : null;
-  const showLimitControl = Boolean(
-    pagination && (pagination.total > 12 || currentLimit !== 12),
-  );
+  const isPending = desktop ? list.isPending : mobileList.isPending;
+  const isError = desktop ? list.isError : mobileList.isError;
+  const retry = desktop ? () => void list.refetch() : () => void mobileList.refetch();
+  const { fetchNextPage, hasNextPage, isFetchingNextPage } = mobileList;
+
+  useEffect(() => {
+    if (desktop !== false || !sentinelRef.current || !hasNextPage || isFetchingNextPage) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) void fetchNextPage();
+    }, { rootMargin: "240px" });
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [desktop, fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  if (desktop === undefined) return <CountriesTableSkeleton />;
 
   return (
     <section className="space-y-4">
@@ -439,7 +479,7 @@ export function CountriesListPage({ searchParams }: { searchParams: ListSearchPa
         delayMs={1000}
         placeholder="ابحث عن دولة..."
         ariaLabel="ابحث عن دولة"
-        isFetching={list.isFetching && !list.isPending}
+        isFetching={(desktop ? list.isFetching : mobileList.isFetching) && !isPending}
         resetTrigger={resetCount}
       />
 
@@ -517,14 +557,14 @@ export function CountriesListPage({ searchParams }: { searchParams: ListSearchPa
       ) : null}
 
       {/* Loading / Error / Empty / Results */}
-      {list.isPending ? <CountriesTableSkeleton /> : null}
+      {isPending ? <CountriesTableSkeleton /> : null}
 
-      {list.isError ? (
+      {isError && items.length === 0 ? (
         <ErrorState
           action={
             <button
               type="button"
-              onClick={() => void list.refetch()}
+              onClick={retry}
               className="inline-flex h-10 items-center rounded-xl bg-[var(--navy)] px-4 text-sm font-semibold text-white hover:bg-[var(--navy-light)]"
             >
               إعادة المحاولة
@@ -533,11 +573,11 @@ export function CountriesListPage({ searchParams }: { searchParams: ListSearchPa
         />
       ) : null}
 
-      {!list.isPending && !list.isError && items.length === 0 ? (
+      {!isPending && !isError && items.length === 0 ? (
         <CountriesEmptyState hasFilters={filtersActive} onReset={handleResetFilters} />
       ) : null}
 
-      {!list.isPending && !list.isError && items.length > 0 ? (
+      {!isPending && !(isError && items.length === 0) && items.length > 0 ? (
         <>
           {/* Desktop & Tablet Table */}
           <div className="hidden rounded-2xl border border-[var(--line)] bg-white shadow-[var(--shadow-card)] md:block">
@@ -639,7 +679,7 @@ export function CountriesListPage({ searchParams }: { searchParams: ListSearchPa
           </div>
 
           {/* Pagination Footer */}
-          {pagination && paginationSummary ? (
+          {desktop && pagination && paginationSummary ? (
             <nav
               aria-label="صفحات الدول"
               className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-sm shadow-[var(--shadow-card)]"
@@ -657,26 +697,6 @@ export function CountriesListPage({ searchParams }: { searchParams: ListSearchPa
               </p>
 
               <div className="flex flex-wrap items-center gap-2">
-                {showLimitControl ? (
-                  <label className="flex items-center gap-1.5 text-xs font-medium text-[var(--muted)]">
-                    <span>لكل صفحة</span>
-                    <select
-                      aria-label="عدد الدول في الصفحة"
-                      value={String(currentLimit)}
-                      onChange={(event) =>
-                        applyPatch({ limit: Number(event.target.value) })
-                      }
-                      className="h-9 rounded-lg border border-[var(--line)] bg-white px-2 text-xs font-semibold text-[var(--navy)] tabular-nums focus:border-[var(--gold)] focus:outline-none"
-                    >
-                      {COUNTRY_PAGE_LIMIT_OPTIONS.map((limitValue) => (
-                        <option key={limitValue} value={limitValue}>
-                          {limitValue}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-
                 <button
                   type="button"
                   onClick={() =>
@@ -711,6 +731,17 @@ export function CountriesListPage({ searchParams }: { searchParams: ListSearchPa
                 </button>
               </div>
             </nav>
+          ) : null}
+          {desktop === false ? (
+            <div className="space-y-3 md:hidden">
+              <div ref={sentinelRef} aria-hidden="true" />
+              {mobileList.isFetchingNextPage ? <CountriesTableSkeleton /> : null}
+              {mobileList.isError ? (
+                <ErrorState action={<button type="button" onClick={() => void mobileList.refetch()} className="inline-flex h-10 items-center rounded-xl bg-[var(--navy)] px-4 text-sm font-semibold text-white">إعادة المحاولة</button>} />
+              ) : mobileList.hasNextPage ? (
+                <button type="button" onClick={() => void mobileList.fetchNextPage()} disabled={mobileList.isFetchingNextPage} className="mx-auto flex h-10 items-center rounded-xl border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--navy)] disabled:opacity-50">تحميل المزيد</button>
+              ) : <p className="py-1 text-center text-xs text-[var(--muted)]">تم عرض كل الدول.</p>}
+            </div>
           ) : null}
         </>
       ) : null}

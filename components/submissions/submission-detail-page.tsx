@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getApiFieldErrors } from "@/lib/api-client/error";
 import {
   isSubmissionId,
@@ -14,12 +14,16 @@ import {
 import { LoadingState } from "@/components/dashboard/states";
 import { useSubmissionMutation } from "@/hook/mutations/use-submission-mutation";
 import { useSubmissionDetail } from "@/hook/queries/use-submission-queries";
+import { useContentDetail } from "@/hook/queries/use-content-queries";
+import type { AdminContentResource, Country, Scholarship, University } from "@/lib/api-client/content";
 import { studyLevelLabel } from "@/lib/content-labels";
 import {
   applicationTypeLabels,
+  normalizeInternationalPhone,
   submissionChanges,
   submissionLabels,
   submissionStatusLabels,
+  whatsappUrl,
 } from "@/lib/submissions";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 import {
@@ -28,7 +32,6 @@ import {
   ChevronRightIcon,
   MailIcon,
   PhoneIcon,
-  ShieldCheckIcon,
   TrashIcon,
 } from "@/components/ui/admin-icons";
 import {
@@ -71,12 +74,129 @@ function DetailItem({
   );
 }
 
+function ApplicationRelation({
+  label,
+  resource,
+  id,
+}: {
+  label: string;
+  resource: Extract<AdminContentResource, "countries" | "universities" | "scholarships">;
+  id: string | null;
+}) {
+  const relation = useContentDetail(resource, id ?? undefined);
+
+  if (!id) return <DetailItem label={label} value={null} />;
+  if (relation.isPending) {
+    return (
+      <div className="min-w-0 space-y-1" aria-busy="true" aria-label={`جارٍ تحميل ${label}`}>
+        <dt className="text-xs font-semibold text-[var(--muted)]">{label}</dt>
+        <dd className="h-4 w-28 animate-pulse rounded bg-slate-200/80" />
+      </div>
+    );
+  }
+  if (relation.isError || !relation.data) return <DetailItem label={label} value="غير متاح" />;
+
+  const data = relation.data as Country | University | Scholarship;
+  const value = "titleAr" in data ? data.titleAr : data.nameAr;
+  return <DetailItem label={label} value={value} />;
+}
+
+function EmailDetail({ email, subject }: { email: string; subject?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyEmail() {
+    try {
+      await navigator.clipboard.writeText(email);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <div className="min-w-0 space-y-1">
+      <dt className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)]">
+        <MailIcon className="size-3.5" />
+        <span>البريد الإلكتروني</span>
+      </dt>
+      <dd className="flex min-w-0 flex-wrap items-center gap-2">
+        <a href={`mailto:${email}`} className="min-w-0 break-all text-sm font-medium text-[var(--navy)] underline-offset-2 hover:underline">
+          <bdi dir="ltr">{email}</bdi>
+        </a>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={`mailto:${email}${subject ? `?subject=${encodeURIComponent(subject)}` : ""}`}
+            className={submissionSecondaryButtonClass}
+          >
+            مراسلة بالبريد الإلكتروني
+          </a>
+          <button type="button" onClick={() => void copyEmail()} className={submissionSecondaryButtonClass}>
+            {copied ? "تم النسخ" : "نسخ البريد"}
+          </button>
+        </div>
+      </dd>
+    </div>
+  );
+}
+
+function PhoneDetail({ phone, enableContactActions = false }: { phone: string | null; enableContactActions?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const normalized = normalizeInternationalPhone(phone);
+  const whatsapp = whatsappUrl(phone);
+
+  async function copyPhone() {
+    if (!phone) return;
+    try {
+      await navigator.clipboard.writeText(phone);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  if (!phone || !enableContactActions) {
+    return <DetailItem label="رقم الهاتف" value={phone} ltr icon={<PhoneIcon className="size-3.5" />} />;
+  }
+
+  return (
+    <div className="min-w-0 space-y-1">
+      <dt className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)]">
+        <PhoneIcon className="size-3.5" />
+        <span>رقم الهاتف</span>
+      </dt>
+      <dd className="flex min-w-0 flex-wrap items-center gap-2">
+        <bdi dir="ltr" className="break-all text-sm font-medium text-[var(--navy)]">{phone}</bdi>
+        <div className="flex flex-wrap gap-2">
+          {normalized ? (
+            <a href={`tel:${normalized}`} className={submissionSecondaryButtonClass}>اتصال هاتفي</a>
+          ) : null}
+          {whatsapp ? (
+            <a
+              href={whatsapp}
+              target="_blank"
+              rel="noreferrer"
+              className={submissionSecondaryButtonClass}
+            >
+              فتح واتساب
+            </a>
+          ) : null}
+          <button type="button" onClick={() => void copyPhone()} className={submissionSecondaryButtonClass}>
+            {copied ? "تم النسخ" : "نسخ الرقم"}
+          </button>
+        </div>
+      </dd>
+    </div>
+  );
+}
+
 function WorkflowEditor({
   resource,
   record,
+  onUnsavedChanges,
 }: {
   resource: SubmissionResource;
   record: Submission;
+  onUnsavedChanges: (value: boolean) => void;
 }) {
   const mutation = useSubmissionMutation(resource, record.id);
   const [baseline, setBaseline] = useState(record);
@@ -90,6 +210,21 @@ function WorkflowEditor({
   const fields = mutation.isError ? getApiFieldErrors(mutation.error) : {};
   const noteTooLong = note !== null && note.length > 5000;
   const pendingClear = note === null && baseline.internalNote !== null;
+
+  useEffect(() => {
+    onUnsavedChanges(hasChanges);
+    return () => onUnsavedChanges(false);
+  }, [hasChanges, onUnsavedChanges]);
+
+  useEffect(() => {
+    if (!hasChanges) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [hasChanges]);
 
   function changed() {
     setSuccess(false);
@@ -125,7 +260,9 @@ function WorkflowEditor({
         <div>
           <h3 className="text-base font-bold text-[var(--navy)]">إدارة الحالة والملاحظة الداخلية</h3>
           <p className="mt-0.5 text-xs text-[var(--muted)]">
-            الملاحظة الداخلية خاصة بفريق الإدارة فقط ولا تُرسل لصاحب الطلب.
+            {resource === "inquiries"
+              ? "ملاحظة خاصة بفريق الإدارة، ولا تظهر للمستفسر."
+              : "الملاحظة الداخلية خاصة بفريق الإدارة فقط ولا تُرسل لصاحب الطلب."}
           </p>
         </div>
         <SubmissionStatusBadge status={baseline.status} />
@@ -197,7 +334,7 @@ function WorkflowEditor({
               disabled={note === null}
             >
               <TrashIcon className="size-3.5" />
-              <span>مسح الملاحظة (null)</span>
+              <span>{resource === "inquiries" ? "مسح الملاحظة" : "مسح الملاحظة (null)"}</span>
             </button>
 
             {pendingClear ? (
@@ -247,21 +384,32 @@ function WorkflowEditor({
 export function SubmissionDetailPage({
   resource,
   id,
+  returnSearchParams,
 }: {
   resource: SubmissionResource;
   id: string;
+  returnSearchParams?: string;
 }) {
   const { mockEnabled } = useAdminAccess();
   const detail = useSubmissionDetail(resource, id);
   const record = detail.data;
   const validId = isSubmissionId(id);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const listHref = `/admin/${resource}${returnSearchParams ? `?${returnSearchParams}` : ""}`;
+
+  function confirmLeave(event: React.MouseEvent<HTMLAnchorElement>) {
+    if (hasUnsavedChanges && !window.confirm("لديك تغييرات غير محفوظة. هل تريد المغادرة؟")) {
+      event.preventDefault();
+    }
+  }
 
   return (
     <section className="min-w-0 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <Link
-            href={`/admin/${resource}`}
+            href={listHref}
+            onClick={confirmLeave}
             className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--muted)] hover:text-[var(--navy)]"
           >
             <ChevronRightIcon className="size-3.5" />
@@ -311,23 +459,8 @@ export function SubmissionDetailPage({
 
               <dl className="grid min-w-0 gap-5 sm:grid-cols-2">
                 <DetailItem label="الاسم الكامل" value={record.fullName} />
-                <DetailItem
-                  label="البريد الإلكتروني"
-                  value={record.email}
-                  ltr
-                  icon={<MailIcon className="size-3.5" />}
-                />
-                <DetailItem
-                  label="رقم الهاتف"
-                  value={record.phone}
-                  ltr
-                  icon={<PhoneIcon className="size-3.5" />}
-                />
-                <DetailItem
-                  label="موافقة سياسة الخصوصية"
-                  value={submissionDate(record.privacyAcceptedAt)}
-                  icon={<ShieldCheckIcon className="size-3.5 text-emerald-700" />}
-                />
+                <EmailDetail email={record.email} subject={"subject" in record ? record.subject : undefined} />
+                <PhoneDetail phone={record.phone} enableContactActions={resource === "inquiries"} />
                 <DetailItem
                   label="تاريخ الإرسال"
                   value={submissionDate(record.createdAt)}
@@ -361,9 +494,9 @@ export function SubmissionDetailPage({
                       value={record.studyLevel ? studyLevelLabel(record.studyLevel) : null}
                     />
                     <DetailItem label="التخصص المقصود" value={record.intendedMajor} />
-                    <DetailItem label="معرّف الدولة المرتبط" value={record.countryId} ltr mono />
-                    <DetailItem label="معرّف الجامعة المرتبطة" value={record.universityId} ltr mono />
-                    <DetailItem label="معرّف المنحة المرتبطة" value={record.scholarshipId} ltr mono />
+                    <ApplicationRelation label="الدولة" resource="countries" id={record.countryId} />
+                    <ApplicationRelation label="الجامعة" resource="universities" id={record.universityId} />
+                    <ApplicationRelation label="المنحة" resource="scholarships" id={record.scholarshipId} />
                   </>
                 ) : (
                   <div className="min-w-0 sm:col-span-2">
@@ -383,7 +516,12 @@ export function SubmissionDetailPage({
 
           {/* Workflow Management Column */}
           <div className="min-w-0">
-            <WorkflowEditor key={record.id} resource={resource} record={record} />
+            <WorkflowEditor
+              key={record.id}
+              resource={resource}
+              record={record}
+              onUnsavedChanges={setHasUnsavedChanges}
+            />
           </div>
         </div>
       ) : null}

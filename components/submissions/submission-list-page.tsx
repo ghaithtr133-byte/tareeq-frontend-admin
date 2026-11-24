@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { EmptyState, LoadingState } from "@/components/dashboard/states";
 import {
@@ -9,7 +10,10 @@ import {
   type Submission,
   type SubmissionResource,
 } from "@/lib/api-client/submissions";
-import { useSubmissionList } from "@/hook/queries/use-submission-queries";
+import {
+  useInfiniteSubmissionList,
+  useSubmissionList,
+} from "@/hook/queries/use-submission-queries";
 import {
   applicationTypeLabels,
   parseSubmissionFilters,
@@ -32,6 +36,18 @@ import {
   submissionDate,
 } from "./submission-ui";
 
+function useDesktopLayout() {
+  const [desktop, setDesktop] = useState<boolean | undefined>();
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)");
+    const update = () => setDesktop(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  return desktop;
+}
+
 export function SubmissionListPage({
   resource,
   searchParams,
@@ -42,12 +58,41 @@ export function SubmissionListPage({
   const pathname = usePathname();
   const router = useRouter();
   const { mockEnabled } = useAdminAccess();
-  const filters = parseSubmissionFilters(resource, searchParams);
-  const list = useSubmissionList(resource, filters);
+  const desktop = useDesktopLayout();
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const parsedFilters = parseSubmissionFilters(resource, searchParams);
+  const filters = useMemo(
+    () => ({ ...parsedFilters, limit: 12 }),
+    [parsedFilters],
+  );
+  const mobileMode = desktop === false;
+  const list = useSubmissionList(
+    resource,
+    filters,
+    desktop === true,
+  );
+  const mobileFilters = useMemo(() => {
+    const { page: _page, limit: _limit, ...rest } = filters;
+    void _page;
+    void _limit;
+    return rest;
+  }, [filters]);
+  const mobileList = useInfiniteSubmissionList(
+    resource,
+    mobileFilters,
+    5,
+    mobileMode,
+  );
+  const {
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = mobileList;
 
   function navigate(values: Record<string, unknown>) {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(values)) {
+      if (key === "limit") continue;
       if (value !== undefined && value !== "") params.set(key, String(value));
     }
     router.push(`${pathname}?${params.toString()}`);
@@ -62,8 +107,36 @@ export function SubmissionListPage({
   }
 
   const metadata = list.data?.pagination;
-  const items = !list.isError ? list.data?.items : undefined;
+  const mobileItems = useMemo(() => {
+    const seen = new Set<string>();
+    return (mobileList.data?.pages.flatMap((page) => page.items) ?? []).filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+  }, [mobileList.data]);
+  const items = mobileMode
+    ? mobileItems
+    : !list.isError
+      ? list.data?.items
+      : undefined;
   const hasActiveFilters = Boolean(filters.status || filters.applicationType);
+
+  useEffect(() => {
+    if (
+      !mobileMode ||
+      !sentinelRef.current ||
+      !hasNextPage ||
+      isFetchingNextPage
+    ) {
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) void fetchNextPage();
+    }, { rootMargin: "240px" });
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [mobileMode, fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   function summary(item: Submission) {
     return "applicationType" in item
@@ -72,9 +145,14 @@ export function SubmissionListPage({
   }
 
   function detailLink(item: Submission) {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (key !== "limit" && value !== undefined) query.set(key, String(value));
+    }
+    const returnQuery = query.toString();
     return (
       <Link
-        href={`/admin/${resource}/${item.id}`}
+        href={`/admin/${resource}/${item.id}${returnQuery ? `?${returnQuery}` : ""}`}
         className="inline-flex h-9 items-center gap-1 rounded-lg border border-[var(--line)] bg-white px-3 text-xs font-semibold text-[var(--navy)] transition-colors hover:border-[var(--navy)] hover:bg-[var(--navy)] hover:text-white whitespace-nowrap"
         aria-label={`عرض تفاصيل ${item.fullName}`}
       >
@@ -113,7 +191,7 @@ export function SubmissionListPage({
           ) : null}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <SubmissionField label="الحالة">
             <select
               name="status"
@@ -165,22 +243,6 @@ export function SubmissionListPage({
             </select>
           </SubmissionField>
 
-          <SubmissionField label="لكل صفحة">
-            <select
-              name="limit"
-              value={filters.limit ?? 12}
-              onChange={(event) => patchFilters({ limit: Number(event.target.value) })}
-              className={submissionControlClass}
-            >
-              {[...new Set([12, 24, 50, filters.limit!])]
-                .sort((a, b) => a - b)
-                .map((limit) => (
-                  <option key={limit} value={limit}>
-                    {limit} سجل
-                  </option>
-                ))}
-            </select>
-          </SubmissionField>
         </div>
       </div>
 
@@ -191,11 +253,15 @@ export function SubmissionListPage({
         </p>
       ) : (
         <>
-          {list.isPending ? <LoadingState /> : null}
-          {list.isError ? (
+          {desktop === undefined || (mobileMode ? mobileList.isPending : list.isPending) ? <LoadingState /> : null}
+          {mobileMode ? mobileList.isError ? (
+            <SubmissionError error={mobileList.error} retry={() => void mobileList.refetch()} />
+          ) : null : list.isError ? (
             <SubmissionError error={list.error} retry={() => void list.refetch()} />
           ) : null}
-          {items?.length === 0 ? <EmptyState /> : null}
+          {items?.length === 0 && !(mobileMode ? mobileList.isPending || mobileList.isError : list.isPending) ? (
+            <EmptyState />
+          ) : null}
 
           {items?.length ? (
             <>
@@ -278,10 +344,41 @@ export function SubmissionListPage({
                   </article>
                 ))}
               </div>
+
+              {mobileMode ? (
+                <div className="space-y-3 md:hidden">
+                  <div ref={sentinelRef} aria-hidden="true" />
+                  {mobileList.isFetchingNextPage ? (
+                    <p role="status" className="py-1 text-center text-xs text-[var(--muted)]">
+                      جارٍ تحميل المزيد…
+                    </p>
+                  ) : null}
+                  {mobileList.isError && mobileItems.length ? (
+                    <button
+                      type="button"
+                      onClick={() => void mobileList.fetchNextPage()}
+                      className="mx-auto flex h-10 items-center rounded-xl border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--navy)]"
+                    >
+                      إعادة محاولة التحميل
+                    </button>
+                  ) : mobileList.hasNextPage ? (
+                    <button
+                      type="button"
+                      onClick={() => void mobileList.fetchNextPage()}
+                      disabled={mobileList.isFetchingNextPage}
+                      className="mx-auto flex h-10 items-center rounded-xl border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--navy)] disabled:opacity-50"
+                    >
+                      تحميل المزيد
+                    </button>
+                  ) : (
+                    <p className="py-1 text-center text-xs text-[var(--muted)]">تم عرض كل الطلبات.</p>
+                  )}
+                </div>
+              ) : null}
             </>
           ) : null}
 
-          {!list.isError && metadata ? (
+          {!mobileMode && !list.isError && metadata ? (
             <nav
               aria-label="صفحات النتائج"
               className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-xs shadow-[var(--shadow-card)] sm:text-sm"

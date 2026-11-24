@@ -8,7 +8,7 @@ import { queryKeys } from "@/lib/api-client/query-keys";
 import { normalizeApiError } from "@/lib/api-client/error";
 import { accountParamsSchema, accountUpdateSchema, analyticsParamsSchema, analyticsSummarySchema, auditParamsSchema, journeyParamsSchema, journeySchema } from "@/lib/phase4-schemas";
 import { assertSuperAdminSession, clearPrivilegedCache } from "@/lib/privileged-access";
-import { actionLabel, formatCount, formatRate, safeAnalyticsPath, safeAuditMetadata, trendPoints } from "@/lib/phase4-presentation";
+import { actionLabel, auditActionTitle, formatCount, formatRate, safeAnalyticsPath, safeAuditActionCode, safeAuditMetadata, trendPoints } from "@/lib/phase4-presentation";
 import { cacheAccountUpdate } from "@/hook/mutations/use-account-mutation";
 import { getAllowedDevApiEndpoint, isAdminDevApiProxyEnabled, validateTrustedDevelopmentRequest } from "@/lib/admin-dev-api-proxy";
 import { accountFixture, actorId, auditFixture, journeyFixture, summaryFixture, targetId } from "./fixtures/phase4";
@@ -43,8 +43,8 @@ test("account update is exactly one role or activation flag; invalid writes neve
   finally { apiClient.defaults.adapter = old; }
 });
 test("metadata view is bounded, enum/boolean-only and never mutates or dumps private structures", () => {
-  const original = JSON.stringify(auditFixture.metadata); const view = safeAuditMetadata(auditFixture.metadata); assert.deepEqual(view.rows.map(row => row.value), ["DRAFT", "PUBLISHED"]); assert.equal(view.hasHiddenFields, true); const rendered = JSON.stringify(view); for (const privateValue of ["HIDDEN_PASSWORD", "HIDDEN_TOKEN", "HIDDEN_MESSAGE", "HIDDEN_COOKIE"]) assert.equal(rendered.includes(privateValue), false); assert.equal(JSON.stringify(auditFixture.metadata), original);
-  assert.deepEqual(safeAuditMetadata({ fromRole: "untrusted free text", isActive: false, arbitrary: ["private"] }).rows, [{ label: "مفعّل", value: "لا" }]); assert.equal(actionLabel("content.country.status_changed"), "تغيير الحالة"); assert.equal(safeAnalyticsPath("/scholarships?email=private"), "مسار محجوب لسلامة العرض");
+  const original = JSON.stringify(auditFixture.metadata); const view = safeAuditMetadata(auditFixture.metadata); assert.deepEqual(view.rows.map(row => row.value), ["مسودة", "منشور"]); assert.deepEqual(view.transitions, [{ label: "تغيير الحالة", from: "مسودة", to: "منشور" }]); assert.equal(view.hasHiddenFields, true); const rendered = JSON.stringify(view); for (const privateValue of ["HIDDEN_PASSWORD", "HIDDEN_TOKEN", "HIDDEN_MESSAGE", "HIDDEN_COOKIE"]) assert.equal(rendered.includes(privateValue), false); assert.equal(JSON.stringify(auditFixture.metadata), original);
+  assert.deepEqual(safeAuditMetadata({ fromRole: "untrusted free text", isActive: false, arbitrary: ["private"] }).rows, [{ label: "مفعّل", value: "لا" }]); assert.equal(actionLabel("content.country.status_changed"), "تغيير الحالة"); assert.equal(auditActionTitle("content.country.status_changed", "COUNTRY"), "تغيير حالة دولة"); assert.equal(auditActionTitle("unknown.code", "COUNTRY"), "إجراء إداري غير معروف"); assert.equal(safeAuditActionCode("bad action"), "bad action"); assert.equal(safeAuditActionCode("a".repeat(101)), "رمز عملية غير صالح للعرض"); assert.equal(safeAnalyticsPath("/scholarships?email=private"), "مسار محجوب لسلامة العرض");
 });
 test("restricted cache guards deny ADMIN/errored/changed sessions and preserve unrelated phases", async () => {
   const client = new QueryClient(); client.setQueryData(queryKeys.session, { id: actorId, role: "SUPER_ADMIN" }); assert.doesNotThrow(() => assertSuperAdminSession(client, actorId));

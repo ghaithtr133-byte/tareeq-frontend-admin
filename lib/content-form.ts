@@ -1,11 +1,19 @@
 import { z } from "zod";
 
-import type { AdminContentResource, Article, ArticleRichTextBlock, ContentRecord, ContentTypeMap, University } from "@/lib/api-client/content";
+import type { AdminContentResource, Article, ArticleRichTextBlock, ContentRecord, ContentTypeMap, Country, Scholarship, University } from "@/lib/api-client/content";
 import { articleBlockOptions, contentDefinitions } from "@/lib/content-config";
 import { uuidSchema } from "@/lib/university-schemas";
 
 export type ContentFormValues = Record<string, string | boolean | ArticleRichTextBlock[] | string[] | undefined>;
 export type ParentCreateIntent = "finish" | "details";
+export type ContentPatchOptions = {
+  /**
+   * An edit form may send a publication-status transition only after the
+   * administrator explicitly changed its control. This prevents a transient
+   * default form value from changing a stored publication state.
+   */
+  statusChanged?: boolean;
+};
 const resourcesWithDetails = new Set<AdminContentResource>(["countries", "scholarships", "services"]);
 
 export function supportsContentDetails(resource: AdminContentResource) { return resourcesWithDetails.has(resource); }
@@ -45,14 +53,20 @@ function isBlank(value: unknown): boolean {
   return typeof value !== "string" || value.trim() === "";
 }
 
+function seoText(value: unknown, maxLength: number): string | undefined {
+  const text = String(value ?? "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text ? text.slice(0, maxLength).trim() : undefined;
+}
+
 function universitySeoTitle(nameAr: unknown): string | undefined {
-  const value = String(nameAr ?? "").trim();
-  return value ? value.slice(0, 120) : undefined;
+  return seoText(nameAr, 120);
 }
 
 function universitySeoDescription(summaryAr: unknown, overviewAr: unknown): string | undefined {
-  const value = String(summaryAr ?? "").trim() || String(overviewAr ?? "").trim();
-  return value ? value.slice(0, 320) : undefined;
+  return seoText(summaryAr, 320) ?? seoText(overviewAr, 320);
 }
 
 /**
@@ -92,15 +106,16 @@ export function applyUniversitySeoDefaults(values: ContentFormValues, record?: U
 }
 
 function articleSeoTitle(titleAr: unknown): string | undefined {
-  const title = String(titleAr ?? "").trim();
-  if (!title) return undefined;
-  const branded = `${title} | طريق الأكاديمية`;
-  return branded.slice(0, 120);
+  return seoText(titleAr, 120);
+}
+
+function legacyArticleSeoTitle(titleAr: unknown): string | undefined {
+  const title = seoText(titleAr, 120);
+  return title ? `${title} | طريق الأكاديمية`.slice(0, 120) : undefined;
 }
 
 function articleSeoDescription(summaryAr: unknown): string | undefined {
-  const value = String(summaryAr ?? "").trim();
-  return value ? value.slice(0, 320) : undefined;
+  return seoText(summaryAr, 320);
 }
 
 /** Preserve custom Article SEO while refreshing only absent or previously generated values. */
@@ -118,7 +133,9 @@ export function applyArticleSeoDefaults(values: ContentFormValues, record?: Arti
   if (
     String(next.titleAr ?? "") !== record.titleAr &&
     title &&
-    (record.seoTitleAr === null || record.seoTitleAr === articleSeoTitle(record.titleAr))
+    (record.seoTitleAr === null ||
+      record.seoTitleAr === articleSeoTitle(record.titleAr) ||
+      record.seoTitleAr === legacyArticleSeoTitle(record.titleAr))
   ) {
     next.seoTitleAr = title;
   }
@@ -126,6 +143,103 @@ export function applyArticleSeoDefaults(values: ContentFormValues, record?: Arti
     String(next.summaryAr ?? "") !== record.summaryAr &&
     description &&
     (record.seoDescriptionAr === null || record.seoDescriptionAr === articleSeoDescription(record.summaryAr))
+  ) {
+    next.seoDescriptionAr = description;
+  }
+  return next;
+}
+
+function countrySeoTitle(nameAr: unknown): string | undefined {
+  return seoText(nameAr, 120);
+}
+
+function legacyCountrySeoTitle(nameAr: unknown): string | undefined {
+  const name = seoText(nameAr, 110);
+  return name ? `الدراسة في ${name}`.slice(0, 120) : undefined;
+}
+
+function countrySeoDescription(introductionAr: unknown, detailsAr: unknown): string | undefined {
+  return seoText(introductionAr, 320) ?? seoText(detailsAr, 320);
+}
+
+/** Keep saved custom Country SEO and only refresh values we can prove were generated. */
+export function applyCountrySeoDefaults(values: ContentFormValues, record?: Country): ContentFormValues {
+  const next = { ...values };
+  const title = countrySeoTitle(next.nameAr);
+  const description = countrySeoDescription(next.introductionAr, next.detailsAr);
+
+  if (!record) {
+    if (isBlank(next.seoTitleAr) && title) next.seoTitleAr = title;
+    if (isBlank(next.seoDescriptionAr) && description) next.seoDescriptionAr = description;
+    return next;
+  }
+
+  const titleChanged = String(next.nameAr ?? "") !== record.nameAr;
+  const descriptionChanged =
+    String(next.introductionAr ?? "") !== String(record.introductionAr ?? "") ||
+    String(next.detailsAr ?? "") !== String(record.detailsAr ?? "");
+  if (
+    titleChanged &&
+    title &&
+    (record.seoTitleAr === null ||
+      record.seoTitleAr === countrySeoTitle(record.nameAr) ||
+      record.seoTitleAr === legacyCountrySeoTitle(record.nameAr))
+  ) {
+    next.seoTitleAr = title;
+  }
+  if (
+    descriptionChanged &&
+    description &&
+    (record.seoDescriptionAr === null || record.seoDescriptionAr === countrySeoDescription(record.introductionAr, record.detailsAr))
+  ) {
+    next.seoDescriptionAr = description;
+  }
+  return next;
+}
+
+function scholarshipSeoTitle(titleAr: unknown): string | undefined {
+  return seoText(titleAr, 120);
+}
+
+function legacyScholarshipSeoTitle(titleAr: unknown, countryName?: unknown): string | undefined {
+  const title = seoText(titleAr, 120);
+  const country = seoText(countryName, 120);
+  return title ? (country ? `${title} - ${country}` : title).slice(0, 120) : undefined;
+}
+
+function scholarshipSeoDescription(descriptionAr: unknown, requirementsAr: unknown): string | undefined {
+  return seoText(descriptionAr, 320) ?? seoText(requirementsAr, 320);
+}
+
+/** The current Scholarship contract has no summaryAr, so descriptionAr is its actual primary source. */
+export function applyScholarshipSeoDefaults(values: ContentFormValues, record?: Scholarship): ContentFormValues {
+  const next = { ...values };
+  const title = scholarshipSeoTitle(next.titleAr);
+  const description = scholarshipSeoDescription(next.descriptionAr, next.requirementsAr);
+
+  if (!record) {
+    if (isBlank(next.seoTitleAr) && title) next.seoTitleAr = title;
+    if (isBlank(next.seoDescriptionAr) && description) next.seoDescriptionAr = description;
+    return next;
+  }
+
+  const titleChanged = String(next.titleAr ?? "") !== record.titleAr;
+  const descriptionChanged =
+    String(next.descriptionAr ?? "") !== String(record.descriptionAr ?? "") ||
+    String(next.requirementsAr ?? "") !== String(record.requirementsAr ?? "");
+  if (
+    titleChanged &&
+    title &&
+    (record.seoTitleAr === null ||
+      record.seoTitleAr === scholarshipSeoTitle(record.titleAr) ||
+      record.seoTitleAr === legacyScholarshipSeoTitle(record.titleAr, record.country?.nameAr))
+  ) {
+    next.seoTitleAr = title;
+  }
+  if (
+    descriptionChanged &&
+    description &&
+    (record.seoDescriptionAr === null || record.seoDescriptionAr === scholarshipSeoDescription(record.descriptionAr, record.requirementsAr))
   ) {
     next.seoDescriptionAr = description;
   }
@@ -225,10 +339,19 @@ export function toContentPayload<K extends AdminContentResource>(resource: K, va
 }
 
 /** Core edit semantics: unchanged fields omitted, explicit documented null/[] clears retained. */
-export function toContentPatch<K extends AdminContentResource>(resource: K, values: ContentFormValues, record: ContentRecord): ContentTypeMap[K]["input"] {
+export function toContentPatch<K extends AdminContentResource>(
+  resource: K,
+  values: ContentFormValues,
+  record: ContentRecord,
+  options?: ContentPatchOptions,
+): ContentTypeMap[K]["input"] {
   const next = toContentPayload(resource, values) as Record<string, unknown>;
   const before = toContentPayload(resource, initialContentValues(resource, record)) as Record<string, unknown>;
   const patch = Object.fromEntries(Object.entries(next).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(before[key])));
+  // Existing publication state is server-owned metadata. A form default,
+  // upload callback, or asynchronous reset must never demote a record; only
+  // the editor's status control may opt into sending this field.
+  if (options?.statusChanged === false) delete patch.status;
   if (!Object.keys(patch).length) throw new Error("لا توجد تغييرات للحفظ.");
   return patch as ContentTypeMap[K]["input"];
 }

@@ -64,7 +64,7 @@ for (const role of ["ADMIN", "SUPER_ADMIN"] as const) {
       await expect(page).toHaveURL(/sort=updated/);
       await expect(page.getByText("صفحة 1 من 3 · 25 سجل")).toBeVisible();
       await page.getByRole("link", { name: /عرض تفاصيل/ }).first().click();
-      await expect(page.getByText("موافقة سياسة الخصوصية", { exact: true })).toBeVisible();
+      await expect(page.getByText("موافقة سياسة الخصوصية", { exact: true })).toHaveCount(0);
       await expect(page.getByText(resource === "applications" ? applicationFixture.message : inquiryFixture.message, { exact: true })).toBeVisible();
       const save = page.getByRole("button", { name: "حفظ التغييرات", exact: true });
       const note = page.getByRole("textbox", { name: "الملاحظة الداخلية", exact: true });
