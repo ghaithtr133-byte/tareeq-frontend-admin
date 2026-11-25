@@ -4,7 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { AxiosError } from "axios";
 import { apiClient } from "@/lib/api-client/client";
-import { getAuthenticatedUser, login, logout, refreshSession, restoreAuthenticatedUser } from "@/lib/api-client/auth";
+import { getAuthenticatedUser, isUnauthenticatedSessionError, login, logout, refreshSession, restoreAuthenticatedUser } from "@/lib/api-client/auth";
 
 test("Backend helper modules live outside Vercel's root function directory and imports use their new path", () => {
   assert.equal(existsSync("api"), false);
@@ -49,5 +49,28 @@ test("relocated session restoration still performs bounded refresh then authorit
   try {
     assert.deepEqual(await restoreAuthenticatedUser(), user);
     assert.deepEqual(calls, ["get /auth/me", "post /auth/refresh", "get /auth/me"]);
+  } finally { apiClient.defaults.adapter = previous; }
+});
+
+test("session bootstrap preserves a valid session without refresh and stops after missing credentials", async () => {
+  const previous = apiClient.defaults.adapter;
+  const validCalls: string[] = [];
+  apiClient.defaults.adapter = async config => {
+    validCalls.push(`${config.method} ${config.url}`);
+    return { config, status: 200, statusText: "OK", headers: {}, data: { success: true, data: { user } } };
+  };
+  try {
+    assert.deepEqual(await restoreAuthenticatedUser(), user);
+    assert.deepEqual(validCalls, ["get /auth/me"]);
+  } finally { apiClient.defaults.adapter = previous; }
+
+  const missingCalls: string[] = [];
+  apiClient.defaults.adapter = async config => {
+    missingCalls.push(`${config.method} ${config.url}`);
+    throw new AxiosError("synthetic missing session", undefined, config, {}, { config, status: 401, statusText: "Unauthorized", headers: {}, data: { success: false } });
+  };
+  try {
+    await assert.rejects(() => restoreAuthenticatedUser(), isUnauthenticatedSessionError);
+    assert.deepEqual(missingCalls, ["get /auth/me", "post /auth/refresh"]);
   } finally { apiClient.defaults.adapter = previous; }
 });

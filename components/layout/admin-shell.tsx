@@ -250,6 +250,17 @@ export function AdminShell({
     }
   }, [profileDialogOpen]);
 
+  /**
+   * Keep the native dialog and React state in lockstep. Closing the element
+   * directly makes the visible dialog disappear immediately, rather than
+   * waiting for a later state effect to reconcile its `open` property.
+   */
+  function closeProfileDialog() {
+    const dialog = profileDialogRef.current;
+    if (dialog?.open) dialog.close();
+    setProfileDialogOpen(false);
+  }
+
   const roleLabel = getRoleLabel(user.role);
 
   return (
@@ -444,8 +455,9 @@ export function AdminShell({
         aria-labelledby={profileTitleId}
         onCancel={(event) => {
           event.preventDefault();
-          setProfileDialogOpen(false);
+          closeProfileDialog();
         }}
+        onClose={() => setProfileDialogOpen(false)}
         className="m-auto flex max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] w-[calc(100%-1rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-white p-0 text-[var(--foreground)] shadow-2xl backdrop:bg-slate-950/45 sm:w-[calc(100%-2rem)]"
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--line)] bg-white px-4 py-3.5 sm:px-6 sm:py-4">
@@ -463,7 +475,7 @@ export function AdminShell({
           <button
             ref={profileCloseButtonRef}
             type="button"
-            onClick={() => setProfileDialogOpen(false)}
+            onClick={closeProfileDialog}
             className="grid size-9 place-items-center rounded-xl border border-[var(--line)] text-[var(--muted)] transition-colors hover:bg-slate-50 hover:text-[var(--navy)]"
             aria-label="إغلاق إعدادات الملف الشخصي"
           >
@@ -514,7 +526,7 @@ export function AdminShell({
             <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <Link
               href="/admin/change-password"
-              onClick={() => setProfileDialogOpen(false)}
+              onClick={closeProfileDialog}
               className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-[var(--line)] bg-white px-3.5 text-xs font-bold text-[var(--navy)] transition-colors hover:bg-slate-50 sm:w-auto"
             >
               <KeyRoundIcon className="size-4 text-[var(--gold-dark)]" />
@@ -532,7 +544,7 @@ export function AdminShell({
               </button>
               <button
                 type="button"
-                onClick={() => setProfileDialogOpen(false)}
+                onClick={closeProfileDialog}
                 className="min-h-10 w-full rounded-xl border border-[var(--line)] px-4 text-xs font-bold text-[var(--navy)] transition-colors hover:bg-slate-50 sm:w-auto"
               >
                 إغلاق

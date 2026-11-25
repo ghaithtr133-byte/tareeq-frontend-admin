@@ -155,6 +155,34 @@ test("mock roles, protected navigation, logout, and responsive drawer are intera
   await expect(page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).resolves.toBeTruthy();
 });
 
+test("ADMIN and SUPER_ADMIN can close and reopen the profile dialog with button, Escape, and restored focus", async ({ page }) => {
+  await resetAndScale(page);
+
+  for (const role of [
+    { control: "ADMIN", account: "قائمة الحساب: مشرف التطوير" },
+    { control: "SUPER_ADMIN", account: "قائمة الحساب: مدير التطوير" },
+  ]) {
+    await openMockTools(page);
+    await page.getByRole("button", { name: role.control, exact: true }).click();
+
+    const account = page.getByRole("button", { name: role.account, exact: true });
+    await account.click();
+    await page.getByRole("menuitem", { name: "إعدادات الملف الشخصي", exact: true }).click();
+    const profile = page.getByRole("dialog", { name: "إعدادات الملف الشخصي", exact: true });
+    await expect(profile).toBeVisible();
+    await profile.getByRole("button", { name: "إغلاق", exact: true }).click();
+    await expect(profile).toBeHidden();
+    await expect(account).toBeFocused();
+
+    await account.click();
+    await page.getByRole("menuitem", { name: "إعدادات الملف الشخصي", exact: true }).click();
+    await expect(profile).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(profile).toBeHidden();
+    await expect(account).toBeFocused();
+  }
+});
+
 test("submission-management mock preview stays isolated and responsive", async ({ page }) => {
   await resetAndScale(page);
   const entries = [

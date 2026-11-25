@@ -40,5 +40,12 @@ test("TA-100: Native dialog focus and Escape behavior remain intact with restora
   assert.match(source, /accountButtonRef\.current\?\.focus\(\)/);
   assert.match(source, /ref=\{accountButtonRef\}[\s\S]{0,400}aria-label=\{`قائمة الحساب:/);
   assert.match(dialogSource, /onCancel=\{\(event\) => \{/);
-  assert.match(dialogSource, /event\.preventDefault\(\);\s*setProfileDialogOpen\(false\)/);
+  assert.match(dialogSource, /event\.preventDefault\(\);\s*closeProfileDialog\(\)/);
+});
+
+test("TA-112: Profile dialog controls close the native dialog immediately and synchronize React state", () => {
+  assert.match(source, /function closeProfileDialog\(\) \{[\s\S]*if \(dialog\?\.open\) dialog\.close\(\);[\s\S]*setProfileDialogOpen\(false\);/);
+  assert.match(dialogSource, /onClose=\{\(\) => setProfileDialogOpen\(false\)\}/);
+  assert.match(dialogSource, /onCancel=\{\(event\) => \{\s*event\.preventDefault\(\);\s*closeProfileDialog\(\);/);
+  assert.match(dialogSource, /onClick=\{closeProfileDialog\}/);
 });
