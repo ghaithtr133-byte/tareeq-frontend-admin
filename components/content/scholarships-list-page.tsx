@@ -33,7 +33,7 @@ import {
   StarIcon,
 } from "@/components/ui/admin-icons";
 import { useUpdateContent } from "@/hook/mutations/use-content-mutations";
-import { useContentList, useContentSelectors } from "@/hook/queries/use-content-queries";
+import { useContentList, useContentSelectors, useInfiniteContentList } from "@/hook/queries/use-content-queries";
 import type { ListSearchParams } from "@/lib/content-filters";
 import { scholarshipOptionDisplayLabel } from "@/lib/scholarship-form-helpers";
 import {
@@ -61,6 +61,18 @@ const applicationBadgeStyles: Record<ScholarshipApplicationStatus, string> = {
   OPEN: "border-teal-200/90 bg-teal-50/90 text-teal-900",
   CLOSED: "border-slate-200 bg-slate-100 text-slate-700",
 };
+
+function useDesktopLayout() {
+  const [desktop, setDesktop] = useState<boolean | undefined>();
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const update = () => setDesktop(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  return desktop;
+}
 
 function PublicationStatusBadge({ status }: { status: PublicationStatus }) {
   return (
@@ -339,6 +351,8 @@ function ScholarshipsEmptyState({
 export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearchParams }) {
   const router = useRouter();
   const pathname = usePathname();
+  const desktop = useDesktopLayout();
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const filters = useMemo(
     () => parseScholarshipsListFilters(searchParams),
@@ -350,7 +364,14 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
   );
   const filtersActive = useMemo(() => hasActiveScholarshipsFilters(filters), [filters]);
 
-  const list = useContentList("scholarships", filters);
+  const mobileFilters = useMemo(() => {
+    const { page: _page, limit: _limit, ...rest } = filters;
+    void _page;
+    void _limit;
+    return rest;
+  }, [filters]);
+  const list = useContentList("scholarships", filters, desktop === true);
+  const mobileList = useInfiniteContentList("scholarships", mobileFilters, 5, desktop === false);
   const selectors = useContentSelectors({
     countries: true,
     universities: true,
@@ -472,11 +493,34 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
     }));
   }, [fundingTypeCatalog.options, filters.fundingType]);
 
-  const items = list.data?.items ?? [];
+  const desktopItems = list.data?.items ?? [];
+  const mobileItems = useMemo(() => {
+    const unique = new Map<string, Scholarship>();
+    for (const page of mobileList.data?.pages ?? []) {
+      for (const scholarship of page.items) unique.set(scholarship.id, scholarship);
+    }
+    return [...unique.values()];
+  }, [mobileList.data?.pages]);
+  const items = desktop ? desktopItems : mobileItems;
   const pagination = list.data?.pagination;
   const paginationSummary = pagination
     ? formatScholarshipsPaginationSummary(pagination.page, pagination.limit, pagination.total)
     : null;
+  const isPending = desktop ? list.isPending : mobileList.isPending;
+  const isError = desktop ? list.isError : mobileList.isError;
+  const retry = desktop ? () => void list.refetch() : () => void mobileList.refetch();
+  const { fetchNextPage, hasNextPage, isFetchingNextPage } = mobileList;
+
+  useEffect(() => {
+    if (desktop !== false || !sentinelRef.current || !hasNextPage || isFetchingNextPage) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) void fetchNextPage();
+    }, { rootMargin: "240px" });
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [desktop, fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  if (desktop === undefined) return <ScholarshipsTableSkeleton />;
 
   return (
     <section className="space-y-4">
@@ -507,7 +551,7 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
         delayMs={1000}
         placeholder="ابحث عن منحة..."
         ariaLabel="ابحث عن منحة"
-        isFetching={list.isFetching && !list.isPending}
+        isFetching={(desktop ? list.isFetching : mobileList.isFetching) && !isPending}
         resetTrigger={resetCount}
       />
 
@@ -682,14 +726,14 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
       ) : null}
 
       {/* Loading / Error / Empty / Results */}
-      {list.isPending ? <ScholarshipsTableSkeleton /> : null}
+      {isPending ? <ScholarshipsTableSkeleton /> : null}
 
-      {list.isError ? (
+      {isError && items.length === 0 ? (
         <ErrorState
           action={
             <button
               type="button"
-              onClick={() => void list.refetch()}
+              onClick={retry}
               className="inline-flex h-10 items-center rounded-xl bg-[var(--navy)] px-4 text-sm font-semibold text-white hover:bg-[var(--navy-light)]"
             >
               إعادة المحاولة
@@ -698,11 +742,11 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
         />
       ) : null}
 
-      {!list.isPending && !list.isError && items.length === 0 ? (
+      {!isPending && !isError && items.length === 0 ? (
         <ScholarshipsEmptyState hasFilters={filtersActive} onReset={handleResetFilters} />
       ) : null}
 
-      {!list.isPending && !list.isError && items.length > 0 ? (
+      {!isPending && !(isError && items.length === 0) && items.length > 0 ? (
         <>
           {/* Desktop 6-Column Table */}
           <div className="hidden rounded-2xl border border-[var(--line)] bg-white shadow-[var(--shadow-card)] lg:block">
@@ -730,7 +774,7 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--line)] text-[15px]">
-                {items.map((scholarship, index) => {
+                {desktopItems.map((scholarship, index) => {
                   const effectiveAppStatus =
                     scholarship.effectiveApplicationStatus ?? scholarship.applicationStatus;
                   const contextParts = [
@@ -787,7 +831,7 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
                       <td className="px-4 py-3.5 text-left align-middle whitespace-nowrap xl:px-5">
                         <ScholarshipRowActions
                           scholarship={scholarship}
-                          preferDropUp={items.length > 2 && index >= items.length - 2}
+                          preferDropUp={desktopItems.length > 2 && index >= desktopItems.length - 2}
                           isUpdating={updatingId === scholarship.id}
                           onToggleFeatured={(target) => void handleToggleFeatured(target)}
                         />
@@ -801,7 +845,7 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
 
           {/* Mobile & Tablet Compact Cards (< 1024px) */}
           <div className="grid gap-3 sm:grid-cols-2 lg:hidden">
-            {items.map((scholarship, index) => {
+            {mobileItems.map((scholarship, index) => {
               const effectiveAppStatus =
                 scholarship.effectiveApplicationStatus ?? scholarship.applicationStatus;
               const contextParts = [
@@ -853,7 +897,7 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
                     </span>
                     <ScholarshipRowActions
                       scholarship={scholarship}
-                      preferDropUp={items.length > 2 && index >= items.length - 2}
+                      preferDropUp={mobileItems.length > 2 && index >= mobileItems.length - 2}
                       isUpdating={updatingId === scholarship.id}
                       onToggleFeatured={(target) => void handleToggleFeatured(target)}
                     />
@@ -864,7 +908,7 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
           </div>
 
           {/* Pagination Footer (Fixed limit=12, No page-size selector) */}
-          {pagination && paginationSummary ? (
+          {desktop && pagination && paginationSummary ? (
             <nav
               aria-label="صفحات المنح الدراسية"
               className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-sm shadow-[var(--shadow-card)]"
@@ -927,6 +971,17 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
                 </button>
               </div>
             </nav>
+          ) : null}
+          {desktop === false ? (
+            <div className="space-y-3 lg:hidden">
+              <div ref={sentinelRef} aria-hidden="true" />
+              {mobileList.isFetchingNextPage ? <ScholarshipsTableSkeleton /> : null}
+              {mobileList.isError ? (
+                <ErrorState action={<button type="button" onClick={() => void mobileList.refetch()} className="inline-flex h-10 items-center rounded-xl bg-[var(--navy)] px-4 text-sm font-semibold text-white">إعادة المحاولة</button>} />
+              ) : mobileList.hasNextPage ? (
+                <button type="button" onClick={() => void mobileList.fetchNextPage()} disabled={mobileList.isFetchingNextPage} className="mx-auto flex h-10 items-center rounded-xl border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--navy)] disabled:opacity-50">تحميل المزيد</button>
+              ) : <p className="py-1 text-center text-xs text-[var(--muted)]">تم عرض كل المنح.</p>}
+            </div>
           ) : null}
         </>
       ) : null}

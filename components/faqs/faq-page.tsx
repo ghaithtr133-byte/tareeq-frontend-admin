@@ -48,7 +48,7 @@ export function FaqPage({ initialGroup }: { initialGroup?: FaqGroup } = {}) {
   const [group, setGroup] = useState<FaqGroup>(() => initialGroup ?? { scope: "GLOBAL" });
   const [parentLabel, setParentLabel] = useState<string | undefined>();
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(50);
+  const limit = 50;
   const [status, setStatus] = useState<PublicationStatus | undefined>();
   const [editor, setEditor] = useState<Faq | "new">();
   const [ordering, setOrdering] = useState(false);
@@ -68,7 +68,7 @@ export function FaqPage({ initialGroup }: { initialGroup?: FaqGroup } = {}) {
   const valid = faqGroupSchema.safeParse(group).success;
   const list = useFaqList({ ...group, page, limit, status });
   const locked = Boolean(editor) || ordering;
-  const hasActiveFilters = Boolean(status) || limit !== 50 || group.scope !== "GLOBAL";
+  const hasActiveFilters = Boolean(status) || group.scope !== "GLOBAL";
 
   if (access.mockEnabled) {
     return (
@@ -135,7 +135,6 @@ export function FaqPage({ initialGroup }: { initialGroup?: FaqGroup } = {}) {
                 setGroup({ scope: "GLOBAL" });
                 setParentLabel(undefined);
                 setStatus(undefined);
-                setLimit(50);
                 setPage(1);
                 setMessage("");
               }}
@@ -213,27 +212,6 @@ export function FaqPage({ initialGroup }: { initialGroup?: FaqGroup } = {}) {
             </div>
           </label>
 
-          <label className="grid gap-1.5 text-xs font-semibold text-[var(--navy)]">
-            <span>عدد النتائج</span>
-            <div className="relative">
-              <select
-                aria-label="عدد السجلات"
-                className={`${inputClass} appearance-none pl-9`}
-                value={limit}
-                onChange={(event) => {
-                  setLimit(Number(event.target.value));
-                  setPage(1);
-                }}
-              >
-                {[12, 50, 100].map((value) => (
-                  <option key={value} value={value}>
-                    {value} سجل
-                  </option>
-                ))}
-              </select>
-              <ChevronDownIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]" />
-            </div>
-          </label>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-subtle)] px-3.5 py-2 text-xs">

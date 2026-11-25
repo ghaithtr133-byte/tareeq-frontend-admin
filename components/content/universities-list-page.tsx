@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -12,7 +12,7 @@ import { DebouncedSearchBar } from "@/components/ui/debounced-search-bar";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { SwitchToggle } from "@/components/ui/switch-toggle";
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, InboxIcon, PencilIcon, PlusIcon, RotateCcwIcon, SearchIcon } from "@/components/ui/admin-icons";
-import { useContentList, useContentSelectors } from "@/hook/queries/use-content-queries";
+import { useContentList, useContentSelectors, useInfiniteContentList } from "@/hook/queries/use-content-queries";
 import { useStudyLanguageCatalog } from "@/hook/queries/use-study-languages";
 import { buildContentFilterUrlParams, countActiveContentFilters, parseContentListFilters, type ListSearchParams } from "@/lib/content-filters";
 import { programStudyLevelLabels, teachingLanguageLabels, universityTypeLabel } from "@/lib/content-labels";
@@ -49,11 +49,33 @@ function EmptyUniversities({ filtered, onReset }: { filtered: boolean; onReset: 
   return <section className="rounded-2xl border border-[var(--line)] bg-white px-6 py-10 text-center shadow-[var(--shadow-card)]"><div className="mx-auto grid size-12 place-items-center rounded-xl bg-[var(--surface-subtle)] text-[var(--navy)]">{filtered ? <SearchIcon className="size-5" /> : <InboxIcon className="size-5" />}</div><h3 className="mt-3 text-lg font-bold text-[var(--navy)]">{filtered ? "لا توجد جامعات مطابقة" : "لا توجد جامعات مضافة بعد"}</h3><p className="mt-1.5 text-sm text-[var(--muted)]">{filtered ? "غيّر معايير البحث أو التصفية ثم أعد المحاولة." : "أضف أول جامعة لبدء إدارة محتواها وحالة نشرها."}</p>{filtered ? <button type="button" onClick={onReset} className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--line)] px-4 text-sm font-semibold text-[var(--navy)]"><RotateCcwIcon className="size-4" />إعادة ضبط الفلاتر</button> : <Link href="/admin/universities/new" className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-[var(--navy)] px-4 text-sm font-semibold text-white"><PlusIcon className="size-4" />إضافة جامعة</Link>}</section>;
 }
 
+function useDesktopLayout() {
+  const [desktop, setDesktop] = useState<boolean | undefined>();
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const update = () => setDesktop(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  return desktop;
+}
+
 export function UniversitiesListPage({ searchParams }: { searchParams: ListSearchParams }) {
   const router = useRouter();
   const pathname = usePathname();
+  const desktop = useDesktopLayout();
   const filters = useMemo(() => parseContentListFilters("universities", searchParams), [searchParams]);
-  const list = useContentList("universities", filters);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const desktopFilters = useMemo(() => ({ ...filters, limit: 12 }), [filters]);
+  const mobileFilters = useMemo(() => {
+    const { page: _page, limit: _limit, ...rest } = desktopFilters;
+    void _page;
+    void _limit;
+    return rest;
+  }, [desktopFilters]);
+  const list = useContentList("universities", desktopFilters, desktop === true);
+  const mobileList = useInfiniteContentList("universities", mobileFilters, 5, desktop === false);
   const selectors = useContentSelectors({ countries: true });
   const studyLanguageCatalog = useStudyLanguageCatalog();
   const counts = useMemo(() => countActiveContentFilters("universities", filters as Record<string, string | number | undefined>), [filters]);
@@ -76,13 +98,36 @@ export function UniversitiesListPage({ searchParams }: { searchParams: ListSearc
   }, [filters, pathname, router]);
   const reset = useCallback(() => router.push(pathname), [pathname, router]);
   const onCountry = useCallback((country: string) => apply({ country: country || undefined, city: undefined }), [apply]);
-  const universities = list.data?.items ?? [];
+  const desktopUniversities = list.data?.items ?? [];
+  const mobileUniversities = useMemo(() => {
+    const unique = new Map<string, University>();
+    for (const page of mobileList.data?.pages ?? []) {
+      for (const university of page.items) unique.set(university.id, university);
+    }
+    return [...unique.values()];
+  }, [mobileList.data?.pages]);
+  const universities = desktop ? desktopUniversities : mobileUniversities;
   const pagination = list.data?.pagination;
+  const { fetchNextPage, hasNextPage, isFetchingNextPage } = mobileList;
+
+  useEffect(() => {
+    if (desktop !== false || !sentinelRef.current || !hasNextPage || isFetchingNextPage) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) void fetchNextPage();
+    }, { rootMargin: "240px" });
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [desktop, fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  if (desktop === undefined) return <UniversitiesSkeleton />;
+  const isPending = desktop ? list.isPending : mobileList.isPending;
+  const isError = desktop ? list.isError : mobileList.isError;
+  const retry = desktop ? () => void list.refetch() : () => void mobileList.refetch();
 
   return <section className="space-y-4">
     <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center"><div><h2 className="text-[26px] font-bold tracking-tight text-[var(--navy)] sm:text-[28px]">الجامعات</h2><p className="mt-1 text-[15px] text-[var(--muted)]">إدارة الجامعات ومحتواها وحالات نشرها</p></div><Link href="/admin/universities/new" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--navy)] px-5 text-sm font-semibold text-white hover:bg-[var(--navy-light)]"><PlusIcon className="size-4" />إضافة جامعة</Link></header>
 
-    <DebouncedSearchBar value={filters.search ?? ""} onDebouncedChange={(search) => apply({ search: search || undefined }, true)} delayMs={1000} placeholder="ابحث عن جامعة..." ariaLabel="ابحث عن جامعة" isFetching={list.isFetching} />
+    <DebouncedSearchBar value={filters.search ?? ""} onDebouncedChange={(search) => apply({ search: search || undefined }, true)} delayMs={1000} placeholder="ابحث عن جامعة..." ariaLabel="ابحث عن جامعة" isFetching={desktop ? list.isFetching : mobileList.isFetching} />
 
     <div className="space-y-4 rounded-2xl border border-[var(--line)] bg-white p-4 shadow-[var(--shadow-card)]">
       <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><h3 className="text-sm font-bold text-[var(--navy)]">التصفية والفرز</h3>{counts.total ? <span className="rounded-md bg-[var(--gold-soft)] px-2 py-0.5 text-xs font-bold text-[var(--navy)]">{counts.total} فلتر نشط</span> : null}</div><div className="flex gap-2"><button type="button" aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)} className="inline-flex h-9 items-center gap-2 rounded-lg border border-[var(--line)] px-3 text-xs font-semibold text-[var(--navy)]">فلاتر إضافية{counts.secondary ? <span className="rounded bg-[var(--navy)] px-1.5 py-0.5 text-white">{counts.secondary}</span> : null}<ChevronDownIcon className={`size-3.5 ${moreOpen ? "rotate-180" : ""}`} /></button>{filtered ? <button type="button" onClick={reset} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--line)] px-3 text-xs font-semibold text-[var(--navy)]"><RotateCcwIcon className="size-3.5" />إعادة ضبط</button> : null}</div></div>
@@ -90,8 +135,9 @@ export function UniversitiesListPage({ searchParams }: { searchParams: ListSearc
       {moreOpen ? <div className="grid gap-3 border-t border-[var(--line)] pt-4 sm:grid-cols-2 lg:grid-cols-4"><SearchableSelect label="نوع الجامعة" value={filters.universityType ?? ""} onChange={(universityType) => apply({ universityType: universityType || undefined })} options={[{ value: "PUBLIC", label: "حكومية" }, { value: "PRIVATE", label: "خاصة" }]} placeholder="جميع الأنواع" clearLabel="جميع الأنواع" /><DirectorySlugSelect kind="cities" label="المدينة" value={filters.city ?? ""} countryId={selectedCountryId} onChange={(city) => apply({ city: city || undefined })} placeholder="كل المدن" /><DirectorySlugSelect kind="academic-majors" label="التخصص" value={filters.major ?? ""} onChange={(major) => apply({ major: major || undefined })} placeholder="كل التخصصات" /><SearchableSelect label="المستوى الدراسي" value={filters.studyLevel ?? ""} onChange={(studyLevel) => apply({ studyLevel: studyLevel || undefined })} options={studyLevelOptions} placeholder="كل المستويات" clearLabel="كل المستويات" /><SearchableSelect label="لغة الدراسة" value={filters.language ?? ""} onChange={(language) => apply({ language: language || undefined })} options={languageOptions} placeholder="كل اللغات" clearLabel="كل اللغات" isLoading={studyLanguageCatalog.isFetching} isError={studyLanguageCatalog.isError} onRetry={() => void studyLanguageCatalog.refetch()} /></div> : null}
     </div>
 
-    {list.isPending ? <UniversitiesSkeleton /> : list.isError ? <ErrorState action={<button type="button" onClick={() => void list.refetch()} className="rounded-xl bg-[var(--navy)] px-4 py-2 text-sm font-semibold text-white">إعادة المحاولة</button>} /> : universities.length === 0 ? <EmptyUniversities filtered={filtered} onReset={reset} /> : <><div className="hidden overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-[var(--shadow-card)] lg:block"><table className="w-full text-right"><thead className="bg-[var(--surface-subtle)] text-xs text-[var(--muted)]"><tr><th className="px-4 py-3.5 font-semibold">الجامعة</th><th className="px-4 py-3.5 font-semibold">الموقع</th><th className="px-4 py-3.5 font-semibold">نوع الجامعة</th><th className="px-4 py-3.5 font-semibold">حالة النشر</th><th className="px-4 py-3.5 font-semibold">آخر تحديث</th><th className="px-4 py-3.5 font-semibold">الإجراءات</th></tr></thead><tbody className="divide-y divide-[var(--line)]">{universities.map((university) => <UniversityRow key={university.id} university={university} />)}</tbody></table></div><div className="grid gap-3 sm:grid-cols-2 lg:hidden">{universities.map((university) => <UniversityCard key={university.id} university={university} />)}</div></>}
-    {pagination ? <nav aria-label="صفحات الجامعات" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-white px-4 py-3 text-sm shadow-[var(--shadow-card)]"><p className="text-[var(--muted)]">صفحة <b className="text-[var(--navy)]">{pagination.page}</b> من <b className="text-[var(--navy)]">{pagination.totalPages}</b> · إجمالي <b className="text-[var(--navy)]">{pagination.total}</b> جامعة</p><div className="flex gap-2"><button type="button" aria-label="السابق" disabled={pagination.page <= 1} onClick={() => apply({ page: pagination.page - 1 }, false, false)} className="inline-flex size-9 items-center justify-center rounded-lg border border-[var(--line)] disabled:opacity-40"><ChevronRightIcon className="size-4" /></button><button type="button" aria-label="التالي" disabled={pagination.page >= pagination.totalPages} onClick={() => apply({ page: pagination.page + 1 }, false, false)} className="inline-flex size-9 items-center justify-center rounded-lg border border-[var(--line)] disabled:opacity-40"><ChevronLeftIcon className="size-4" /></button></div></nav> : null}
+    {isPending ? <UniversitiesSkeleton /> : isError && universities.length === 0 ? <ErrorState action={<button type="button" onClick={retry} className="rounded-xl bg-[var(--navy)] px-4 py-2 text-sm font-semibold text-white">إعادة المحاولة</button>} /> : universities.length === 0 ? <EmptyUniversities filtered={filtered} onReset={reset} /> : <><div className="hidden overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-[var(--shadow-card)] lg:block"><table className="w-full text-right"><thead className="bg-[var(--surface-subtle)] text-xs text-[var(--muted)]"><tr><th className="px-4 py-3.5 font-semibold">الجامعة</th><th className="px-4 py-3.5 font-semibold">الموقع</th><th className="px-4 py-3.5 font-semibold">نوع الجامعة</th><th className="px-4 py-3.5 font-semibold">حالة النشر</th><th className="px-4 py-3.5 font-semibold">آخر تحديث</th><th className="px-4 py-3.5 font-semibold">الإجراءات</th></tr></thead><tbody className="divide-y divide-[var(--line)]">{desktopUniversities.map((university) => <UniversityRow key={university.id} university={university} />)}</tbody></table></div><div className="grid gap-3 sm:grid-cols-2 lg:hidden">{mobileUniversities.map((university) => <UniversityCard key={university.id} university={university} />)}</div></>}
+    {desktop && pagination ? <nav aria-label="صفحات الجامعات" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-white px-4 py-3 text-sm shadow-[var(--shadow-card)]"><p className="text-[var(--muted)]">صفحة <b className="text-[var(--navy)]">{pagination.page}</b> من <b className="text-[var(--navy)]">{pagination.totalPages}</b> · إجمالي <b className="text-[var(--navy)]">{pagination.total}</b> جامعة</p><div className="flex gap-2"><button type="button" aria-label="السابق" disabled={pagination.page <= 1 || list.isFetching} onClick={() => apply({ page: pagination.page - 1 }, false, false)} className="inline-flex size-9 items-center justify-center rounded-lg border border-[var(--line)] disabled:opacity-40"><ChevronRightIcon className="size-4" /></button><button type="button" aria-label="التالي" disabled={pagination.page >= pagination.totalPages || list.isFetching} onClick={() => apply({ page: pagination.page + 1 }, false, false)} className="inline-flex size-9 items-center justify-center rounded-lg border border-[var(--line)] disabled:opacity-40"><ChevronLeftIcon className="size-4" /></button></div></nav> : null}
+    {desktop === false && universities.length > 0 ? <div className="space-y-3 lg:hidden"><div ref={sentinelRef} aria-hidden="true" />{mobileList.isFetchingNextPage ? <UniversitiesSkeleton /> : null}{mobileList.isError ? <ErrorState action={<button type="button" onClick={() => void mobileList.refetch()} className="rounded-xl bg-[var(--navy)] px-4 py-2 text-sm font-semibold text-white">إعادة المحاولة</button>} /> : mobileList.hasNextPage ? <button type="button" onClick={() => void mobileList.fetchNextPage()} disabled={mobileList.isFetchingNextPage} className="mx-auto flex h-10 items-center rounded-xl border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--navy)] disabled:opacity-50">تحميل المزيد</button> : <p className="py-1 text-center text-xs text-[var(--muted)]">تم عرض كل الجامعات.</p>}</div> : null}
   </section>;
 }
 

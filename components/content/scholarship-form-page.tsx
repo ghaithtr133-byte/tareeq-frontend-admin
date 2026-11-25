@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
@@ -27,8 +27,6 @@ import {
   ChevronRightIcon,
   HelpCircleIcon,
   InfoIcon,
-  LockIcon,
-  RefreshCwIcon,
   Settings2Icon,
   SpinnerIcon,
 } from "@/components/ui/admin-icons";
@@ -36,21 +34,19 @@ import { useCreateContent, useUpdateContent } from "@/hook/mutations/use-content
 import { useContentDetail, useContentList } from "@/hook/queries/use-content-queries";
 import { publicationStatusOptions } from "@/lib/content-config";
 import {
+  applyScholarshipSeoDefaults,
   initialContentValues,
   toContentPayload,
   validateContentValues,
   type ContentFormValues,
 } from "@/lib/content-form";
 import {
-  SCHOLARSHIP_ADVANCED_FIELD_NAMES,
   SCHOLARSHIP_FIELD_FOCUS_ORDER,
   SCHOLARSHIP_SECTION_ANCHORS,
   buildScholarshipPatch,
   isScholarshipUniversityCompatible,
   resolveAutoScholarshipSlug,
   scholarshipOptionDisplayLabel,
-  suggestScholarshipSeoDescription,
-  suggestScholarshipSeoTitle,
 } from "@/lib/scholarship-form-helpers";
 import { StaleContentSessionError } from "@/lib/content-session";
 import { useAdminAccess } from "@/providers/admin-access-provider";
@@ -69,8 +65,6 @@ const statusLabelMap: Record<PublicationStatus, string> = {
   PUBLISHED: "منشورة",
   ARCHIVED: "مؤرشفة",
 };
-
-type ScholarshipSaveIntent = "finish" | "faqs";
 
 function SectionHeader({
   step,
@@ -121,10 +115,7 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
     form;
 
   const [submitError, setSubmitError] = useState<string>();
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
-  const [seoTitleManuallyEdited, setSeoTitleManuallyEdited] = useState(false);
-  const [seoDescManuallyEdited, setSeoDescManuallyEdited] = useState(false);
 
   // Server-backed paginated selectors (no eager all-pages prefetch on mount)
   const [countrySearch, setCountrySearch] = useState("");
@@ -145,9 +136,8 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
   const [cascadeNotice, setCascadeNotice] = useState<string>();
   const [relationshipChecking, setRelationshipChecking] = useState(false);
 
-  const saveIntent = useRef<ScholarshipSaveIntent>("finish");
+  const submissionRef = useRef(false);
   const formId = `scholarship-form-${id ?? "new"}`;
-  const advancedSummaryId = useId();
 
   const watchedTitleAr = useWatch({ control: form.control, name: "titleAr" });
   const watchedTitleEn = useWatch({ control: form.control, name: "titleEn" });
@@ -161,7 +151,6 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
   const watchedImageUrl = useWatch({ control: form.control, name: "imageUrl" });
   const watchedFeatured = useWatch({ control: form.control, name: "featured" });
   const watchedStatus = useWatch({ control: form.control, name: "status" });
-  const watchedSeoDesc = useWatch({ control: form.control, name: "seoDescriptionAr" });
 
   const scholarshipRecord = detail.data as Scholarship | undefined;
   const originallyPublished = isEditMode && scholarshipRecord?.status === "PUBLISHED";
@@ -312,7 +301,6 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
   function syncAutoFieldsOnTitleChange(
     nextTitleAr: string,
     nextTitleEn: string,
-    countryName?: string,
   ) {
     if (isEditMode) return;
 
@@ -334,18 +322,6 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
       }
     }
 
-    if (!seoTitleManuallyEdited) {
-      setValue("seoTitleAr", suggestScholarshipSeoTitle(nextTitleAr, countryName), {
-        shouldDirty: false,
-      });
-    }
-  }
-
-  function syncAutoSeoDescription(nextDesc: string, nextReq: string) {
-    if (isEditMode || seoDescManuallyEdited) return;
-    setValue("seoDescriptionAr", suggestScholarshipSeoDescription(nextDesc, nextReq), {
-      shouldDirty: false,
-    });
   }
 
   async function handleCountryChange(nextCountryId: string) {
@@ -364,17 +340,6 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
       });
     } else if (!nextCountryId) {
       setSelectedCountryMeta(undefined);
-    }
-
-    if (!isEditMode && !seoTitleManuallyEdited) {
-      setValue(
-        "seoTitleAr",
-        suggestScholarshipSeoTitle(
-          String(getValues("titleAr") ?? ""),
-          matchedCountry?.nameAr,
-        ),
-        { shouldDirty: false },
-      );
     }
 
     const currentUniId = String(getValues("universityId") ?? "").trim();
@@ -427,10 +392,6 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
       SCHOLARSHIP_FIELD_FOCUS_ORDER.find((field) => field in errorMap) ?? keys[0];
 
     const fallbackVisible = needsSlugFallback && firstKey === "slug";
-    if (SCHOLARSHIP_ADVANCED_FIELD_NAMES.has(firstKey) && !fallbackVisible) {
-      setAdvancedOpen(true);
-    }
-
     const targetId =
       fallbackVisible ? "scholarships-slug-fallback" : `scholarships-${firstKey}`;
 
@@ -448,11 +409,7 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
   async function submit(values: ContentFormValues) {
     setSubmitError(undefined);
 
-    // If editing an existing scholarship with no unsaved edits and user clicked Save & Continue FAQs, go directly.
-    if (isEditMode && id && saveIntent.current === "faqs" && !formState.isDirty) {
-      router.push(`/admin/faqs?scope=SCHOLARSHIP&parentId=${id}`);
-      return;
-    }
+    Object.assign(values, applyScholarshipSeoDefaults(values, scholarshipRecord));
 
     const validation = validateContentValues("scholarships", values);
     if (Object.keys(validation).length) {
@@ -473,20 +430,18 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
       return;
     }
 
+    if (submissionRef.current || create.isPending || update.isPending) return;
+    submissionRef.current = true;
     try {
       const payload =
         id && scholarshipRecord
-          ? buildScholarshipPatch(values, scholarshipRecord)
+          ? buildScholarshipPatch(values, scholarshipRecord, {
+              statusChanged: Boolean(formState.dirtyFields.status),
+            })
           : toContentPayload("scholarships", values);
-      const result = id
-        ? await update.mutateAsync({ id, input: payload })
-        : await create.mutateAsync(payload);
-
-      if (saveIntent.current === "faqs") {
-        router.replace(`/admin/faqs?scope=SCHOLARSHIP&parentId=${result.id}`);
-      } else {
-        router.replace("/admin/scholarships");
-      }
+      if (id) await update.mutateAsync({ id, input: payload });
+      else await create.mutateAsync(payload);
+      router.replace("/admin/scholarships");
     } catch (error) {
       if (error instanceof StaleContentSessionError) return;
       const fieldErrors = getApiFieldErrors(error);
@@ -502,7 +457,7 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
           error instanceof Error && error.message === "لا توجد تغييرات للحفظ."
             ? error.message
             : normalized.status === 409
-              ? "المعرّف النصي مستخدم لمنحة أخرى؛ اختر معرّفًا مختلفًا في الإعدادات المتقدمة."
+              ? "المعرّف النصي مستخدم لمنحة أخرى؛ أدخل معرّفًا مختلفًا عند ظهور حقل الإدخال البديل."
               : normalized.kind === "network"
                 ? "تعذّر الاتصال بالخادم. لم تُفقد بيانات النموذج."
                 : "تعذّر حفظ بيانات المنحة. راجع الحقول المطلوبة ثم حاول مرة أخرى.",
@@ -511,6 +466,8 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
           focusFirstInvalid(flatFieldErrors);
         }
       }
+    } finally {
+      submissionRef.current = false;
     }
   }
 
@@ -541,15 +498,9 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
     isEditMode &&
     scholarshipRecord?.effectiveApplicationStatus &&
     scholarshipRecord.effectiveApplicationStatus !== currentAppStatus;
-  const seoDescLength = typeof watchedSeoDesc === "string" ? watchedSeoDesc.length : 0;
-
   const titleArReg = register("titleAr");
-  const titleEnReg = register("titleEn");
-  const slugReg = register("slug");
   const descArReg = register("descriptionAr");
   const reqArReg = register("requirementsAr");
-  const seoTitleReg = register("seoTitleAr");
-  const seoDescReg = register("seoDescriptionAr");
 
   return (
     <section className="mx-auto max-w-5xl space-y-5 pb-8">
@@ -666,11 +617,7 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
                 {...titleArReg}
                 onChange={(event) => {
                   titleArReg.onChange(event);
-                  syncAutoFieldsOnTitleChange(
-                    event.target.value,
-                    String(getValues("titleEn") ?? ""),
-                    selectedCountryLabel,
-                  );
+                  syncAutoFieldsOnTitleChange(event.target.value, String(getValues("titleEn") ?? ""));
                 }}
               />
               {errors.titleAr?.message ? (
@@ -695,20 +642,6 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
                       /scholarships/{currentSlug}
                     </code>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAdvancedOpen(true);
-                      window.requestAnimationFrame(() => {
-                        document
-                          .getElementById("scholarship-sec-advanced")
-                          ?.scrollIntoView({ behavior: "smooth", block: "center" });
-                      });
-                    }}
-                    className="shrink-0 text-[13px] font-semibold text-[var(--gold-dark)] hover:underline"
-                  >
-                    {originallyPublished ? "عرض في الإعدادات المتقدمة" : "تخصيص في الإعدادات المتقدمة"}
-                  </button>
                 </div>
               ) : null}
 
@@ -1123,13 +1056,6 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
                 }
                 className={textareaBaseClass}
                 {...descArReg}
-                onChange={(event) => {
-                  descArReg.onChange(event);
-                  syncAutoSeoDescription(
-                    event.target.value,
-                    String(getValues("requirementsAr") ?? ""),
-                  );
-                }}
               />
               <p
                 id="scholarships-descriptionAr-hint"
@@ -1169,13 +1095,6 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
                 }
                 className={textareaBaseClass}
                 {...reqArReg}
-                onChange={(event) => {
-                  reqArReg.onChange(event);
-                  syncAutoSeoDescription(
-                    String(getValues("descriptionAr") ?? ""),
-                    event.target.value,
-                  );
-                }}
               />
               <p
                 id="scholarships-requirementsAr-hint"
@@ -1209,6 +1128,7 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
 
           <ContentImageCard
             resource="scholarships"
+            manualUrlAvailable={false}
             title="صورة المنحة التعريفية"
             description="تظهر في بطاقة المنحة وفي أعلى صفحة التفاصيل (نسبة أفقية واضحة)."
             urlFieldId="scholarships-imageUrl"
@@ -1286,280 +1206,6 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
           </div>
         </section>
 
-        {/* Group F: إعدادات متقدمة (مطوية افتراضيًا) */}
-        <details
-          id="scholarship-sec-advanced"
-          open={advancedOpen}
-          onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
-          className="scroll-mt-24 rounded-2xl border border-[var(--line)] bg-white shadow-[var(--shadow-card)]"
-        >
-          <summary
-            aria-describedby={advancedSummaryId}
-            className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3.5 transition-colors hover:bg-[var(--surface-subtle)]/70 sm:px-6 sm:py-4 [&::-webkit-details-marker]:hidden"
-          >
-            <div className="min-w-0 space-y-1">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <Settings2Icon className="size-4 shrink-0 text-[var(--gold-dark)]" />
-                <span className="text-[17px] sm:text-[18px] font-bold text-[var(--navy)]">
-                  إعدادات متقدمة
-                </span>
-                {currentSlug ? (
-                  <code
-                    dir="ltr"
-                    title={`/scholarships/${currentSlug}`}
-                    className="hidden max-w-[340px] truncate rounded-md bg-[var(--surface-subtle)] px-2 py-0.5 font-mono text-xs font-medium text-[var(--navy)] sm:inline-block"
-                  >
-                    /scholarships/{currentSlug}
-                  </code>
-                ) : null}
-              </div>
-              <p id={advancedSummaryId} className="text-[14px] text-[var(--muted)]">
-                تخصيص رابط المنحة (Slug)، العنوان الإنجليزي الاختياري، وإعدادات محركات البحث (SEO).
-              </p>
-            </div>
-            <ChevronDownIcon
-              className={`size-5 shrink-0 text-[var(--muted)] transition-transform duration-150 ${
-                advancedOpen ? "rotate-180" : ""
-              }`}
-            />
-          </summary>
-
-          <div className="space-y-5 border-t border-[var(--line)] p-4 sm:p-6">
-            {/* Slug override (strictly read-only when published, NO unlock button) */}
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <label
-                  htmlFor="scholarships-slug"
-                  className="block text-[14px] sm:text-[15px] font-semibold text-[var(--navy)]"
-                >
-                  المعرّف النصي للرابط (Slug) <span className="text-red-700">*</span>
-                </label>
-
-                {!isEditMode && slugManuallyEdited ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSlugManuallyEdited(false);
-                      const next = resolveAutoScholarshipSlug({
-                        titleAr: String(getValues("titleAr") ?? ""),
-                        titleEn: String(getValues("titleEn") ?? ""),
-                        currentSlug: "",
-                        slugManuallyEdited: false,
-                        isEditMode: false,
-                        isPublished: false,
-                      });
-                      setValue("slug", next.slug, {
-                        shouldDirty: true,
-                        shouldValidate: Boolean(errors.slug?.message),
-                      });
-                      if (next.slug) clearErrors("slug");
-                    }}
-                    className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[var(--gold-dark)] hover:underline"
-                  >
-                    <RefreshCwIcon className="size-3.5" />
-                    <span>إعادة التوليد تلقائيًا</span>
-                  </button>
-                ) : originallyPublished ? (
-                  <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[var(--muted)]">
-                    <LockIcon className="size-3.5 text-[var(--gold-dark)]" />
-                    <span>ثابت بعد النشر</span>
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="flex items-center overflow-hidden rounded-xl border border-[var(--line)] bg-white focus-within:border-[var(--gold)]">
-                <input
-                  id="scholarships-slug"
-                  type="text"
-                  dir="ltr"
-                  maxLength={120}
-                  readOnly={originallyPublished}
-                  placeholder="engineering-scholarship-2026"
-                  aria-invalid={Boolean(errors.slug?.message)}
-                  aria-describedby={
-                    errors.slug?.message ? "scholarships-slug-error" : "scholarships-slug-preview"
-                  }
-                  className={`min-h-11 min-w-0 flex-1 bg-transparent px-3.5 py-2 text-left font-mono text-base text-[var(--navy)] focus:outline-none ${
-                    originallyPublished ? "cursor-not-allowed bg-slate-50 text-[var(--muted)]" : ""
-                  }`}
-                  {...slugReg}
-                  onChange={(event) => {
-                    if (originallyPublished) return;
-                    setSlugManuallyEdited(true);
-                    slugReg.onChange(event);
-                  }}
-                />
-                <span
-                  dir="ltr"
-                  className="hidden shrink-0 border-r border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2.5 font-mono text-xs text-[var(--muted)] sm:block"
-                >
-                  /scholarships/
-                </span>
-              </div>
-
-              <p id="scholarships-slug-preview" className="text-[14px] leading-6 text-[var(--muted)]">
-                {originallyPublished
-                  ? "المنحة منشورة حاليًا؛ يبقى المعرّف النصي ثابتًا للحفاظ على الروابط المؤرشفة ولا يمكن تغييره."
-                  : isEditMode
-                    ? "يُحتفظ بالمعرّف الحالي تلقائيًا ولا يتغيّر عند تعديل عنوان المنحة ما لم تعدّله هنا."
-                    : "أحرف إنجليزية صغيرة وأرقام وشرطات فقط (يتولّد تلقائيًا من العنوان عند الإنشاء)."}
-              </p>
-              {errors.slug?.message ? (
-                <p
-                  id="scholarships-slug-error"
-                  role="alert"
-                  className="text-[13px] font-medium text-red-700"
-                >
-                  {errors.slug.message}
-                </p>
-              ) : null}
-            </div>
-
-            {/* Optional English Title */}
-            <div>
-              <label
-                htmlFor="scholarships-titleEn"
-                className="block text-[14px] sm:text-[15px] font-semibold text-[var(--navy)]"
-              >
-                عنوان المنحة بالإنجليزية (اختياري)
-              </label>
-              <input
-                id="scholarships-titleEn"
-                type="text"
-                dir="ltr"
-                maxLength={300}
-                placeholder="e.g. Engineering Excellence Scholarship 2026"
-                aria-invalid={Boolean(errors.titleEn?.message)}
-                className={`${textInputClass} text-left`}
-                {...titleEnReg}
-                onChange={(event) => {
-                  titleEnReg.onChange(event);
-                  syncAutoFieldsOnTitleChange(
-                    String(getValues("titleAr") ?? ""),
-                    event.target.value,
-                    selectedCountryLabel,
-                  );
-                }}
-              />
-              {errors.titleEn?.message ? (
-                <p role="alert" className="mt-1.5 text-[13px] font-medium text-red-700">
-                  {errors.titleEn.message}
-                </p>
-              ) : null}
-            </div>
-
-            {/* Simplified SEO Section */}
-            <div className="space-y-4 border-t border-[var(--line)] pt-4">
-              <div>
-                <h4 className="text-[16px] font-bold text-[var(--navy)]">
-                  تحسين محركات البحث (SEO)
-                </h4>
-                <p className="mt-0.5 text-[14px] leading-6 text-[var(--muted)]">
-                  تُقترح تلقائيًا من عنوان المنحة ونبذتها عند الإنشاء دون الكتابة فوق القيم
-                  المحفوظة.
-                </p>
-              </div>
-
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <label
-                    htmlFor="scholarships-seoTitleAr"
-                    className="block text-[14px] sm:text-[15px] font-semibold text-[var(--navy)]"
-                  >
-                    عنوان SEO بالعربية
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const suggested = suggestScholarshipSeoTitle(
-                        String(getValues("titleAr") ?? ""),
-                        selectedCountryLabel,
-                      );
-                      if (suggested) {
-                        setSeoTitleManuallyEdited(false);
-                        setValue("seoTitleAr", suggested, { shouldDirty: true });
-                      }
-                    }}
-                    className="text-[13px] font-semibold text-[var(--gold-dark)] hover:underline"
-                  >
-                    اقتراح من عنوان المنحة
-                  </button>
-                </div>
-                <input
-                  id="scholarships-seoTitleAr"
-                  type="text"
-                  dir="rtl"
-                  maxLength={120}
-                  placeholder="عنوان يظهر في نتائج البحث..."
-                  aria-invalid={Boolean(errors.seoTitleAr?.message)}
-                  className={textInputClass}
-                  {...seoTitleReg}
-                  onChange={(event) => {
-                    setSeoTitleManuallyEdited(true);
-                    seoTitleReg.onChange(event);
-                  }}
-                />
-                {errors.seoTitleAr?.message ? (
-                  <p role="alert" className="mt-1.5 text-[13px] font-medium text-red-700">
-                    {errors.seoTitleAr.message}
-                  </p>
-                ) : null}
-              </div>
-
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <label
-                    htmlFor="scholarships-seoDescriptionAr"
-                    className="block text-[14px] sm:text-[15px] font-semibold text-[var(--navy)]"
-                  >
-                    وصف SEO بالعربية
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs text-[var(--muted)] tabular-nums">
-                      {seoDescLength} / 320
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const suggested = suggestScholarshipSeoDescription(
-                          String(getValues("descriptionAr") ?? ""),
-                          String(getValues("requirementsAr") ?? ""),
-                        );
-                        if (suggested) {
-                          setSeoDescManuallyEdited(false);
-                          setValue("seoDescriptionAr", suggested, { shouldDirty: true });
-                        }
-                      }}
-                      className="text-[13px] font-semibold text-[var(--gold-dark)] hover:underline"
-                    >
-                      اقتراح من نبذة المنحة
-                    </button>
-                  </div>
-                </div>
-                <textarea
-                  id="scholarships-seoDescriptionAr"
-                  dir="rtl"
-                  rows={2}
-                  maxLength={320}
-                  placeholder="وصف مختصر يظهر في محركات البحث..."
-                  aria-invalid={Boolean(errors.seoDescriptionAr?.message)}
-                  className={textareaBaseClass}
-                  {...seoDescReg}
-                  onChange={(event) => {
-                    setSeoDescManuallyEdited(true);
-                    seoDescReg.onChange(event);
-                  }}
-                />
-                {errors.seoDescriptionAr?.message ? (
-                  <p role="alert" className="mt-1.5 text-[13px] font-medium text-red-700">
-                    {errors.seoDescriptionAr.message}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </details>
-
         {/* Inline Non-Sticky Save Bar */}
         <section
           aria-label="حفظ بيانات المنحة"
@@ -1580,27 +1226,12 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
               <button
                 type="submit"
                 disabled={isPending}
-                onClick={() => {
-                  saveIntent.current = "finish";
-                }}
                 className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--navy)] px-6 text-[15px] font-bold text-white transition-colors hover:bg-[var(--navy-light)] disabled:cursor-wait disabled:opacity-60 sm:w-auto"
               >
                 {isPending ? <SpinnerIcon className="size-4 animate-spin" /> : null}
                 <span>
-                  {isPending ? "جارٍ الحفظ…" : isEditMode ? "حفظ التغييرات" : "حفظ وإنهاء"}
+                  {isPending ? "جارٍ الحفظ…" : isEditMode ? "حفظ التغييرات" : "إضافة المنحة"}
                 </span>
-              </button>
-
-              <button
-                type="submit"
-                disabled={isPending}
-                onClick={() => {
-                  saveIntent.current = "faqs";
-                }}
-                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[var(--navy)] bg-white px-5 text-[15px] font-bold text-[var(--navy)] transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
-              >
-                <HelpCircleIcon className="size-4 text-[var(--gold-dark)]" />
-                <span>حفظ ومتابعة الأسئلة الشائعة</span>
               </button>
 
               <Link

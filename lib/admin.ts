@@ -34,6 +34,8 @@ export interface AdminNavigationItem {
   group: AdminNavigationGroup;
   description: string;
   restrictedTo?: AdminRole;
+  /** Visible for historical orientation, but intentionally non-navigable. */
+  disabled?: boolean;
 }
 
 export const adminNavigationGroupLabels: Record<AdminNavigationGroup, string> = {
@@ -105,7 +107,8 @@ const sharedNavigation: AdminNavigationItem[] = [
     label: "الخدمات",
     href: "/admin/services",
     group: "content",
-    description: "تنظيم الخدمات الطلابية والباقات الإرشادية.",
+    description: "إدارة الخدمات معلّقة حاليًا.",
+    disabled: true,
   },
   {
     id: "articles",

@@ -227,13 +227,14 @@ export function isScholarshipUniversityCompatible(
 export function buildScholarshipPatch(
   values: ContentFormValues,
   baseline: Scholarship,
+  options?: { statusChanged?: boolean },
 ): ScholarshipInput {
   const safeValues: ContentFormValues =
     baseline.status === "PUBLISHED"
       ? { ...values, slug: baseline.slug }
       : values;
 
-  const patch = toContentPatch("scholarships", safeValues, baseline);
+  const patch = toContentPatch("scholarships", safeValues, baseline, options);
   if (baseline.status === "PUBLISHED" && "slug" in patch) {
     delete patch.slug;
   }

@@ -17,11 +17,10 @@ import {
 } from "@/lib/admin";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 
-const quickActions = [
+export const dashboardQuickActions = [
   { resource: "countries", label: "إضافة دولة", href: "/admin/countries/new", icon: "countries" },
   { resource: "universities", label: "إضافة جامعة", href: "/admin/universities/new", icon: "universities" },
   { resource: "scholarships", label: "إضافة منحة دراسية", href: "/admin/scholarships/new", icon: "scholarships" },
-  { resource: "services", label: "إضافة خدمة", href: "/admin/services/new", icon: "services" },
   { resource: "articles", label: "كتابة مقال", href: "/admin/articles/new", icon: "articles" },
 ] as const;
 
@@ -35,14 +34,14 @@ export function AdminDashboard() {
   const access = useAdminAccess();
   const user = access.user;
   const hasAdminRole = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
-  const allowedQuickActions = hasAdminRole ? quickActions : [];
+  const allowedQuickActions = hasAdminRole ? dashboardQuickActions : [];
 
   const navigationItems = user ? navigationForRole(user.role) : [];
   const workflowSections = workflowGroupOrder
     .map((group) => ({
       group,
       label: adminNavigationGroupLabels[group],
-      items: navigationItems.filter((item): item is AdminNavigationItem => item.group === group),
+      items: navigationItems.filter((item): item is AdminNavigationItem => item.group === group && !item.disabled),
     }))
     .filter((section) => section.items.length > 0);
 

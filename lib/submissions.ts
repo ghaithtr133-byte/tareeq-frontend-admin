@@ -3,7 +3,10 @@ import { applicationTypes, submissionSorts, submissionStatuses, type Application
 
 export const submissionLabels = { applications: "طلبات التقديم", inquiries: "الاستفسارات العامة" };
 export const submissionStatusLabels: Record<SubmissionStatus, string> = { NEW: "جديد", IN_REVIEW: "قيد المراجعة", RESOLVED: "تمت المعالجة", CLOSED: "مغلق" };
-export const applicationTypeLabels = { UNIVERSITY_ADMISSION: "قبول جامعي", SCHOLARSHIP_ASSISTANCE: "مساعدة في المنح" };
+export const applicationTypeLabels = {
+  UNIVERSITY_ADMISSION: "قبول جامعي",
+  SCHOLARSHIP_ASSISTANCE: "مساعدة في منحة دراسية",
+};
 export type SubmissionSearchParams = Record<string, string | string[] | undefined>;
 
 export function parseSubmissionFilters(resource: SubmissionResource, params: SubmissionSearchParams): ApplicationListParams {
@@ -38,4 +41,16 @@ export function submissionErrorMessage(error: unknown): string {
     case 415: return "تعذّر إرسال التحديث بصيغة JSON المطلوبة.";
     default: return "تعذّر إتمام الطلب. أعد المحاولة لاحقًا.";
   }
+}
+
+/** Only accepts an explicit E.164-style number; never guesses a country code. */
+export function normalizeInternationalPhone(value: string | null): string | null {
+  if (!value) return null;
+  const compact = value.trim().replace(/[\s().-]/g, "");
+  return /^\+[1-9]\d{7,14}$/.test(compact) ? compact : null;
+}
+
+export function whatsappUrl(value: string | null): string | null {
+  const phone = normalizeInternationalPhone(value);
+  return phone ? `https://wa.me/${phone.slice(1)}` : null;
 }

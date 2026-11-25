@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
@@ -16,31 +16,20 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   InfoIcon,
-  LockIcon,
-  RefreshCwIcon,
-  Settings2Icon,
   SpinnerIcon,
 } from "@/components/ui/admin-icons";
 import { useCreateContent, useUpdateContent } from "@/hook/mutations/use-content-mutations";
 import { useContentDetail } from "@/hook/queries/use-content-queries";
 import { publicationStatusOptions } from "@/lib/content-config";
 import {
+  applyCountrySeoDefaults,
   initialContentValues,
-  parentSaveDestination,
   toContentPatch,
   toContentPayload,
   validateContentValues,
   type ContentFormValues,
-  type ParentCreateIntent,
 } from "@/lib/content-form";
-import {
-  COUNTRY_ADVANCED_FIELD_NAMES,
-  COUNTRY_FIELD_FOCUS_ORDER,
-  COUNTRY_SECTION_ANCHORS,
-  resolveAutoCountrySlug,
-  suggestCountrySeoDescription,
-  suggestCountrySeoTitle,
-} from "@/lib/country-form-helpers";
+import { COUNTRY_FIELD_FOCUS_ORDER, COUNTRY_SECTION_ANCHORS, resolveAutoCountrySlug } from "@/lib/country-form-helpers";
 import { StaleContentSessionError } from "@/lib/content-session";
 
 const textInputClass =
@@ -95,15 +84,14 @@ export function CountryFormPage({ id }: { id?: string }) {
     form;
 
   const [submitError, setSubmitError] = useState<string>();
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
-  const [seoTitleManuallyEdited, setSeoTitleManuallyEdited] = useState(false);
-  const [seoDescManuallyEdited, setSeoDescManuallyEdited] = useState(false);
-  const [publishedSlugUnlocked, setPublishedSlugUnlocked] = useState(false);
+  const [mainImageUploading, setMainImageUploading] = useState(false);
+  const [overviewImageUploading, setOverviewImageUploading] = useState(false);
 
-  const createIntent = useRef<ParentCreateIntent>("finish");
+  const submissionRef = useRef(false);
+  const mainImageUploadRef = useRef(false);
+  const overviewImageUploadRef = useRef(false);
   const formId = `country-form-${id ?? "new"}`;
-  const advancedSummaryId = useId();
 
   const watchedNameAr = useWatch({ control: form.control, name: "nameAr" });
   const watchedNameEn = useWatch({ control: form.control, name: "nameEn" });
@@ -112,11 +100,9 @@ export function CountryFormPage({ id }: { id?: string }) {
   const watchedOverviewUrl = useWatch({ control: form.control, name: "overviewImageUrl" });
   const watchedFeatured = useWatch({ control: form.control, name: "featured" });
   const watchedStatus = useWatch({ control: form.control, name: "status" });
-  const watchedSeoDesc = useWatch({ control: form.control, name: "seoDescriptionAr" });
 
   const countryRecord = detail.data as Country | undefined;
   const originallyPublished = isEditMode && countryRecord?.status === "PUBLISHED";
-  const slugLockedByPublish = originallyPublished && !publishedSlugUnlocked;
 
   useEffect(() => {
     if (countryRecord) {
@@ -175,18 +161,6 @@ export function CountryFormPage({ id }: { id?: string }) {
       }
     }
 
-    if (!seoTitleManuallyEdited) {
-      setValue("seoTitleAr", suggestCountrySeoTitle(nextNameAr), {
-        shouldDirty: false,
-      });
-    }
-  }
-
-  function syncAutoSeoDescription(nextIntro: string) {
-    if (isEditMode || seoDescManuallyEdited) return;
-    setValue("seoDescriptionAr", suggestCountrySeoDescription(nextIntro), {
-      shouldDirty: false,
-    });
   }
 
   function focusFirstInvalid(errorMap: Record<string, string>) {
@@ -197,10 +171,6 @@ export function CountryFormPage({ id }: { id?: string }) {
       COUNTRY_FIELD_FOCUS_ORDER.find((field) => field in errorMap) ?? keys[0];
 
     const fallbackVisible = needsSlugFallback && firstKey === "slug";
-    if (COUNTRY_ADVANCED_FIELD_NAMES.has(firstKey) && !fallbackVisible) {
-      setAdvancedOpen(true);
-    }
-
     const targetId =
       fallbackVisible ? "countries-slug-fallback" : `countries-${firstKey}`;
 
@@ -217,6 +187,11 @@ export function CountryFormPage({ id }: { id?: string }) {
 
   async function submit(values: ContentFormValues) {
     setSubmitError(undefined);
+    if (mainImageUploadRef.current || overviewImageUploadRef.current) {
+      setSubmitError("انتظر اكتمال رفع الصورة قبل الحفظ. لم تُرسل أي تغييرات بعد.");
+      return;
+    }
+    Object.assign(values, applyCountrySeoDefaults(values, countryRecord));
     const validation = validateContentValues("countries", values);
     if (Object.keys(validation).length) {
       for (const [name, message] of Object.entries(validation)) {
@@ -236,17 +211,18 @@ export function CountryFormPage({ id }: { id?: string }) {
       return;
     }
 
+    if (submissionRef.current || create.isPending || update.isPending) return;
+    submissionRef.current = true;
     try {
       const payload =
         id && countryRecord
-          ? toContentPatch("countries", values, countryRecord)
+          ? toContentPatch("countries", values, countryRecord, {
+              statusChanged: Boolean(formState.dirtyFields.status),
+            })
           : toContentPayload("countries", values);
-      const result = id
-        ? await update.mutateAsync({ id, input: payload })
-        : await create.mutateAsync(payload);
-      router.replace(
-        parentSaveDestination("countries", result.id, createIntent.current, Boolean(id)),
-      );
+      if (id) await update.mutateAsync({ id, input: payload });
+      else await create.mutateAsync(payload);
+      router.replace("/admin/countries");
     } catch (error) {
       if (error instanceof StaleContentSessionError) return;
       const fieldErrors = getApiFieldErrors(error);
@@ -269,6 +245,8 @@ export function CountryFormPage({ id }: { id?: string }) {
           focusFirstInvalid(flatFieldErrors);
         }
       }
+    } finally {
+      submissionRef.current = false;
     }
   }
 
@@ -290,18 +268,13 @@ export function CountryFormPage({ id }: { id?: string }) {
   }
 
   const errors = formState.errors as Record<string, { message?: string }>;
-  const isPending = create.isPending || update.isPending;
+  const isImageUploadPending = mainImageUploading || overviewImageUploading;
+  const isPending = create.isPending || update.isPending || isImageUploadPending;
   const currentStatus = (typeof watchedStatus === "string"
     ? watchedStatus
     : "DRAFT") as PublicationStatus;
-  const seoDescLength = typeof watchedSeoDesc === "string" ? watchedSeoDesc.length : 0;
-
   const nameArReg = register("nameAr");
-  const nameEnReg = register("nameEn");
   const introArReg = register("introductionAr");
-  const slugReg = register("slug");
-  const seoTitleReg = register("seoTitleAr");
-  const seoDescReg = register("seoDescriptionAr");
 
   return (
     <section className="mx-auto max-w-5xl space-y-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pb-6">
@@ -426,20 +399,6 @@ export function CountryFormPage({ id }: { id?: string }) {
                       /countries/{currentSlug}
                     </code>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAdvancedOpen(true);
-                      window.requestAnimationFrame(() => {
-                        document
-                          .getElementById("country-sec-advanced")
-                          ?.scrollIntoView({ behavior: "smooth", block: "center" });
-                      });
-                    }}
-                    className="text-[13px] font-semibold text-[var(--gold-dark)] hover:underline"
-                  >
-                    تخصيص في الإعدادات المتقدمة
-                  </button>
                 </div>
               ) : null}
 
@@ -506,10 +465,6 @@ export function CountryFormPage({ id }: { id?: string }) {
                 }
                 className={textareaBaseClass}
                 {...introArReg}
-                onChange={(event) => {
-                  introArReg.onChange(event);
-                  syncAutoSeoDescription(event.target.value);
-                }}
               />
               <p
                 id="countries-introductionAr-hint"
@@ -682,7 +637,7 @@ export function CountryFormPage({ id }: { id?: string }) {
                   <span className="text-[var(--muted)]">
                     {isEditMode
                       ? "تُدار عناصر الدليل ومزاياه كبنود مرتبة في قسم «دليل الدراسة» أسفل الصفحة."
-                      : "يمكنك إضافة خطوات ومزايا دليل الدراسة فور إنشاء الدولة عبر «حفظ ومتابعة دليل الدراسة»."}
+                      : "يمكنك إضافة خطوات ومزايا دليل الدراسة بعد حفظ الدولة ثم فتحها من القائمة."}
                   </span>
                 </p>
               </div>
@@ -711,6 +666,7 @@ export function CountryFormPage({ id }: { id?: string }) {
 
           <div className="grid gap-4 lg:grid-cols-2">
             <CountryImageCard
+              manualUrlAvailable={false}
               title="صورة غلاف الدولة"
               description="الصورة الرئيسية لبطاقة الدولة وأعلى صفحة الوجهة (نسبة أفقية واضحة)."
               urlFieldId="countries-imageUrl"
@@ -721,6 +677,10 @@ export function CountryFormPage({ id }: { id?: string }) {
               altPlaceholder="مثال: الحرم الجامعي في إسطنبول"
               canClear={!isEditMode || !countryRecord?.imageUrl}
               disabled={isPending}
+              onUploadPendingChange={(pending) => {
+                mainImageUploadRef.current = pending;
+                setMainImageUploading(pending);
+              }}
               onUrlChange={(nextUrl) => {
                 setValue("imageUrl", nextUrl, { shouldDirty: true, shouldValidate: true });
                 clearErrors("imageUrl");
@@ -730,6 +690,7 @@ export function CountryFormPage({ id }: { id?: string }) {
             />
 
             <CountryImageCard
+              manualUrlAvailable={false}
               title="صورة النظرة العامة"
               description="صورة اختيارية تُعرض بجانب قسم النظرة العامة داخل صفحة الدولة."
               urlFieldId="countries-overviewImageUrl"
@@ -740,6 +701,10 @@ export function CountryFormPage({ id }: { id?: string }) {
               altPlaceholder="مثال: مكتبة جامعية حديثة للطلبة الدوليين"
               canClear
               disabled={isPending}
+              onUploadPendingChange={(pending) => {
+                overviewImageUploadRef.current = pending;
+                setOverviewImageUploading(pending);
+              }}
               onUrlChange={(nextUrl) => {
                 setValue("overviewImageUrl", nextUrl, {
                   shouldDirty: true,
@@ -812,278 +777,6 @@ export function CountryFormPage({ id }: { id?: string }) {
           </div>
         </section>
 
-        {/* إعدادات متقدمة (مطوية افتراضيًا) */}
-        <details
-          id="country-sec-advanced"
-          open={advancedOpen}
-          onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
-          className="scroll-mt-24 rounded-2xl border border-[var(--line)] bg-white shadow-[var(--shadow-card)]"
-        >
-          <summary
-            aria-describedby={advancedSummaryId}
-            className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 py-3.5 transition-colors hover:bg-[var(--surface-subtle)]/70 sm:px-5 sm:py-4 [&::-webkit-details-marker]:hidden"
-          >
-            <div className="min-w-0 space-y-1">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <Settings2Icon className="size-4 shrink-0 text-[var(--gold-dark)]" />
-                <span className="text-[17px] sm:text-[18px] font-bold text-[var(--navy)]">
-                  إعدادات متقدمة
-                </span>
-                {currentSlug ? (
-                  <code
-                    dir="ltr"
-                    className="max-w-full break-all rounded-md bg-[var(--surface-subtle)] px-2 py-0.5 font-mono text-xs font-medium text-[var(--navy)]"
-                  >
-                    /countries/{currentSlug}
-                  </code>
-                ) : null}
-              </div>
-              <p id={advancedSummaryId} className="text-[13px] sm:text-[14px] text-[var(--muted)]">
-                تخصيص رابط الصفحة (Slug)، الاسم الإنجليزي الاختياري، وإعدادات محركات البحث (SEO).
-              </p>
-            </div>
-            <ChevronDownIcon
-              className={`size-5 shrink-0 text-[var(--muted)] transition-transform duration-150 ${
-                advancedOpen ? "rotate-180" : ""
-              }`}
-            />
-          </summary>
-
-          <div className="space-y-5 border-t border-[var(--line)] p-4 sm:p-5">
-            {/* Manual Slug override */}
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <label
-                  htmlFor="countries-slug"
-                  className="block text-[14px] sm:text-[15px] font-semibold text-[var(--navy)]"
-                >
-                  المعرّف النصي للرابط (Slug) <span className="text-red-700">*</span>
-                </label>
-                {!isEditMode && slugManuallyEdited ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSlugManuallyEdited(false);
-                      const next = resolveAutoCountrySlug({
-                        nameAr: String(getValues("nameAr") ?? ""),
-                        nameEn: String(getValues("nameEn") ?? ""),
-                        currentSlug: "",
-                        slugManuallyEdited: false,
-                        isEditMode: false,
-                        isPublished: false,
-                      });
-                      setValue("slug", next.slug, {
-                        shouldDirty: true,
-                        shouldValidate: Boolean(errors.slug?.message),
-                      });
-                      if (next.slug) clearErrors("slug");
-                    }}
-                    className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[var(--gold-dark)] hover:underline"
-                  >
-                    <RefreshCwIcon className="size-3.5" />
-                    <span>إعادة التوليد تلقائيًا</span>
-                  </button>
-                ) : null}
-
-                {originallyPublished ? (
-                  <button
-                    type="button"
-                    onClick={() => setPublishedSlugUnlocked((unlocked) => !unlocked)}
-                    className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[var(--navy)] hover:underline"
-                  >
-                    <LockIcon className="size-3.5 text-[var(--gold-dark)]" />
-                    <span>
-                      {publishedSlugUnlocked
-                        ? "قفل المعرّف النصي"
-                        : "تفعيل تعديل رابط الدولة المنشورة"}
-                    </span>
-                  </button>
-                ) : null}
-              </div>
-
-              <div className="flex items-center overflow-hidden rounded-xl border border-[var(--line)] bg-white focus-within:border-[var(--gold)]">
-                <input
-                  id="countries-slug"
-                  type="text"
-                  dir="ltr"
-                  maxLength={120}
-                  readOnly={slugLockedByPublish}
-                  placeholder="egypt"
-                  aria-invalid={Boolean(errors.slug?.message)}
-                  aria-describedby={
-                    errors.slug?.message ? "countries-slug-error" : "countries-slug-preview"
-                  }
-                  className={`min-h-11 min-w-0 flex-1 bg-transparent px-3.5 py-2 text-left font-mono text-base text-[var(--navy)] focus:outline-none ${
-                    slugLockedByPublish ? "cursor-not-allowed bg-slate-50 text-[var(--muted)]" : ""
-                  }`}
-                  {...slugReg}
-                  onChange={(event) => {
-                    if (slugLockedByPublish) return;
-                    setSlugManuallyEdited(true);
-                    slugReg.onChange(event);
-                  }}
-                />
-                <span
-                  dir="ltr"
-                  className="hidden shrink-0 border-r border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2.5 font-mono text-xs text-[var(--muted)] sm:block"
-                >
-                  /countries/
-                </span>
-              </div>
-
-              <p id="countries-slug-preview" className="text-[13px] leading-6 text-[var(--muted)]">
-                {originallyPublished
-                  ? "الدولة منشورة حاليًا؛ يُنصح بإبقاء المعرّف ثابتًا للحفاظ على الروابط المؤرشفة."
-                  : "أحرف إنجليزية صغيرة وأرقام وشرطات فقط (يتولّد تلقائيًا من اسم الدولة)."}
-              </p>
-              {errors.slug?.message ? (
-                <p id="countries-slug-error" role="alert" className="text-[13px] font-medium text-red-700">
-                  {errors.slug.message}
-                </p>
-              ) : null}
-            </div>
-
-            {/* Optional English Name */}
-            <div>
-              <label
-                htmlFor="countries-nameEn"
-                className="block text-[14px] sm:text-[15px] font-semibold text-[var(--navy)]"
-              >
-                اسم الدولة بالإنجليزية (اختياري)
-              </label>
-              <input
-                id="countries-nameEn"
-                type="text"
-                dir="ltr"
-                maxLength={200}
-                placeholder="e.g. Turkey"
-                aria-invalid={Boolean(errors.nameEn?.message)}
-                className={`${textInputClass} text-left`}
-                {...nameEnReg}
-                onChange={(event) => {
-                  nameEnReg.onChange(event);
-                  syncAutoFieldsOnNameChange(
-                    String(getValues("nameAr") ?? ""),
-                    event.target.value,
-                  );
-                }}
-              />
-              {errors.nameEn?.message ? (
-                <p role="alert" className="mt-1.5 text-[13px] font-medium text-red-700">
-                  {errors.nameEn.message}
-                </p>
-              ) : null}
-            </div>
-
-            {/* Simplified SEO Section */}
-            <div className="space-y-4 border-t border-[var(--line)] pt-4">
-              <div>
-                <h4 className="text-[15px] font-bold text-[var(--navy)]">
-                  تحسين محركات البحث (SEO)
-                </h4>
-                <p className="mt-0.5 text-[13px] leading-6 text-[var(--muted)]">
-                  تُقترح تلقائيًا من اسم الدولة ووصفها القصير عند الإنشاء ما لم تعدّلها يدويًا.
-                </p>
-              </div>
-
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <label
-                    htmlFor="countries-seoTitleAr"
-                    className="block text-[14px] sm:text-[15px] font-semibold text-[var(--navy)]"
-                  >
-                    عنوان SEO بالعربية
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const suggested = suggestCountrySeoTitle(
-                        String(getValues("nameAr") ?? ""),
-                      );
-                      if (suggested) {
-                        setSeoTitleManuallyEdited(false);
-                        setValue("seoTitleAr", suggested, { shouldDirty: true });
-                      }
-                    }}
-                    className="text-[13px] font-semibold text-[var(--gold-dark)] hover:underline"
-                  >
-                    اقتراح من اسم الدولة
-                  </button>
-                </div>
-                <input
-                  id="countries-seoTitleAr"
-                  type="text"
-                  dir="rtl"
-                  maxLength={120}
-                  placeholder="مثال: الدراسة في تركيا"
-                  aria-invalid={Boolean(errors.seoTitleAr?.message)}
-                  className={textInputClass}
-                  {...seoTitleReg}
-                  onChange={(event) => {
-                    setSeoTitleManuallyEdited(true);
-                    seoTitleReg.onChange(event);
-                  }}
-                />
-                {errors.seoTitleAr?.message ? (
-                  <p role="alert" className="mt-1.5 text-[13px] font-medium text-red-700">
-                    {errors.seoTitleAr.message}
-                  </p>
-                ) : null}
-              </div>
-
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <label
-                    htmlFor="countries-seoDescriptionAr"
-                    className="block text-[14px] sm:text-[15px] font-semibold text-[var(--navy)]"
-                  >
-                    وصف SEO بالعربية
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs text-[var(--muted)] tabular-nums">
-                      {seoDescLength} / 320
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const suggested = suggestCountrySeoDescription(
-                          String(getValues("introductionAr") ?? ""),
-                        );
-                        if (suggested) {
-                          setSeoDescManuallyEdited(false);
-                          setValue("seoDescriptionAr", suggested, { shouldDirty: true });
-                        }
-                      }}
-                      className="text-[13px] font-semibold text-[var(--gold-dark)] hover:underline"
-                    >
-                      اقتراح من الوصف القصير
-                    </button>
-                  </div>
-                </div>
-                <textarea
-                  id="countries-seoDescriptionAr"
-                  dir="rtl"
-                  rows={2}
-                  maxLength={320}
-                  placeholder="وصف مختصر يظهر في نتائج البحث..."
-                  aria-invalid={Boolean(errors.seoDescriptionAr?.message)}
-                  className={textareaBaseClass}
-                  {...seoDescReg}
-                  onChange={(event) => {
-                    setSeoDescManuallyEdited(true);
-                    seoDescReg.onChange(event);
-                  }}
-                />
-                {errors.seoDescriptionAr?.message ? (
-                  <p role="alert" className="mt-1.5 text-[13px] font-medium text-red-700">
-                    {errors.seoDescriptionAr.message}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </details>
-
         {/* Save Actions (with General API Error placed clearly nearby) */}
         <section
           aria-label="حفظ بيانات الدولة"
@@ -1101,43 +794,16 @@ export function CountryFormPage({ id }: { id?: string }) {
 
           <div className="hidden flex-wrap items-center justify-between gap-3 sm:flex">
             <div className="flex flex-wrap items-center gap-3">
-              {!isEditMode ? (
-                <>
+              <>
                   <button
                     type="submit"
                     disabled={isPending}
-                    onClick={() => {
-                      createIntent.current = "finish";
-                    }}
                     className="inline-flex h-12 items-center gap-2 rounded-xl bg-[var(--navy)] px-6 text-[15px] font-bold text-white transition-colors hover:bg-[var(--navy-light)] disabled:cursor-wait disabled:opacity-60"
                   >
                     {isPending ? <SpinnerIcon className="size-4 animate-spin" /> : null}
-                    <span>{isPending ? "جارٍ الحفظ…" : "حفظ وإنهاء"}</span>
+                    <span>{isPending ? "جارٍ الحفظ…" : isEditMode ? "حفظ التغييرات" : "إضافة الدولة"}</span>
                   </button>
-                  <button
-                    type="submit"
-                    disabled={isPending}
-                    onClick={() => {
-                      createIntent.current = "details";
-                    }}
-                    className="inline-flex h-12 items-center rounded-xl border border-[var(--navy)] bg-white px-5 text-[15px] font-bold text-[var(--navy)] transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
-                  >
-                    حفظ ومتابعة دليل الدراسة
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  onClick={() => {
-                    createIntent.current = "finish";
-                  }}
-                  className="inline-flex h-12 items-center gap-2 rounded-xl bg-[var(--navy)] px-6 text-[15px] font-bold text-white transition-colors hover:bg-[var(--navy-light)] disabled:cursor-wait disabled:opacity-60"
-                >
-                  {isPending ? <SpinnerIcon className="size-4 animate-spin" /> : null}
-                  <span>{isPending ? "جارٍ الحفظ…" : "حفظ التغييرات"}</span>
-                </button>
-              )}
+              </>
 
               <Link
                 href="/admin/countries"
@@ -1170,44 +836,16 @@ export function CountryFormPage({ id }: { id?: string }) {
         aria-label="إجراءات نموذج الدولة"
       >
         <div className="mx-auto flex max-w-xl items-center gap-2">
-          {!isEditMode ? (
-            <>
+          <>
               <button
                 type="submit"
                 form={formId}
                 disabled={isPending}
-                onClick={() => {
-                  createIntent.current = "finish";
-                }}
                 className="h-11 min-w-0 flex-1 rounded-xl bg-[var(--navy)] px-3 text-[14px] font-bold text-white disabled:cursor-wait disabled:opacity-60"
               >
-                {isPending ? "جارٍ الحفظ…" : "حفظ وإنهاء"}
+                {isPending ? "جارٍ الحفظ…" : isEditMode ? "حفظ التغييرات" : "إضافة الدولة"}
               </button>
-              <button
-                type="submit"
-                form={formId}
-                disabled={isPending}
-                onClick={() => {
-                  createIntent.current = "details";
-                }}
-                className="h-11 shrink-0 rounded-xl border border-[var(--navy)] bg-white px-3 text-[13px] font-bold text-[var(--navy)] disabled:cursor-wait disabled:opacity-60 whitespace-nowrap"
-              >
-                حفظ ودليل الدراسة
-              </button>
-            </>
-          ) : (
-            <button
-              type="submit"
-              form={formId}
-              disabled={isPending}
-              onClick={() => {
-                createIntent.current = "finish";
-              }}
-              className="h-11 min-w-0 flex-1 rounded-xl bg-[var(--navy)] px-4 text-[15px] font-bold text-white disabled:cursor-wait disabled:opacity-60"
-            >
-              {isPending ? "جارٍ الحفظ…" : "حفظ التغييرات"}
-            </button>
-          )}
+          </>
           <Link
             href="/admin/countries"
             className="inline-flex h-11 shrink-0 items-center rounded-xl border border-[var(--line)] bg-white px-3 text-[14px] font-semibold text-[var(--navy)]"

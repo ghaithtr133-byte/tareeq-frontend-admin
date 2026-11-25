@@ -53,6 +53,7 @@ export function CitiesManagementPage() {
   const [cityToDelete, setCityToDelete] = useState<City | null>(null);
   const nameArRef = useRef<HTMLInputElement>(null);
   const nameEnRef = useRef<HTMLInputElement>(null);
+  const mobileSentinelRef = useRef<HTMLDivElement>(null);
 
   const countries = useContentSelectors({ countries: true });
   const countryItems = countries.countries.data?.items ?? [];
@@ -93,6 +94,15 @@ export function CitiesManagementPage() {
     }
     return [...unique.values()];
   }, [mobileList.data?.pages]);
+  const { fetchNextPage, hasNextPage, isFetchingNextPage } = mobileList;
+  useEffect(() => {
+    if (!isMobile || !mobileSentinelRef.current || !hasNextPage || isFetchingNextPage) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) void fetchNextPage();
+    }, { rootMargin: "240px" });
+    observer.observe(mobileSentinelRef.current);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, isMobile]);
 
   const isSaving = create.isPending || update.isPending;
   const isDirty = editor
@@ -275,7 +285,8 @@ export function CitiesManagementPage() {
 
           <div className="space-y-3 md:hidden">
             {mobileList.isPending ? <LoadingState /> : mobileList.isError ? <ErrorState action={<button className={primaryButtonClass} onClick={() => void mobileList.refetch()}>إعادة المحاولة</button>} /> : mobileCities.length === 0 ? <EmptyState /> : mobileCities.map((city) => <article key={city.id} className={panelClass}><div><h3 className="font-bold text-[var(--navy)]">{city.nameAr}</h3><p dir="ltr" className="mt-1 text-sm text-[var(--muted)]">{city.nameEn}</p><p className="mt-2 text-xs font-medium text-[var(--navy)]">{cityCountryLabel(city, countryItems)}</p></div>{renderActions(city)}</article>)}
-            {mobileList.hasNextPage ? <button type="button" className={`${buttonClass} w-full`} disabled={mobileList.isFetchingNextPage} onClick={() => void mobileList.fetchNextPage()}>{mobileList.isFetchingNextPage ? "جارٍ تحميل المزيد…" : "تحميل المزيد"}</button> : null}
+            <div ref={mobileSentinelRef} aria-hidden="true" />
+            {mobileList.hasNextPage ? <button type="button" className={`${buttonClass} w-full`} disabled={mobileList.isFetchingNextPage} onClick={() => void mobileList.fetchNextPage()}>{mobileList.isFetchingNextPage ? "جارٍ تحميل المزيد…" : "تحميل المزيد"}</button> : mobileCities.length > 0 ? <p className="py-1 text-center text-xs text-[var(--muted)]">تم عرض كل المدن.</p> : null}
           </div>
         </>
       )}

@@ -97,31 +97,52 @@ function Sidebar({
             )}
             <ul className="space-y-1">
               {section.items.map((item) => {
-                const active = item.id === activeItem;
+                const active = item.id === activeItem && !item.disabled;
                 return (
                   <li key={item.id}>
-                    <Link
-                      href={item.href}
-                      onClick={onNavigate}
-                      title={collapsed ? item.label : undefined}
-                      aria-label={collapsed ? item.label : undefined}
-                      aria-current={active ? "page" : undefined}
-                      className={`group flex items-center rounded-xl text-sm transition-colors duration-150 ${
-                        collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
-                      } ${
-                        active
-                          ? "bg-white/14 font-semibold text-white shadow-xs ring-1 ring-white/15"
-                          : "font-medium text-slate-200 hover:bg-white/8 hover:text-white"
-                      }`}
-                    >
-                      <NavigationIcon
-                        item={item.id}
-                        className={`size-[18px] shrink-0 transition-colors ${
-                          active ? "text-[var(--gold-soft)]" : "text-slate-300 group-hover:text-white"
+                    {item.disabled ? (
+                      <span
+                        role="link"
+                        aria-disabled="true"
+                        title={`${item.label} — ملغاة`}
+                        className={`flex cursor-not-allowed items-center rounded-xl text-sm font-medium text-slate-400 opacity-70 ${
+                          collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
                         }`}
-                      />
-                      {!collapsed ? <span className="truncate">{item.label}</span> : null}
-                    </Link>
+                      >
+                        <NavigationIcon item={item.id} className="size-[18px] shrink-0 text-slate-400" />
+                        {!collapsed ? (
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className="truncate">{item.label}</span>
+                            <span className="rounded-md border border-white/15 px-1.5 py-0.5 text-[10px] font-bold text-slate-300">
+                              ملغاة
+                            </span>
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        onClick={onNavigate}
+                        title={collapsed ? item.label : undefined}
+                        aria-label={collapsed ? item.label : undefined}
+                        aria-current={active ? "page" : undefined}
+                        className={`group flex items-center rounded-xl text-sm transition-colors duration-150 ${
+                          collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
+                        } ${
+                          active
+                            ? "bg-white/14 font-semibold text-white shadow-xs ring-1 ring-white/15"
+                            : "font-medium text-slate-200 hover:bg-white/8 hover:text-white"
+                        }`}
+                      >
+                        <NavigationIcon
+                          item={item.id}
+                          className={`size-[18px] shrink-0 transition-colors ${
+                            active ? "text-[var(--gold-soft)]" : "text-slate-300 group-hover:text-white"
+                          }`}
+                        />
+                        {!collapsed ? <span className="truncate">{item.label}</span> : null}
+                      </Link>
+                    )}
                   </li>
                 );
               })}
@@ -168,6 +189,8 @@ export function AdminShell({
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDialogElement>(null);
   const profileDialogRef = useRef<HTMLDialogElement>(null);
+  const accountButtonRef = useRef<HTMLButtonElement>(null);
+  const profileCloseButtonRef = useRef<HTMLButtonElement>(null);
   const accountMenuContainerRef = useRef<HTMLDivElement>(null);
 
   const dialogId = useId();
@@ -220,10 +243,17 @@ export function AdminShell({
     if (!dialog) return;
     if (profileDialogOpen) {
       if (!dialog.open) dialog.showModal();
+      window.requestAnimationFrame(() => profileCloseButtonRef.current?.focus());
     } else if (dialog.open) {
       dialog.close();
+      window.requestAnimationFrame(() => accountButtonRef.current?.focus());
     }
   }, [profileDialogOpen]);
+
+  /** React state is the only source of truth; the effect above synchronizes the native dialog. */
+  function closeProfileDialog() {
+    setProfileDialogOpen(false);
+  }
 
   const roleLabel = getRoleLabel(user.role);
 
@@ -290,6 +320,7 @@ export function AdminShell({
 
           <div ref={accountMenuContainerRef} className="relative shrink-0">
             <button
+              ref={accountButtonRef}
               type="button"
               onClick={() => setAccountMenuOpen((open) => !open)}
               aria-expanded={accountMenuOpen}
@@ -418,25 +449,27 @@ export function AdminShell({
         aria-labelledby={profileTitleId}
         onCancel={(event) => {
           event.preventDefault();
-          setProfileDialogOpen(false);
+          closeProfileDialog();
         }}
-        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-[var(--line)] bg-white p-0 text-[var(--foreground)] shadow-2xl backdrop:bg-slate-950/45"
+        onClose={() => setProfileDialogOpen(false)}
+        className="m-auto open:flex max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] w-[calc(100%-1rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-white p-0 text-[var(--foreground)] shadow-2xl backdrop:bg-slate-950/45 sm:w-[calc(100%-2rem)]"
       >
-        <div className="flex items-center justify-between border-b border-[var(--line)] px-6 py-4">
-          <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--line)] bg-white px-4 py-3.5 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 items-center gap-3">
             <span className="grid size-10 place-items-center rounded-xl bg-[var(--navy)] text-[var(--gold-soft)]">
               <UserIcon className="size-5" />
             </span>
-            <div>
-              <h2 id={profileTitleId} className="text-base font-bold text-[var(--navy)]">
+            <div className="min-w-0">
+              <h2 id={profileTitleId} className="truncate text-base font-bold text-[var(--navy)]">
                 إعدادات الملف الشخصي
               </h2>
               <p className="text-xs text-[var(--muted)]">{roleLabel}</p>
             </div>
           </div>
           <button
+            ref={profileCloseButtonRef}
             type="button"
-            onClick={() => setProfileDialogOpen(false)}
+            onClick={closeProfileDialog}
             className="grid size-9 place-items-center rounded-xl border border-[var(--line)] text-[var(--muted)] transition-colors hover:bg-slate-50 hover:text-[var(--navy)]"
             aria-label="إغلاق إعدادات الملف الشخصي"
           >
@@ -444,8 +477,9 @@ export function AdminShell({
           </button>
         </div>
 
-        <div className="space-y-4 px-6 py-5">
-          <div>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
+            <div>
             <label htmlFor="profile-name-preview" className="block text-sm font-semibold text-[var(--navy)]">
               الاسم الظاهر
             </label>
@@ -457,52 +491,64 @@ export function AdminShell({
               className="mt-1.5 h-11 w-full cursor-not-allowed rounded-xl border border-[var(--line)] bg-slate-50 px-3.5 text-sm text-slate-600"
             />
             <p className="mt-1.5 text-xs text-[var(--gold-dark)]">
-              تصميم مبدئي — تعديل الاسم بانتظار ربط الخادم (PENDING BACKEND/CODEX).
+              تعديل الاسم غير متاح حاليًا لأن الخادم لا يدعم حفظه بعد.
             </p>
           </div>
 
           <div className="grid gap-3 rounded-xl border border-[var(--line)] bg-[var(--background)] p-3.5 text-xs">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[var(--muted)]">البريد الإلكتروني</span>
-              <span dir="ltr" className="font-mono font-medium text-[var(--navy)]">
+            <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+              <span className="shrink-0 text-[var(--muted)]">البريد الإلكتروني</span>
+              <span
+                dir="ltr"
+                title={user.email}
+                aria-label={`البريد الإلكتروني: ${user.email}`}
+                className="min-w-0 break-all text-left font-mono font-medium leading-5 text-[var(--navy)]"
+              >
                 {user.email}
               </span>
             </div>
-            <div className="flex items-center justify-between gap-2 border-t border-[var(--line)] pt-2.5">
-              <span className="text-[var(--muted)]">الصلاحية المعتمدة</span>
+            <div className="flex min-w-0 flex-col gap-1 border-t border-[var(--line)] pt-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              <span className="shrink-0 text-[var(--muted)]">الصلاحية المعتمدة</span>
               <span dir="ltr" className="font-mono font-semibold text-[var(--navy)]">
                 {user.role}
               </span>
             </div>
           </div>
+          </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] pt-4">
+          <footer className="shrink-0 border-t border-[var(--line)] bg-white px-4 py-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:px-6">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <Link
               href="/admin/change-password"
-              onClick={() => setProfileDialogOpen(false)}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--line)] bg-white px-3.5 text-xs font-bold text-[var(--navy)] transition-colors hover:bg-slate-50"
+              onClick={closeProfileDialog}
+              className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-[var(--line)] bg-white px-3.5 text-xs font-bold text-[var(--navy)] transition-colors hover:bg-slate-50 sm:w-auto"
             >
               <KeyRoundIcon className="size-4 text-[var(--gold-dark)]" />
               <span>تغيير كلمة المرور</span>
             </Link>
 
-            <div className="flex items-center gap-2">
+            <div className="grid w-full gap-2 sm:flex sm:w-auto">
               <button
                 type="button"
                 disabled
-                className="h-10 cursor-not-allowed rounded-xl bg-[var(--navy)]/40 px-4 text-xs font-bold text-white"
+                aria-describedby="profile-save-unavailable"
+                className="min-h-10 w-full cursor-not-allowed rounded-xl bg-[var(--navy)]/40 px-4 text-xs font-bold text-white sm:w-auto"
               >
-                حفظ التغييرات (قريبًا)
+                حفظ التغييرات غير متاح
               </button>
               <button
                 type="button"
-                onClick={() => setProfileDialogOpen(false)}
-                className="h-10 rounded-xl border border-[var(--line)] px-4 text-xs font-bold text-[var(--navy)] transition-colors hover:bg-slate-50"
+                onClick={closeProfileDialog}
+                className="min-h-10 w-full rounded-xl border border-[var(--line)] px-4 text-xs font-bold text-[var(--navy)] transition-colors hover:bg-slate-50 sm:w-auto"
               >
                 إغلاق
               </button>
             </div>
-          </div>
+            </div>
+            <p id="profile-save-unavailable" className="sr-only">
+              تعديل بيانات الملف الشخصي غير مدعوم من الخادم حاليًا.
+            </p>
+          </footer>
         </div>
       </dialog>
     </div>

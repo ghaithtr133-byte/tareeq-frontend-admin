@@ -29,10 +29,14 @@ export interface ContentImageCardProps {
   urlError?: string;
   altError?: string;
   altPlaceholder: string;
+  /** File uploads are the only supported image source when this is false. */
+  manualUrlAvailable?: boolean;
   manualUrlPlaceholder?: string;
   uploadSuccessMessage?: string;
   canClear?: boolean;
   disabled?: boolean;
+  /** Lets a parent form block Save until this asynchronous upload settles. */
+  onUploadPendingChange?: (pending: boolean) => void;
   onUrlChange: (nextUrl: string) => void;
   urlInputProps: UseFormRegisterReturn;
   altInputProps: UseFormRegisterReturn;
@@ -52,10 +56,12 @@ export function ContentImageCard({
   urlError,
   altError,
   altPlaceholder,
+  manualUrlAvailable = true,
   manualUrlPlaceholder = "https://example.com/cover.jpg",
   uploadSuccessMessage = "تم رفع الصورة بنجاح. احفظ التغييرات لتثبيت الصورة.",
   canClear = true,
   disabled = false,
+  onUploadPendingChange,
   onUrlChange,
   urlInputProps,
   altInputProps,
@@ -76,7 +82,7 @@ export function ContentImageCard({
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState<string>();
   const [statusError, setStatusError] = useState(false);
-  const [showManualUrl, setShowManualUrl] = useState(Boolean(urlError));
+  const [showManualUrl, setShowManualUrl] = useState(manualUrlAvailable && Boolean(urlError));
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [failedUrl, setFailedUrl] = useState<string>("");
 
@@ -140,6 +146,9 @@ export function ContentImageCard({
     const controller = new AbortController();
     controllerRef.current = controller;
 
+    // Notify synchronously before the next render so a Save click in the same
+    // event turn cannot PATCH the old URL while this upload is still pending.
+    onUploadPendingChange?.(true);
     setUploading(true);
     setProgress(0);
     try {
@@ -171,6 +180,7 @@ export function ContentImageCard({
       }
     } finally {
       setUploading(false);
+      onUploadPendingChange?.(false);
     }
   }
 
@@ -378,11 +388,11 @@ export function ContentImageCard({
 
         {/* Manual HTTPS URL hidden behind subtle optional action (auto-opens only on validation error) */}
         {(() => {
-          const forceManualUrl = Boolean(urlError);
+          const forceManualUrl = manualUrlAvailable && Boolean(urlError);
           const manualUrlVisible = forceManualUrl || showManualUrl;
           return (
             <div className="space-y-2">
-              {!forceManualUrl ? (
+              {manualUrlAvailable && !forceManualUrl ? (
                 <button
                   type="button"
                   onClick={() => setShowManualUrl((open) => !open)}
@@ -399,7 +409,7 @@ export function ContentImageCard({
                 </button>
               ) : null}
 
-              {manualUrlVisible ? (
+              {manualUrlAvailable && manualUrlVisible ? (
                 <div>
                   <label
                     htmlFor={urlFieldId}
