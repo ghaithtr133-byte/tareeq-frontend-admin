@@ -76,6 +76,7 @@ export interface University {
   cityAr: string;
   cityEn: string | null;
   overviewAr: string;
+  summaryAr: string | null;
   overviewEn: string | null;
   officialWebsite: string | null;
   imageUrl: string | null;
@@ -190,7 +191,7 @@ export interface UniversityInput {
   cityId?: string | null; universityType?: "PUBLIC" | "PRIVATE" | null;
   logoUrl?: string; logoAltAr?: string; logoAltEn?: string;
   nameAr?: string; nameEn?: string; officialName?: string; countryId?: string; cityAr?: string; cityEn?: string;
-  overviewAr?: string; overviewEn?: string; officialWebsite?: string; imageUrl?: string; imageAltAr?: string; imageAltEn?: string;
+  overviewAr?: string; summaryAr?: string | null; overviewEn?: string; officialWebsite?: string; imageUrl?: string; imageAltAr?: string; imageAltEn?: string;
   slug?: string; featured?: boolean; status?: PublicationStatus; seoTitleAr?: string; seoDescriptionAr?: string;
 }
 export interface ScholarshipInput {

@@ -3,71 +3,390 @@
 import Link from "next/link";
 import { useState } from "react";
 import { getApiFieldErrors } from "@/lib/api-client/error";
-import { isSubmissionId, submissionStatuses, submissionStatusUpdateSchema, type Submission, type SubmissionResource, type SubmissionStatus } from "@/lib/api-client/submissions";
+import {
+  isSubmissionId,
+  submissionStatuses,
+  submissionStatusUpdateSchema,
+  type Submission,
+  type SubmissionResource,
+  type SubmissionStatus,
+} from "@/lib/api-client/submissions";
 import { LoadingState } from "@/components/dashboard/states";
 import { useSubmissionMutation } from "@/hook/mutations/use-submission-mutation";
 import { useSubmissionDetail } from "@/hook/queries/use-submission-queries";
-import { applicationTypeLabels, submissionChanges, submissionLabels, submissionStatusLabels } from "@/lib/submissions";
+import { studyLevelLabel } from "@/lib/content-labels";
+import {
+  applicationTypeLabels,
+  submissionChanges,
+  submissionLabels,
+  submissionStatusLabels,
+} from "@/lib/submissions";
 import { useAdminAccess } from "@/providers/admin-access-provider";
-import { SubmissionError, SubmissionField, SubmissionStatusBadge, submissionButtonClass, submissionControlClass, submissionDate } from "./submission-ui";
+import {
+  CalendarIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  MailIcon,
+  PhoneIcon,
+  ShieldCheckIcon,
+  TrashIcon,
+} from "@/components/ui/admin-icons";
+import {
+  SubmissionError,
+  SubmissionField,
+  SubmissionStatusBadge,
+  submissionButtonClass,
+  submissionControlClass,
+  submissionDate,
+  submissionSecondaryButtonClass,
+} from "./submission-ui";
 
-function DetailValue({ label, value, ltr = false }: { label: string; value: string | null; ltr?: boolean }) {
-  return <div className="min-w-0"><dt className="text-sm font-semibold text-[var(--muted)]">{label}</dt><dd className="mt-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere]"><bdi dir={ltr ? "ltr" : "auto"}>{value ?? "—"}</bdi></dd></div>;
+function DetailItem({
+  label,
+  value,
+  ltr = false,
+  mono = false,
+  icon,
+}: {
+  label: string;
+  value: string | null;
+  ltr?: boolean;
+  mono?: boolean;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="min-w-0 space-y-1">
+      <dt className="flex items-center gap-1.5 text-xs font-semibold text-[var(--muted)]">
+        {icon}
+        <span>{label}</span>
+      </dt>
+      <dd
+        className={`min-w-0 whitespace-pre-wrap break-words text-sm font-medium text-[var(--navy)] [overflow-wrap:anywhere] ${
+          mono ? "font-mono text-xs text-[var(--muted)]" : ""
+        }`}
+      >
+        <bdi dir={ltr ? "ltr" : "auto"}>{value ?? "—"}</bdi>
+      </dd>
+    </div>
+  );
 }
-function WorkflowEditor({ resource, record }: { resource: SubmissionResource; record: Submission }) {
+
+function WorkflowEditor({
+  resource,
+  record,
+}: {
+  resource: SubmissionResource;
+  record: Submission;
+}) {
   const mutation = useSubmissionMutation(resource, record.id);
   const [baseline, setBaseline] = useState(record);
   const [status, setStatus] = useState<SubmissionStatus>(record.status);
   const [note, setNote] = useState<string | null>(record.internalNote);
   const [validation, setValidation] = useState<string>();
   const [success, setSuccess] = useState(false);
+
   const input = submissionChanges(baseline, status, note);
+  const hasChanges = Object.keys(input).length > 0;
   const fields = mutation.isError ? getApiFieldErrors(mutation.error) : {};
   const noteTooLong = note !== null && note.length > 5000;
-  function changed() { setSuccess(false); setValidation(undefined); mutation.reset(); }
-  return <form onSubmit={async (event) => {
-    event.preventDefault();
-    if (mutation.isPending) return;
+  const pendingClear = note === null && baseline.internalNote !== null;
+
+  function changed() {
     setSuccess(false);
-    const parsed = submissionStatusUpdateSchema.safeParse(input);
-    if (!parsed.success) { setValidation(parsed.error.issues[0]?.message ?? "تحقق من البيانات."); return; }
     setValidation(undefined);
-    try {
-      const updated = await mutation.mutateAsync(parsed.data);
-      setBaseline(updated); setStatus(updated.status); setNote(updated.internalNote); setSuccess(true);
-    } catch { /* Preserve edits after an unsuccessful request. */ }
-  }} className="space-y-4 rounded-2xl border border-[var(--line)] bg-white p-4 sm:p-6">
-    <h3 className="text-lg font-bold">إدارة الحالة والملاحظة الداخلية</h3>
-    <p className="text-sm text-[var(--muted)]">الملاحظة خاصة بفريق الإدارة.</p>
-    <fieldset disabled={mutation.isPending} className="min-w-0 space-y-4">
-      <SubmissionField label="حالة المعالجة"><select className={submissionControlClass} value={status} onChange={(event) => { changed(); setStatus(event.target.value as SubmissionStatus); }} aria-invalid={Boolean(fields.status)} aria-describedby={fields.status ? "workflow-status-error" : undefined}>{submissionStatuses.map((value) => <option key={value} value={value}>{submissionStatusLabels[value]}</option>)}</select></SubmissionField>
-      {fields.status ? <p id="workflow-status-error" role="alert" className="text-sm text-red-800">تحقق من حالة المعالجة المختارة.</p> : null}
-      <SubmissionField label="الملاحظة الداخلية"><textarea className={`${submissionControlClass} min-h-40 whitespace-pre-wrap`} value={note ?? ""} onChange={(event) => { changed(); setNote(event.target.value); }} aria-invalid={noteTooLong || Boolean(fields.internalNote)} aria-describedby="workflow-note-help workflow-note-error" /></SubmissionField>
-      <p id="workflow-note-help" className="text-xs text-[var(--muted)]">{note?.length ?? 0} / 5000 حرف</p>
-      <button type="button" onClick={() => { changed(); setNote(null); }} className="min-h-11 rounded-lg border border-[var(--line)] px-3 text-sm" disabled={note === null}>مسح الملاحظة</button>
-      <p id="workflow-note-error" role={noteTooLong || fields.internalNote ? "alert" : undefined} className="text-sm text-red-800">{noteTooLong ? "الحد الأقصى للملاحظة 5000 حرف." : fields.internalNote ? "لم يقبل الخادم الملاحظة الداخلية. تحقق من طولها ومحتواها." : null}</p>
-      <button className={submissionButtonClass} disabled={mutation.isPending || noteTooLong || Object.keys(input).length === 0}>{mutation.isPending ? "جارٍ الحفظ" : "حفظ التغييرات"}</button>
-    </fieldset>
-    {validation ? <p role="alert" className="text-sm text-red-800">{validation}</p> : null}
-    {mutation.isError ? <SubmissionError error={mutation.error} /> : null}
-    {success ? <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-900">تم حفظ التغييرات بنجاح.</p> : null}
-  </form>;
+    mutation.reset();
+  }
+
+  return (
+    <form
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (mutation.isPending) return;
+        setSuccess(false);
+        const parsed = submissionStatusUpdateSchema.safeParse(input);
+        if (!parsed.success) {
+          setValidation(parsed.error.issues[0]?.message ?? "تحقق من البيانات.");
+          return;
+        }
+        setValidation(undefined);
+        try {
+          const updated = await mutation.mutateAsync(parsed.data);
+          setBaseline(updated);
+          setStatus(updated.status);
+          setNote(updated.internalNote);
+          setSuccess(true);
+        } catch {
+          /* Preserve edits after an unsuccessful request. */
+        }
+      }}
+      className="space-y-4 rounded-2xl border border-[var(--line)] bg-white p-5 shadow-[var(--shadow-card)] lg:sticky lg:top-20"
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-[var(--line)] pb-3">
+        <div>
+          <h3 className="text-base font-bold text-[var(--navy)]">إدارة الحالة والملاحظة الداخلية</h3>
+          <p className="mt-0.5 text-xs text-[var(--muted)]">
+            الملاحظة الداخلية خاصة بفريق الإدارة فقط ولا تُرسل لصاحب الطلب.
+          </p>
+        </div>
+        <SubmissionStatusBadge status={baseline.status} />
+      </div>
+
+      <fieldset disabled={mutation.isPending} className="min-w-0 space-y-4">
+        <SubmissionField label="حالة المعالجة">
+          <div className="relative">
+            <select
+              className={`${submissionControlClass} appearance-none pl-9`}
+              value={status}
+              onChange={(event) => {
+                changed();
+                setStatus(event.target.value as SubmissionStatus);
+              }}
+              aria-invalid={Boolean(fields.status)}
+              aria-describedby={fields.status ? "workflow-status-error" : undefined}
+            >
+              {submissionStatuses.map((value) => (
+                <option key={value} value={value}>
+                  {submissionStatusLabels[value]}
+                </option>
+              ))}
+            </select>
+            <ChevronDownIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]" />
+          </div>
+        </SubmissionField>
+
+        {fields.status ? (
+          <p id="workflow-status-error" role="alert" className="text-xs font-medium text-red-700">
+            تحقق من حالة المعالجة المختارة.
+          </p>
+        ) : null}
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <label htmlFor="workflow-internal-note" className="text-xs font-semibold text-[var(--navy)]">
+              الملاحظة الداخلية
+            </label>
+            <span id="workflow-note-help" className="text-[11px] text-[var(--muted)] tabular-nums">
+              {note?.length ?? 0} / 5000 حرف
+            </span>
+          </div>
+          <textarea
+            id="workflow-internal-note"
+            className={`${submissionControlClass} min-h-36 whitespace-pre-wrap`}
+            placeholder={
+              note === null
+                ? "تم اختيار المسح الصريح للملاحظة الداخلية عند الحفظ."
+                : "أضف ملاحظة متابعة داخلية للفريق..."
+            }
+            value={note ?? ""}
+            onChange={(event) => {
+              changed();
+              setNote(event.target.value);
+            }}
+            aria-invalid={noteTooLong || Boolean(fields.internalNote)}
+            aria-describedby="workflow-note-help workflow-note-error"
+          />
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                changed();
+                setNote(null);
+              }}
+              className={submissionSecondaryButtonClass}
+              disabled={note === null}
+            >
+              <TrashIcon className="size-3.5" />
+              <span>مسح الملاحظة (null)</span>
+            </button>
+
+            {pendingClear ? (
+              <span className="text-[11px] font-medium text-amber-800">
+                سيُرسل مسح صريح للملاحظة عند الحفظ
+              </span>
+            ) : null}
+          </div>
+
+          {noteTooLong || fields.internalNote ? (
+            <p id="workflow-note-error" role="alert" className="text-xs font-medium text-red-700">
+              {noteTooLong
+                ? "الحد الأقصى للملاحظة 5000 حرف."
+                : "لم يقبل الخادم الملاحظة الداخلية. تحقق من طولها ومحتواها."}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="border-t border-[var(--line)] pt-3">
+          <button
+            className={`${submissionButtonClass} w-full`}
+            disabled={mutation.isPending || noteTooLong || !hasChanges}
+          >
+            {mutation.isPending ? "جارٍ الحفظ…" : "حفظ التغييرات"}
+          </button>
+        </div>
+      </fieldset>
+
+      {validation ? (
+        <p role="alert" className="text-xs font-medium text-red-700">
+          {validation}
+        </p>
+      ) : null}
+      {mutation.isError ? <SubmissionError error={mutation.error} /> : null}
+      {success ? (
+        <p
+          role="status"
+          className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-xs font-medium text-emerald-900"
+        >
+          تم حفظ التغييرات بنجاح.
+        </p>
+      ) : null}
+    </form>
+  );
 }
-export function SubmissionDetailPage({ resource, id }: { resource: SubmissionResource; id: string }) {
+
+export function SubmissionDetailPage({
+  resource,
+  id,
+}: {
+  resource: SubmissionResource;
+  id: string;
+}) {
   const { mockEnabled } = useAdminAccess();
   const detail = useSubmissionDetail(resource, id);
   const record = detail.data;
-  return <section className="min-w-0 space-y-5">
-    <Link href={`/admin/${resource}`} className="inline-flex min-h-11 items-center font-bold underline">العودة إلى {submissionLabels[resource]}</Link>
-    <h2 className="text-2xl font-bold">{resource === "applications" ? "تفاصيل طلب التقديم" : "تفاصيل الاستفسار"}</h2>
-    {!isSubmissionId(id) ? <p role="alert">معرّف السجل غير صالح.</p> : mockEnabled ? <p>استخدم جلسة حقيقية لعرض التفاصيل.</p> : detail.isPending ? <LoadingState /> : detail.isError ? <SubmissionError error={detail.error} retry={() => void detail.refetch()} /> : record ? <>
-      <div className="space-y-5 rounded-2xl border border-[var(--line)] bg-white p-4 sm:p-6"><SubmissionStatusBadge status={record.status} /><dl className="grid min-w-0 gap-5 sm:grid-cols-2">
-        <DetailValue label="الاسم الكامل" value={record.fullName} /><DetailValue label="البريد الإلكتروني" value={record.email} ltr /><DetailValue label="الهاتف" value={record.phone} ltr />
-        {"applicationType" in record ? <><DetailValue label="نوع الطلب" value={applicationTypeLabels[record.applicationType]} /><DetailValue label="معرّف الدولة" value={record.countryId} ltr /><DetailValue label="معرّف الجامعة" value={record.universityId} ltr /><DetailValue label="معرّف المنحة" value={record.scholarshipId} ltr /><DetailValue label="المستوى الدراسي" value={record.studyLevel} /><DetailValue label="التخصص المقصود" value={record.intendedMajor} /></> : <DetailValue label="الموضوع" value={record.subject} />}
-        <div className="min-w-0 sm:col-span-2"><DetailValue label="الرسالة" value={record.message} /></div>
-        <DetailValue label="تاريخ قبول الخصوصية" value={submissionDate(record.privacyAcceptedAt)} /><DetailValue label="تاريخ الإرسال" value={submissionDate(record.createdAt)} /><DetailValue label="آخر تحديث" value={submissionDate(record.updatedAt)} />
-      </dl></div>
-      <WorkflowEditor key={record.id} resource={resource} record={record} />
-    </> : null}
-  </section>;
+  const validId = isSubmissionId(id);
+
+  return (
+    <section className="min-w-0 space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-1">
+          <Link
+            href={`/admin/${resource}`}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--muted)] hover:text-[var(--navy)]"
+          >
+            <ChevronRightIcon className="size-3.5" />
+            <span>العودة إلى {submissionLabels[resource]}</span>
+          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-2xl font-bold text-[var(--navy)]">
+              {resource === "applications" ? "تفاصيل طلب التقديم" : "تفاصيل الاستفسار"}
+            </h2>
+            {record ? <SubmissionStatusBadge status={record.status} /> : null}
+          </div>
+        </div>
+
+        {validId ? (
+          <span className="font-mono text-xs text-[var(--muted)] [overflow-wrap:anywhere]" dir="ltr">
+            #{id}
+          </span>
+        ) : null}
+      </div>
+
+      {!validId ? (
+        <div
+          role="alert"
+          className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm font-medium text-red-900"
+        >
+          معرّف السجل غير صالح.
+        </div>
+      ) : mockEnabled ? (
+        <p className="rounded-2xl border border-[var(--line)] bg-white p-5 text-sm text-[var(--muted)] shadow-[var(--shadow-card)]">
+          استخدم جلسة خادم حقيقية لعرض تفاصيل السجل وحفظ الملاحظات الداخلية.
+        </p>
+      ) : detail.isPending ? (
+        <LoadingState />
+      ) : detail.isError ? (
+        <SubmissionError error={detail.error} retry={() => void detail.refetch()} />
+      ) : record ? (
+        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(330px,1fr)] lg:items-start">
+          {/* Primary Read-Only Details Column */}
+          <div className="min-w-0 space-y-5">
+            {/* Applicant / Sender Card */}
+            <article className="space-y-4 rounded-2xl border border-[var(--line)] bg-white p-5 shadow-[var(--shadow-card)]">
+              <header className="border-b border-[var(--line)] pb-3">
+                <h3 className="text-base font-bold text-[var(--navy)]">
+                  {resource === "applications" ? "بيانات المتقدم" : "بيانات المرسل"}
+                </h3>
+              </header>
+
+              <dl className="grid min-w-0 gap-5 sm:grid-cols-2">
+                <DetailItem label="الاسم الكامل" value={record.fullName} />
+                <DetailItem
+                  label="البريد الإلكتروني"
+                  value={record.email}
+                  ltr
+                  icon={<MailIcon className="size-3.5" />}
+                />
+                <DetailItem
+                  label="رقم الهاتف"
+                  value={record.phone}
+                  ltr
+                  icon={<PhoneIcon className="size-3.5" />}
+                />
+                <DetailItem
+                  label="موافقة سياسة الخصوصية"
+                  value={submissionDate(record.privacyAcceptedAt)}
+                  icon={<ShieldCheckIcon className="size-3.5 text-emerald-700" />}
+                />
+                <DetailItem
+                  label="تاريخ الإرسال"
+                  value={submissionDate(record.createdAt)}
+                  icon={<CalendarIcon className="size-3.5" />}
+                />
+                <DetailItem
+                  label="آخر تحديث"
+                  value={submissionDate(record.updatedAt)}
+                  icon={<CalendarIcon className="size-3.5" />}
+                />
+              </dl>
+            </article>
+
+            {/* Request Context & Message Card */}
+            <article className="space-y-4 rounded-2xl border border-[var(--line)] bg-white p-5 shadow-[var(--shadow-card)]">
+              <header className="border-b border-[var(--line)] pb-3">
+                <h3 className="text-base font-bold text-[var(--navy)]">
+                  {resource === "applications" ? "تفاصيل الطلب والرسالة" : "موضوع الاستفسار والرسالة"}
+                </h3>
+              </header>
+
+              <dl className="grid min-w-0 gap-5 sm:grid-cols-2">
+                {"applicationType" in record ? (
+                  <>
+                    <DetailItem
+                      label="نوع الطلب"
+                      value={applicationTypeLabels[record.applicationType]}
+                    />
+                    <DetailItem
+                      label="المستوى الدراسي"
+                      value={record.studyLevel ? studyLevelLabel(record.studyLevel) : null}
+                    />
+                    <DetailItem label="التخصص المقصود" value={record.intendedMajor} />
+                    <DetailItem label="معرّف الدولة المرتبط" value={record.countryId} ltr mono />
+                    <DetailItem label="معرّف الجامعة المرتبطة" value={record.universityId} ltr mono />
+                    <DetailItem label="معرّف المنحة المرتبطة" value={record.scholarshipId} ltr mono />
+                  </>
+                ) : (
+                  <div className="min-w-0 sm:col-span-2">
+                    <DetailItem label="الموضوع" value={record.subject} />
+                  </div>
+                )}
+
+                <div className="min-w-0 border-t border-[var(--line)] pt-4 sm:col-span-2">
+                  <dt className="text-xs font-semibold text-[var(--muted)]">نص الرسالة</dt>
+                  <dd className="mt-2 rounded-xl border border-[var(--line)] bg-[var(--surface-subtle)] p-4 text-sm leading-7 text-[var(--navy)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                    <bdi dir="auto">{record.message || "—"}</bdi>
+                  </dd>
+                </div>
+              </dl>
+            </article>
+          </div>
+
+          {/* Workflow Management Column */}
+          <div className="min-w-0">
+            <WorkflowEditor key={record.id} resource={resource} record={record} />
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
 }

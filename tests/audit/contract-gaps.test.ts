@@ -8,7 +8,9 @@ import { safeAuditMetadata } from "@/lib/phase4-presentation";
 
 // Audit acceptance assertions deliberately remain RED when a defect exists.
 // No network transport, real credentials, or production record is used.
-const spec = JSON.parse(readFileSync(process.env.ADMIN_AUDIT_SPEC ?? "C:/Users/CMerna/Downloads/tareeq-academy-api.json", "utf8"));
+const auditSpecPath = process.env.ADMIN_AUDIT_SPEC;
+if (!auditSpecPath) throw new Error("ADMIN_AUDIT_SPEC must point to the authoritative OpenAPI JSON export; no verified fixture is stored in this repository.");
+const spec = JSON.parse(readFileSync(auditSpecPath, "utf8"));
 const id = "11111111-1111-4111-8111-111111111111";
 const second = "22222222-2222-4222-8222-222222222222";
 const article = { id, titleAr: "مقال محلي", summaryAr: "ملخص محلي", slug: "local-article", featured: false, status: "DRAFT", bodyAr: [{ type: "paragraph", text: "نص محلي" }], bodyEn: null, countryId: null, universityId: null, scholarshipId: id, scholarshipIds: [id, second], relatedScholarships: [] } as unknown as Article;

@@ -42,7 +42,7 @@ export async function isolate(page: Page, role: "ADMIN" | "SUPER_ADMIN" = "ADMIN
   });
   return { state, errors };
 }
-const save = (page: Page) => page.locator('form button[type="submit"]').click();
+const save = (page: Page) => page.locator('form button[type="submit"]').first().click();
 
 test("AUD-01 Article unrelated edit must not collapse multiple scholarship links", async ({ page }) => {
   const { state } = await isolate(page, "SUPER_ADMIN"); await page.goto(`/admin/articles/${recordId}`);
@@ -108,11 +108,11 @@ test("Original Service editor real-Axios 400 retains edits and does not show suc
   await expect(page.getByLabel("الملخص بالعربية", { exact: false })).toHaveValue("تحرير غير محفوظ"); expect(state.writes).toHaveLength(1); expect(errors).toEqual([]);
 });
 
-test("Production runtime excludes development proxy and mock controls", async ({ page, request }) => {
+test("Runtime excludes mock controls and rejects untrusted development-proxy requests", async ({ page, request }) => {
   const { state } = await isolate(page); await page.goto("/admin");
   await expect(page.getByText("أدوات التطوير", { exact: false })).toHaveCount(0);
-  // Direct request to the locally served production build; it must stop before upstream.
-  const response = await request.get("/__dev_api/health"); expect(response.status()).toBe(404);
+  // The route is compiled for local development, but an untrusted request must stop before upstream.
+  const response = await request.get("/__dev_api/health"); expect(response.status()).toBe(403);
   expect(state.writes).toHaveLength(0);
 });
 
@@ -123,8 +123,8 @@ test("Shared uploader maps resource and secureUrl across all five original edito
     await page.goto(`/admin/${resource}/${id}`);
     const title = page.locator(`#${resource}-${["countries", "universities"].includes(resource) ? "nameAr" : "titleAr"}`);
     await expect(title).not.toHaveValue(""); const original = await title.inputValue();
-    await page.getByLabel("ملف الصورة", { exact: true }).setInputFiles({ name: "audit.png", mimeType: "image/png", buffer: Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]) });
-    await page.getByRole("button", { name: "رفع الصورة", exact: true }).click();
+    await page.getByLabel("ملف الصورة", { exact: true }).first().setInputFiles({ name: "audit.png", mimeType: "image/png", buffer: Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0]) });
+    await page.getByRole("button", { name: "رفع الصورة", exact: true }).first().click();
     await expect(page.locator(`#${resource}-${resource === "articles" ? "coverImageUrl" : "imageUrl"}`)).toHaveValue("https://example.invalid/audit.png");
     expect(state.uploads.at(-1)).toContain(`\r\n${resource}\r\n`); await expect(title).toHaveValue(original);
   }

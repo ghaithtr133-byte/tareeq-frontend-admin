@@ -3,10 +3,10 @@ import test from "node:test";
 import { AxiosError } from "axios";
 
 import { apiClient } from "@/lib/api-client/client";
-import { contentApi } from "@/lib/api-client/content";
+import { contentApi, type Article } from "@/lib/api-client/content";
 import { getApiFieldErrors, normalizeApiError } from "@/lib/api-client/error";
 import { invalidateContentAfterCreate } from "@/hook/mutations/use-content-mutations";
-import { toContentPayload } from "@/lib/content-form";
+import { applyArticleSeoDefaults, initialContentValues, toContentPatch, toContentPayload, validateContentValues } from "@/lib/content-form";
 
 const recordId = "00000000-0000-4000-8000-000000000001";
 
@@ -285,6 +285,75 @@ test("form serialization preserves null relationships and the documented flat ar
       bodyAr: [{ type: "heading2", text: "عنوان" }],
       bodyEn: null,
     },
+  );
+});
+
+test("Article PATCH preserves stored translations, relationships, media, slug and custom SEO", () => {
+  const record = {
+    id: recordId,
+    slug: "article-guide",
+    featured: false,
+    publishedAt: null,
+    seoTitleAr: "عنوان SEO مخصص",
+    seoDescriptionAr: "وصف SEO مخصص",
+    titleAr: "دليل المقال",
+    titleEn: "Article guide",
+    summaryAr: "ملخص المقال",
+    summaryEn: "Stored English summary",
+    bodyAr: [{ type: "heading2", text: "عنوان محفوظ" }, { type: "paragraph", text: "فقرة محفوظة" }],
+    bodyEn: [{ type: "paragraph", text: "Stored English paragraph" }],
+    coverImageUrl: "https://example.invalid/cover.png",
+    coverImageAltAr: "غلاف المقال",
+    coverImageAltEn: "Stored English cover alt",
+    countryId: recordId,
+    universityId: "00000000-0000-4000-8000-000000000002",
+    scholarshipId: "00000000-0000-4000-8000-000000000003",
+    status: "DRAFT",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    scholarshipIds: ["00000000-0000-4000-8000-000000000003"],
+    relatedScholarships: [],
+  } as Article;
+  const values = initialContentValues("articles", record);
+  assert.deepEqual(toContentPatch("articles", { ...values, featured: true }, record), { featured: true });
+  assert.deepEqual(
+    toContentPatch(
+      "articles",
+      { ...values, scholarshipIds: [] },
+      record,
+    ),
+    { scholarshipIds: [] },
+  );
+  assert.deepEqual(
+    toContentPayload("articles", {
+      titleAr: "مقال",
+      summaryAr: "ملخص",
+      slug: "article",
+      bodyAr: [{ type: "paragraph", text: "نص" }],
+      scholarshipIds: [recordId],
+    }),
+    {
+      titleAr: "مقال",
+      summaryAr: "ملخص",
+      countryId: null,
+      universityId: null,
+      slug: "article",
+      featured: false,
+      bodyAr: [{ type: "paragraph", text: "نص" }],
+      bodyEn: null,
+      scholarshipIds: [recordId],
+    },
+  );
+  assert.deepEqual(
+    applyArticleSeoDefaults({ ...values, summaryAr: "ملخص محدث" }, record).seoDescriptionAr,
+    "وصف SEO مخصص",
+  );
+  assert.equal(
+    validateContentValues("articles", {
+      ...values,
+      bodyAr: [{ type: "legacy-html" as never, text: "محتوى محفوظ" }],
+    }).bodyAr,
+    "نوع المحتوى في الكتلة رقم 1 غير مدعوم في المحرر الحالي. لم يُغيّر محتواها.",
   );
 });
 

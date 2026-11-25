@@ -23,6 +23,7 @@ export const queryKeys = {
       root: (kind: import("@/lib/api-client/university-management").DirectoryKind) => ["admin", "directory", kind] as const,
       list: (kind: import("@/lib/api-client/university-management").DirectoryKind, params: import("@/lib/api-client/university-management").ManagementListParams) => ["admin", "directory", kind, params] as const,
     },
+    studyLanguages: ["admin", "study-languages"] as const,
     university: {
       section: (id: string, section: import("@/lib/api-client/university-management").UniversitySection) => ["admin", "university", id, section] as const,
       list: (id: string, section: import("@/lib/api-client/university-management").UniversitySection, params: import("@/lib/api-client/university-management").ManagementListParams) => ["admin", "university", id, section, params] as const,

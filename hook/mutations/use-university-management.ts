@@ -1,6 +1,7 @@
 "use client";
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { directoryApi, universitySectionApi, type DirectoryInputs, type DirectoryKind, type SectionInputs, type UniversitySection } from "@/lib/api-client/university-management";
+import type { CityPatch, MajorPatch } from "@/lib/university-schemas";
 import { queryKeys } from "@/lib/api-client/query-keys";
 import { normalizeApiError } from "@/lib/api-client/error";
 import { useAdminAccess } from "@/providers/admin-access-provider";
@@ -18,6 +19,42 @@ export function useDirectoryCreate<K extends DirectoryKind>(kind: K) {
     try { return await directoryApi.create(kind, input); }
     catch (error) { if (normalizeApiError(error).status === 401) access.reportContentUnauthorized(); throw error; }
   }, onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.admin.directory.root(kind) }) });
+}
+
+export function useCityUpdate() {
+  const client = useQueryClient(); const access = useAdminAccess();
+  return useMutation({ retry: false, mutationFn: async ({ id, input }: { id: string; input: CityPatch }) => {
+    if (access.mockEnabled || !access.user) throw new Error("Real administrator session required.");
+    try { return await directoryApi.updateCity(id, input); }
+    catch (error) { if (normalizeApiError(error).status === 401) access.reportContentUnauthorized(); throw error; }
+  }, onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.admin.directory.root("cities") }) });
+}
+
+export function useCityDelete() {
+  const client = useQueryClient(); const access = useAdminAccess();
+  return useMutation({ retry: false, mutationFn: async (id: string) => {
+    if (access.mockEnabled || !access.user) throw new Error("Real administrator session required.");
+    try { return await directoryApi.deleteCity(id); }
+    catch (error) { if (normalizeApiError(error).status === 401) access.reportContentUnauthorized(); throw error; }
+  }, onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.admin.directory.root("cities") }) });
+}
+
+export function useAcademicMajorUpdate() {
+  const client = useQueryClient(); const access = useAdminAccess();
+  return useMutation({ retry: false, mutationFn: async ({ id, input }: { id: string; input: MajorPatch }) => {
+    if (access.mockEnabled || !access.user) throw new Error("Real administrator session required.");
+    try { return await directoryApi.updateAcademicMajor(id, input); }
+    catch (error) { if (normalizeApiError(error).status === 401) access.reportContentUnauthorized(); throw error; }
+  }, onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.admin.directory.root("academic-majors") }) });
+}
+
+export function useAcademicMajorDelete() {
+  const client = useQueryClient(); const access = useAdminAccess();
+  return useMutation({ retry: false, mutationFn: async (id: string) => {
+    if (access.mockEnabled || !access.user) throw new Error("Real administrator session required.");
+    try { return await directoryApi.deleteAcademicMajor(id); }
+    catch (error) { if (normalizeApiError(error).status === 401) access.reportContentUnauthorized(); throw error; }
+  }, onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.admin.directory.root("academic-majors") }) });
 }
 export function useUniversitySave<K extends UniversitySection>(section: K, universityId: string) {
   const client = useQueryClient(); const access = useAdminAccess();

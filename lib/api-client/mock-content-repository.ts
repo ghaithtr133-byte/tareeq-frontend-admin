@@ -73,8 +73,8 @@ function makeSeed(): Record<AdminContentResource, ContentRecord[]> {
     { id: ids.turkey, slug: "turkey", featured: false, publishedAt: null, seoTitleAr: null, seoDescriptionAr: null, nameAr: "تركيا", nameEn: "Turkey", introductionAr: "خيارات واسعة للبرامج الدولية.", introductionEn: "A wide range of international programs.", detailsAr: "معلومات أولية عن الدراسة في تركيا.", detailsEn: null, imageUrl: image, imageAltAr: "جامعة في تركيا", imageAltEn: null, displayOrder: 2, status: "DRAFT", createdAt, updatedAt },
   ];
   const universities: University[] = [
-    { id: ids.german, slug: "university-of-jordan", featured: true, publishedAt: "2026-01-12T08:00:00.000Z", seoTitleAr: "الجامعة الأردنية", seoDescriptionAr: null, nameAr: "الجامعة الأردنية", nameEn: "The University of Jordan", officialName: "The University of Jordan", countryId: ids.jordan, cityAr: "عمّان", cityEn: "Amman", overviewAr: "جامعة حكومية عريقة في عمّان.", overviewEn: "A leading public university in Amman.", officialWebsite: "https://www.ju.edu.jo", imageUrl: image, imageAltAr: "مبنى الجامعة الأردنية", imageAltEn: "University of Jordan building", status: "PUBLISHED", createdAt, updatedAt },
-    { id: ids.middleEast, slug: "middle-east-technical", featured: false, publishedAt: null, seoTitleAr: null, seoDescriptionAr: null, nameAr: "جامعة الشرق الأوسط التقنية", nameEn: "Middle East Technical University", officialName: "Middle East Technical University", countryId: ids.turkey, cityAr: "أنقرة", cityEn: "Ankara", overviewAr: "جامعة تقنية مع برامج متعددة.", overviewEn: null, officialWebsite: "https://www.metu.edu.tr", imageUrl: image, imageAltAr: "حرم جامعي", imageAltEn: null, status: "ARCHIVED", createdAt, updatedAt },
+    { id: ids.german, slug: "university-of-jordan", featured: true, publishedAt: "2026-01-12T08:00:00.000Z", seoTitleAr: "الجامعة الأردنية", seoDescriptionAr: null, nameAr: "الجامعة الأردنية", nameEn: "The University of Jordan", officialName: "The University of Jordan", countryId: ids.jordan, cityAr: "عمّان", cityEn: "Amman", overviewAr: "جامعة حكومية عريقة في عمّان.", summaryAr: "جامعة حكومية في عمّان.", overviewEn: "A leading public university in Amman.", officialWebsite: "https://www.ju.edu.jo", imageUrl: image, imageAltAr: "مبنى الجامعة الأردنية", imageAltEn: "University of Jordan building", status: "PUBLISHED", createdAt, updatedAt },
+    { id: ids.middleEast, slug: "middle-east-technical", featured: false, publishedAt: null, seoTitleAr: null, seoDescriptionAr: null, nameAr: "جامعة الشرق الأوسط التقنية", nameEn: "Middle East Technical University", officialName: "Middle East Technical University", countryId: ids.turkey, cityAr: "أنقرة", cityEn: "Ankara", overviewAr: "جامعة تقنية مع برامج متعددة.", summaryAr: null, overviewEn: null, officialWebsite: "https://www.metu.edu.tr", imageUrl: image, imageAltAr: "حرم جامعي", imageAltEn: null, status: "ARCHIVED", createdAt, updatedAt },
   ];
   const scholarships: Scholarship[] = [
     { id: ids.scholarship, slug: "jordan-engineering-scholarship", featured: true, publishedAt: "2026-02-01T08:00:00.000Z", seoTitleAr: "منحة هندسية", seoDescriptionAr: null, titleAr: "منحة الهندسة للطلبة الدوليين", titleEn: "Engineering Scholarship for International Students", countryId: ids.jordan, universityId: ids.german, studyLevel: "بكالوريوس", fundingType: "تمويل جزئي", requirementsAr: "سجل أكاديمي جيد وإثبات لغة.", requirementsEn: "Good academic record and language evidence.", descriptionAr: "منحة مساندة لدراسة الهندسة.", descriptionEn: "A supporting scholarship for engineering study.", verifiedDeadline: "2026-09-01T12:00:00.000Z", officialSourceUrl: "https://www.ju.edu.jo", applicationStatus: "OPEN", effectiveApplicationStatus: "OPEN", status: "PUBLISHED", createdAt, updatedAt },
@@ -218,6 +218,7 @@ export function createMockContentRepository(): MockContentRepository {
         cityAr: "مدينة الاختبار",
         cityEn: null,
         overviewAr: "سجل تطويري لاختبار تصفية الجامعة حسب الدولة.",
+        summaryAr: null,
         overviewEn: null,
         officialWebsite: null,
         imageUrl: null,
@@ -232,7 +233,7 @@ export function createMockContentRepository(): MockContentRepository {
     const scholarshipSeed = records.scholarships[0] as Scholarship;
     const serviceSeed = records.services[0] as Service;
     const articleSeed = records.articles[0] as Article;
-    for (let index = 1; index <= 12; index += 1) {
+    for (let index = 1; index <= 15; index += 1) {
       const suffix = String(index).padStart(12, "0");
       (records.scholarships as Scholarship[]).push({
         ...clone(scholarshipSeed),
@@ -256,6 +257,9 @@ export function createMockContentRepository(): MockContentRepository {
         slug: `relationship-article-${index}`,
         titleAr: `مقال اختبار الترقيم ${index}`,
         titleEn: null,
+        featured: index % 2 === 0,
+        status: index % 3 === 0 ? "DRAFT" : index % 3 === 1 ? "PUBLISHED" : "ARCHIVED",
+        publishedAt: index % 3 === 1 ? `2026-03-${String(index).padStart(2, "0")}T09:00:00.000Z` : null,
         createdAt: `2026-03-${String(index).padStart(2, "0")}T09:00:00.000Z`,
       });
     }
@@ -265,7 +269,7 @@ export function createMockContentRepository(): MockContentRepository {
     const base = { id: uniqueId(), slug: "", featured: false, publishedAt: null, seoTitleAr: null, seoDescriptionAr: null, status: "DRAFT" as const, createdAt: now(), updatedAt: now() };
     const publishedAt = (input as { status?: string }).status === "PUBLISHED" ? now() : null;
     if (resource === "countries") return { ...base, nameAr: "", nameEn: null, introductionAr: "", introductionEn: null, detailsAr: "", detailsEn: null, imageUrl: null, imageAltAr: null, imageAltEn: null, displayOrder: 0, ...input, publishedAt } as ContentTypeMap[K]["record"];
-    if (resource === "universities") return { ...base, nameAr: "", nameEn: null, officialName: "", countryId: "", cityAr: "", cityEn: null, overviewAr: "", overviewEn: null, officialWebsite: null, imageUrl: null, imageAltAr: null, imageAltEn: null, ...input, publishedAt } as ContentTypeMap[K]["record"];
+    if (resource === "universities") return { ...base, nameAr: "", nameEn: null, officialName: "", countryId: "", cityAr: "", cityEn: null, overviewAr: "", summaryAr: null, overviewEn: null, officialWebsite: null, imageUrl: null, imageAltAr: null, imageAltEn: null, ...input, publishedAt } as ContentTypeMap[K]["record"];
     if (resource === "scholarships") return { ...base, titleAr: "", titleEn: null, countryId: null, universityId: null, studyLevel: "", fundingType: "", requirementsAr: "", requirementsEn: null, descriptionAr: "", descriptionEn: null, verifiedDeadline: null, officialSourceUrl: null, applicationStatus: "OPEN", ...input, publishedAt } as ContentTypeMap[K]["record"];
     if (resource === "services") return { ...base, titleAr: "", titleEn: null, summaryAr: "", summaryEn: null, descriptionAr: "", descriptionEn: null, imageUrl: null, imageAltAr: null, imageAltEn: null, displayOrder: 0, ...input, publishedAt } as ContentTypeMap[K]["record"];
     return { ...base, titleAr: "", titleEn: null, summaryAr: "", summaryEn: null, bodyAr: [], bodyEn: null, coverImageUrl: null, coverImageAltAr: null, coverImageAltEn: null, countryId: null, universityId: null, scholarshipId: null, ...input, publishedAt } as ContentTypeMap[K]["record"];

@@ -1,9 +1,30 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
-import { navigationForRole, type AdminNavigationId, type AuthenticatedAdmin } from "@/lib/admin";
+import {
+  adminNavigationGroupLabels,
+  getRoleLabel,
+  navigationForRole,
+  type AdminNavigationGroup,
+  type AdminNavigationId,
+  type AdminNavigationItem,
+  type AuthenticatedAdmin,
+} from "@/lib/admin";
+import {
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  CloseIcon,
+  KeyRoundIcon,
+  LogOutIcon,
+  MenuIcon,
+  NavigationIcon,
+  PanelRightCloseIcon,
+  PanelRightOpenIcon,
+  ShieldCheckIcon,
+  UserIcon,
+} from "@/components/ui/admin-icons";
 
 type AdminShellProps = {
   user: AuthenticatedAdmin;
@@ -14,142 +35,476 @@ type AdminShellProps = {
   children: React.ReactNode;
 };
 
-function MenuIcon({ open = false }: { open?: boolean }) {
-  return open ? <span aria-hidden="true">×</span> : <span aria-hidden="true">☰</span>;
-}
+const groupOrder: readonly AdminNavigationGroup[] = ["overview", "content", "submissions", "system"];
 
-function NavigationIcon({ item }: { item: AdminNavigationId }) {
-  const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", className: "ml-3 size-5 shrink-0", "aria-hidden": true as const };
-  if (item === "dashboard") return <svg {...common}><rect x="4" y="4" width="6" height="6" rx="1" /><rect x="14" y="4" width="6" height="6" rx="1" /><rect x="4" y="14" width="6" height="6" rx="1" /><rect x="14" y="14" width="6" height="6" rx="1" /></svg>;
-  if (item === "applications") return <svg {...common}><path d="M5 5h14v14H5zM8 9h8M8 13h8M8 17h5" /></svg>;
-  if (item === "inquiries") return <svg {...common}><path d="M5 5h14v10H9l-4 4V5Z" /><path d="M8 9h8M8 12h5" /></svg>;
-  if (item === "countries") return <svg {...common}><circle cx="12" cy="12" r="8" /><path d="M4 12h16M12 4c2.2 2.2 3.3 4.9 3.3 8S14.2 17.8 12 20M12 4c-2.2 2.2-3.3 4.9-3.3 8S9.8 17.8 12 20" /></svg>;
-  if (item === "universities") return <svg {...common}><path d="m3 9 9-5 9 5-9 5-9-5ZM5 11v6m4-4v5m6-5v5m4-7v6M4 20h16" /></svg>;
-  if (item === "scholarships") return <svg {...common}><path d="m3 9 9-5 9 5-9 5-9-5ZM7 12v4c2.5 2 7.5 2 10 0v-4" /></svg>;
-  if (item === "services") return <svg {...common}><path d="M4 7h16M7 4v6m10-6v6M6 11h12v9H6z" /></svg>;
-  if (item === "articles" || item === "about") return <svg {...common}><path d="M6 3h9l3 3v15H6zM15 3v4h4M9 12h6M9 16h6" /></svg>;
-  if (item === "media") return <svg {...common}><rect x="4" y="5" width="16" height="14" rx="2" /><circle cx="9" cy="10" r="1.5" /><path d="m6 17 4-4 3 3 2-2 3 3" /></svg>;
-  if (item === "analytics") return <svg {...common}><path d="M5 19V10M12 19V5M19 19v-7" /></svg>;
-  if (item === "audit-log") return <svg {...common}><path d="M12 5v7l4 2" /><circle cx="12" cy="12" r="8" /></svg>;
-  if (item === "admins") return <svg {...common}><circle cx="12" cy="8" r="3" /><path d="M5 20c.6-3.4 3-5 7-5s6.4 1.6 7 5" /></svg>;
-  return <svg {...common}><circle cx="12" cy="12" r="3" /><path d="M12 3v3m0 12v3M21 12h-3M6 12H3m15.4-6.4-2.1 2.1M7.7 16.3l-2.1 2.1m12.8 0-2.1-2.1M7.7 7.7 5.6 5.6" /></svg>;
-}
-
-const contentRoutes: Partial<Record<AdminNavigationId, string>> = {
-  dashboard: "/admin",
-  applications: "/admin/applications",
-  inquiries: "/admin/inquiries",
-  countries: "/admin/countries",
-  universities: "/admin/universities",
-  "academic-majors": "/admin/academic-majors",
-  cities: "/admin/cities",
-  scholarships: "/admin/scholarships",
-  services: "/admin/services",
-  articles: "/admin/articles",
-  about: "/admin/about",
-  faqs: "/admin/faqs",
-  settings: "/admin/settings",
-  analytics: "/admin/analytics",
-  admins: "/admin/admins",
-  "audit-log": "/admin/audit-log",
-};
-
-function Sidebar({ user, activeItem, onNavigate }: Pick<AdminShellProps, "user" | "activeItem"> & { onNavigate: () => void }) {
+function BrandMark({ collapsed = false }: { collapsed?: boolean }) {
   return (
-    <aside className="flex h-full w-72 flex-col overflow-y-auto overscroll-contain bg-[var(--navy)] px-4 py-5 text-white" aria-label="التنقل الإداري">
-      <div className="border-b border-white/10 px-3 pb-5">
-        <p className="text-lg font-bold">طريق أكاديمي</p>
-        <p className="mt-1 text-xs text-slate-300">إدارة المنصة · هوية مؤقتة</p>
+    <Link
+      href="/admin"
+      className={`flex items-center gap-3 rounded-xl py-1 focus-visible:outline-offset-4 ${collapsed ? "justify-center" : ""}`}
+      title="طريق أكاديمي — لوحة الإدارة"
+    >
+      <span className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--gold)]/45 bg-white/10 text-sm font-bold text-[var(--gold-soft)]">
+        ط
+      </span>
+      {!collapsed ? (
+        <span className="min-w-0">
+          <span className="block truncate text-base font-bold tracking-tight text-white">طريق أكاديمي</span>
+          <span className="block truncate text-[11px] font-medium text-slate-300">بوابة الإدارة</span>
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
+function Sidebar({
+  user,
+  activeItem,
+  collapsed = false,
+  onNavigate,
+}: Pick<AdminShellProps, "user" | "activeItem"> & {
+  collapsed?: boolean;
+  onNavigate: () => void;
+}) {
+  const items = navigationForRole(user.role);
+  const groupedItems = useMemo(() => {
+    const map = new Map<AdminNavigationGroup, AdminNavigationItem[]>();
+    for (const group of groupOrder) map.set(group, []);
+    for (const item of items) {
+      map.get(item.group)?.push(item);
+    }
+    return groupOrder
+      .map((group) => ({ group, label: adminNavigationGroupLabels[group], items: map.get(group) ?? [] }))
+      .filter((section) => section.items.length > 0);
+  }, [items]);
+
+  return (
+    <aside
+      className={`flex h-full flex-col overflow-hidden bg-[var(--navy)] text-white transition-[width] duration-200 ${collapsed ? "w-[76px] px-2.5 py-5" : "w-68 px-3.5 py-5"}`}
+      aria-label="التنقل الإداري"
+    >
+      <div className={`shrink-0 border-b border-white/10 pb-4 ${collapsed ? "px-0.5" : "px-2"}`}>
+        <BrandMark collapsed={collapsed} />
       </div>
-      <nav className="mt-5 flex-1" aria-label="الأقسام">
-        <p className="px-3 text-xs font-semibold tracking-wide text-slate-400">مساحة العمل</p>
-        <ul className="mt-2 space-y-1">
-          {navigationForRole(user.role).map((item) => {
-            const active = item.id === activeItem;
-            const href = contentRoutes[item.id];
-            return (
-              <li key={item.id}>
-                {href ? (
-                  <Link href={href} onClick={onNavigate} className={`flex w-full items-center rounded-lg px-3 py-2.5 text-right text-sm transition ${active ? "bg-white/12 font-bold text-white" : "text-slate-200 hover:bg-white/8 hover:text-white"}`} aria-current={active ? "page" : undefined}>
-                    <NavigationIcon item={item.id} />{item.label}
-                  </Link>
-                ) : (
-                  <button type="button" disabled className="flex w-full cursor-not-allowed items-center rounded-lg px-3 py-2.5 text-right text-sm text-slate-400" title="هذه الصفحة غير متاحة ضمن النطاق الحالي">
-                    <NavigationIcon item={item.id} />{item.label}<span className="mr-auto text-[10px] text-slate-500">قريبًا</span>
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+
+      <nav className="mt-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain pl-0.5" aria-label="الأقسام">
+        {groupedItems.map((section) => (
+          <div key={section.group}>
+            {!collapsed ? (
+              <p className="mb-1.5 px-3 text-[11px] font-semibold text-slate-400">{section.label}</p>
+            ) : (
+              <div className="mx-3 mb-2 border-t border-white/10 first:hidden" aria-hidden="true" />
+            )}
+            <ul className="space-y-1">
+              {section.items.map((item) => {
+                const active = item.id === activeItem;
+                return (
+                  <li key={item.id}>
+                    <Link
+                      href={item.href}
+                      onClick={onNavigate}
+                      title={collapsed ? item.label : undefined}
+                      aria-label={collapsed ? item.label : undefined}
+                      aria-current={active ? "page" : undefined}
+                      className={`group flex items-center rounded-xl text-sm transition-colors duration-150 ${
+                        collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
+                      } ${
+                        active
+                          ? "bg-white/14 font-semibold text-white shadow-xs ring-1 ring-white/15"
+                          : "font-medium text-slate-200 hover:bg-white/8 hover:text-white"
+                      }`}
+                    >
+                      <NavigationIcon
+                        item={item.id}
+                        className={`size-[18px] shrink-0 transition-colors ${
+                          active ? "text-[var(--gold-soft)]" : "text-slate-300 group-hover:text-white"
+                        }`}
+                      />
+                      {!collapsed ? <span className="truncate">{item.label}</span> : null}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
-      <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-xs leading-5 text-slate-300">
-        الدور المعتمد من الخادم: <span className="font-semibold text-white">{user.role}</span>
+
+      <div
+        className={`mt-4 shrink-0 rounded-xl border border-white/10 bg-white/5 text-xs text-slate-300 ${
+          collapsed ? "flex justify-center p-2.5" : "px-3 py-2.5"
+        }`}
+        title={`الدور المعتمد من الخادم: ${user.role}`}
+      >
+        {collapsed ? (
+          <ShieldCheckIcon className="size-4 text-[var(--gold-soft)]" />
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-slate-300">{getRoleLabel(user.role)}</span>
+            <span dir="ltr" className="font-mono text-[11px] font-medium text-white/90">
+              {user.role}
+            </span>
+          </div>
+        )}
       </div>
     </aside>
   );
 }
 
-export function AdminShell({ user, title, activeItem = "dashboard", onLogout, isLoggingOut = false, children }: AdminShellProps) {
+export function AdminShell({
+  user,
+  title,
+  activeItem = "dashboard",
+  onLogout,
+  isLoggingOut = false,
+  children,
+}: AdminShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDialogElement>(null);
+  const profileDialogRef = useRef<HTMLDialogElement>(null);
+  const accountMenuContainerRef = useRef<HTMLDivElement>(null);
+
   const dialogId = useId();
+  const accountMenuId = useId();
+  const profileTitleId = useId();
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setDrawerOpen(false);
+      if (event.key === "Escape") {
+        setDrawerOpen(false);
+        setAccountMenuOpen(false);
+      }
     }
     function onResize() {
       if (window.innerWidth >= 1024) setDrawerOpen(false);
     }
+    function onPointerDown(event: MouseEvent) {
+      if (
+        accountMenuOpen &&
+        accountMenuContainerRef.current &&
+        !accountMenuContainerRef.current.contains(event.target as Node)
+      ) {
+        setAccountMenuOpen(false);
+      }
+    }
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("resize", onResize);
+    window.addEventListener("mousedown", onPointerDown);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("resize", onResize);
+      window.removeEventListener("mousedown", onPointerDown);
     };
-  }, []);
+  }, [accountMenuOpen]);
 
   useEffect(() => {
     if (!drawerOpen) return;
-    const dialog = drawerRef.current; const opener = menuButtonRef.current;
-    dialog?.showModal(); closeButtonRef.current?.focus();
-    return () => { dialog?.close(); if (opener?.isConnected && opener.getClientRects().length) opener.focus(); };
+    const dialog = drawerRef.current;
+    const opener = menuButtonRef.current;
+    dialog?.showModal();
+    closeButtonRef.current?.focus();
+    return () => {
+      dialog?.close();
+      if (opener?.isConnected && opener.getClientRects().length) opener.focus();
+    };
   }, [drawerOpen]);
 
+  useEffect(() => {
+    const dialog = profileDialogRef.current;
+    if (!dialog) return;
+    if (profileDialogOpen) {
+      if (!dialog.open) dialog.showModal();
+    } else if (dialog.open) {
+      dialog.close();
+    }
+  }, [profileDialogOpen]);
+
+  const roleLabel = getRoleLabel(user.role);
+
   return (
-    <div className="min-h-screen bg-[var(--background)] lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]">
-      <div className="hidden lg:block"><Sidebar user={user} activeItem={activeItem} onNavigate={() => undefined} /></div>
-      <div className="min-w-0">
-        <header className="flex min-h-18 items-center justify-between gap-2 border-b border-[var(--line)] bg-white px-4 py-3 sm:px-7">
-          <div className="flex min-w-0 items-center gap-3">
-            <button ref={menuButtonRef} type="button" className="grid size-10 place-items-center rounded-lg border border-[var(--line)] text-xl lg:hidden" aria-label="فتح قائمة التنقل" aria-expanded={drawerOpen} aria-controls={dialogId} onClick={() => setDrawerOpen(true)}><MenuIcon /></button>
-            <h1 className="truncate text-lg font-bold text-[var(--navy)] sm:text-xl">{title}</h1>
+    <div
+      className={`min-h-dvh bg-[var(--background)] lg:grid ${
+        sidebarCollapsed ? "lg:grid-cols-[76px_minmax(0,1fr)]" : "lg:grid-cols-[17rem_minmax(0,1fr)]"
+      }`}
+    >
+      <div className="hidden lg:block lg:bg-[var(--navy)]">
+        <div className="lg:sticky lg:top-0 lg:h-dvh">
+          <Sidebar
+            user={user}
+            activeItem={activeItem}
+            collapsed={sidebarCollapsed}
+            onNavigate={() => undefined}
+          />
+        </div>
+      </div>
+
+      <div className="flex min-w-0 flex-col">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-[var(--line)] bg-white/95 px-4 backdrop-blur-sm sm:px-6">
+          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+            <button
+              ref={menuButtonRef}
+              type="button"
+              className="grid size-10 shrink-0 place-items-center rounded-xl border border-[var(--line)] bg-white text-[var(--navy)] transition-colors hover:bg-slate-50 lg:hidden"
+              aria-label="فتح قائمة التنقل"
+              aria-expanded={drawerOpen}
+              aria-controls={dialogId}
+              onClick={() => setDrawerOpen(true)}
+            >
+              <MenuIcon className="size-5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((current) => !current)}
+              className="hidden size-9 shrink-0 place-items-center rounded-xl border border-[var(--line)] bg-white text-[var(--muted)] transition-colors hover:bg-slate-50 hover:text-[var(--navy)] lg:grid"
+              aria-label={sidebarCollapsed ? "توسيع القائمة الجانبية" : "طي القائمة الجانبية"}
+              aria-expanded={!sidebarCollapsed}
+              title={sidebarCollapsed ? "توسيع القائمة الجانبية" : "طي القائمة الجانبية"}
+            >
+              {sidebarCollapsed ? (
+                <PanelRightOpenIcon className="size-[18px]" />
+              ) : (
+                <PanelRightCloseIcon className="size-[18px]" />
+              )}
+            </button>
+
+            <div className="min-w-0">
+              {activeItem !== "dashboard" ? (
+                <div className="hidden items-center gap-1.5 text-xs text-[var(--muted)] sm:flex">
+                  <Link href="/admin" className="hover:text-[var(--navy)] hover:underline">
+                    لوحة التحكم
+                  </Link>
+                  <ChevronLeftIcon className="size-3.5" />
+                  <span className="truncate">{title}</span>
+                </div>
+              ) : null}
+              <h1 className="truncate text-base font-bold text-[var(--navy)] sm:text-lg">{title}</h1>
+            </div>
           </div>
-          <div className="min-w-0 max-w-28 text-left sm:max-w-none sm:shrink-0" title={`${user.name} — ${user.email}`} aria-label={`الحساب الحالي: ${user.name}، ${user.email}`}>
-            <p className="truncate text-sm font-semibold text-[var(--navy)]">{user.name}</p>
-            <p className="text-xs text-[var(--muted)] sm:hidden">{user.role === "SUPER_ADMIN" ? "مدير" : "مشرف"}</p>
-            <p dir="ltr" className="hidden truncate text-xs text-[var(--muted)] sm:block">{user.email}</p>
-            <Link href="/admin/change-password" className="block py-1 text-xs font-semibold text-[var(--navy)] underline">تغيير كلمة المرور</Link>
+
+          <div ref={accountMenuContainerRef} className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setAccountMenuOpen((open) => !open)}
+              aria-expanded={accountMenuOpen}
+              aria-haspopup="menu"
+              aria-controls={accountMenuId}
+              aria-label={`قائمة الحساب: ${user.name}`}
+              className="flex h-11 items-center gap-2.5 rounded-xl border border-[var(--line)] bg-white px-2.5 py-1.5 text-right transition-colors hover:border-[var(--line-strong)] hover:bg-slate-50"
+            >
+              <span
+                className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--navy)] text-[var(--gold-soft)] ring-1 ring-[var(--gold)]/30"
+                aria-hidden="true"
+              >
+                <UserIcon className="size-4" />
+              </span>
+              <span className="hidden min-w-0 max-w-36 sm:block">
+                <span className="block truncate text-xs font-bold text-[var(--navy)]">{user.name}</span>
+                <span className="block truncate text-[11px] text-[var(--muted)]">{roleLabel}</span>
+              </span>
+              <ChevronDownIcon
+                className={`size-4 shrink-0 text-[var(--muted)] transition-transform duration-150 ${
+                  accountMenuOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {accountMenuOpen ? (
+              <div
+                id={accountMenuId}
+                role="menu"
+                aria-label="خيارات الحساب"
+                className="absolute left-0 top-[calc(100%+0.5rem)] z-40 w-72 rounded-2xl border border-[var(--line)] bg-white p-2 shadow-[var(--shadow-dropdown)]"
+              >
+                <div className="border-b border-[var(--line)] px-3 py-2.5">
+                  <p className="truncate text-sm font-bold text-[var(--navy)]">{user.name}</p>
+                  <p dir="ltr" className="mt-0.5 truncate text-xs text-[var(--muted)]">
+                    {user.email}
+                  </p>
+                  <p className="mt-1.5 text-[11px] font-medium text-[var(--gold-dark)]">{roleLabel}</p>
+                </div>
+
+                <div className="py-1.5">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      setProfileDialogOpen(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-right text-sm font-medium text-[var(--navy)] transition-colors hover:bg-slate-50"
+                  >
+                    <UserIcon className="size-4 shrink-0 text-[var(--muted)]" />
+                    <span>إعدادات الملف الشخصي</span>
+                  </button>
+
+                  <Link
+                    href="/admin/change-password"
+                    role="menuitem"
+                    onClick={() => setAccountMenuOpen(false)}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-right text-sm font-medium text-[var(--navy)] transition-colors hover:bg-slate-50"
+                  >
+                    <KeyRoundIcon className="size-4 shrink-0 text-[var(--muted)]" />
+                    <span>تغيير كلمة المرور</span>
+                  </Link>
+                </div>
+
+                <div className="border-t border-[var(--line)] pt-1.5">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      onLogout();
+                    }}
+                    disabled={isLoggingOut}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-right text-sm font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    <LogOutIcon className="size-4 shrink-0" />
+                    <span>{isLoggingOut ? "جارٍ تسجيل الخروج…" : "تسجيل الخروج"}</span>
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
-          <button type="button" onClick={onLogout} disabled={isLoggingOut} className="mr-3 shrink-0 rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold text-[var(--navy)] transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60">
-            {isLoggingOut ? "جارٍ تسجيل الخروج…" : "تسجيل الخروج"}
-          </button>
         </header>
-        <main className="min-w-0 overflow-x-hidden p-4 sm:p-7">{children}</main>
+
+        <main className="min-w-0 flex-1 overflow-x-clip p-4 sm:p-6 lg:p-7">
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        </main>
       </div>
 
       {drawerOpen ? (
-        <dialog ref={drawerRef} role="dialog" className="fixed inset-0 z-50 m-0 h-dvh max-h-none w-screen max-w-none border-0 bg-transparent p-0 backdrop:bg-slate-950/35 lg:hidden" aria-modal="true" aria-label="قائمة التنقل" id={dialogId} onCancel={event => { event.preventDefault(); setDrawerOpen(false); }}>
-          <button tabIndex={-1} className="absolute inset-0 cursor-default" aria-label="إغلاق قائمة التنقل" onClick={() => setDrawerOpen(false)} />
+        <dialog
+          ref={drawerRef}
+          role="dialog"
+          className="fixed inset-0 z-50 m-0 h-dvh max-h-none w-screen max-w-none border-0 bg-transparent p-0 backdrop:bg-slate-950/45 lg:hidden"
+          aria-modal="true"
+          aria-label="قائمة التنقل"
+          id={dialogId}
+          onCancel={(event) => {
+            event.preventDefault();
+            setDrawerOpen(false);
+          }}
+        >
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setDrawerOpen(false)}
+          />
           <div className="relative h-full w-72 shadow-2xl">
-            <button ref={closeButtonRef} type="button" className="absolute left-4 top-4 z-10 grid size-9 place-items-center rounded-lg border border-white/20 text-lg text-white hover:bg-white/10" aria-label="إغلاق قائمة التنقل" onClick={() => setDrawerOpen(false)}><MenuIcon open /></button>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              className="absolute left-3.5 top-4 z-10 grid size-9 place-items-center rounded-xl border border-white/20 text-white transition-colors hover:bg-white/10"
+              aria-label="إغلاق قائمة التنقل"
+              onClick={() => setDrawerOpen(false)}
+            >
+              <CloseIcon className="size-4" />
+            </button>
             <Sidebar user={user} activeItem={activeItem} onNavigate={() => setDrawerOpen(false)} />
           </div>
         </dialog>
       ) : null}
+
+      <dialog
+        ref={profileDialogRef}
+        aria-labelledby={profileTitleId}
+        onCancel={(event) => {
+          event.preventDefault();
+          setProfileDialogOpen(false);
+        }}
+        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-[var(--line)] bg-white p-0 text-[var(--foreground)] shadow-2xl backdrop:bg-slate-950/45"
+      >
+        <div className="flex items-center justify-between border-b border-[var(--line)] px-6 py-4">
+          <div className="flex items-center gap-3">
+            <span className="grid size-10 place-items-center rounded-xl bg-[var(--navy)] text-[var(--gold-soft)]">
+              <UserIcon className="size-5" />
+            </span>
+            <div>
+              <h2 id={profileTitleId} className="text-base font-bold text-[var(--navy)]">
+                إعدادات الملف الشخصي
+              </h2>
+              <p className="text-xs text-[var(--muted)]">{roleLabel}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setProfileDialogOpen(false)}
+            className="grid size-9 place-items-center rounded-xl border border-[var(--line)] text-[var(--muted)] transition-colors hover:bg-slate-50 hover:text-[var(--navy)]"
+            aria-label="إغلاق إعدادات الملف الشخصي"
+          >
+            <CloseIcon className="size-4" />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-6 py-5">
+          <div>
+            <label htmlFor="profile-name-preview" className="block text-sm font-semibold text-[var(--navy)]">
+              الاسم الظاهر
+            </label>
+            <input
+              id="profile-name-preview"
+              type="text"
+              defaultValue={user.name}
+              disabled
+              className="mt-1.5 h-11 w-full cursor-not-allowed rounded-xl border border-[var(--line)] bg-slate-50 px-3.5 text-sm text-slate-600"
+            />
+            <p className="mt-1.5 text-xs text-[var(--gold-dark)]">
+              تصميم مبدئي — تعديل الاسم بانتظار ربط الخادم (PENDING BACKEND/CODEX).
+            </p>
+          </div>
+
+          <div className="grid gap-3 rounded-xl border border-[var(--line)] bg-[var(--background)] p-3.5 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[var(--muted)]">البريد الإلكتروني</span>
+              <span dir="ltr" className="font-mono font-medium text-[var(--navy)]">
+                {user.email}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-[var(--line)] pt-2.5">
+              <span className="text-[var(--muted)]">الصلاحية المعتمدة</span>
+              <span dir="ltr" className="font-mono font-semibold text-[var(--navy)]">
+                {user.role}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] pt-4">
+            <Link
+              href="/admin/change-password"
+              onClick={() => setProfileDialogOpen(false)}
+              className="inline-flex h-10 items-center gap-2 rounded-xl border border-[var(--line)] bg-white px-3.5 text-xs font-bold text-[var(--navy)] transition-colors hover:bg-slate-50"
+            >
+              <KeyRoundIcon className="size-4 text-[var(--gold-dark)]" />
+              <span>تغيير كلمة المرور</span>
+            </Link>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled
+                className="h-10 cursor-not-allowed rounded-xl bg-[var(--navy)]/40 px-4 text-xs font-bold text-white"
+              >
+                حفظ التغييرات (قريبًا)
+              </button>
+              <button
+                type="button"
+                onClick={() => setProfileDialogOpen(false)}
+                className="h-10 rounded-xl border border-[var(--line)] px-4 text-xs font-bold text-[var(--navy)] transition-colors hover:bg-slate-50"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      </dialog>
     </div>
   );
 }

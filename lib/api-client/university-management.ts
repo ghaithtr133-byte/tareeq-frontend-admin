@@ -1,7 +1,7 @@
 import type { AxiosRequestConfig } from "axios";
 import { z } from "zod";
 import { apiClient } from "@/lib/api-client/client";
-import { admissionScopes, cityInputSchema, galleryInputSchema, galleryOrderSchema, galleryPatchSchema, isoDateSchema, majorInputSchema, programCreateSchema, programPatchSchema, programStudyLevels, publicationStates, requirementCreateSchema, requirementPatchSchema, teachingLanguages, tuitionRecordSchema, uuidSchema, type CityInput, type GalleryInput, type MajorInput, type ProgramInput, type RequirementInput } from "@/lib/university-schemas";
+import { admissionScopes, cityInputSchema, cityPatchSchema, galleryInputSchema, galleryOrderSchema, galleryPatchSchema, isoDateSchema, majorInputSchema, majorPatchSchema, programCreateSchema, programPatchSchema, programStudyLevels, publicationStates, requirementCreateSchema, requirementPatchSchema, teachingLanguageCodeSchema, tuitionRecordSchema, uuidSchema, type CityInput, type CityPatch, type GalleryInput, type MajorInput, type MajorPatch, type ProgramInput, type RequirementInput } from "@/lib/university-schemas";
 
 export type DirectoryKind = "academic-majors" | "cities";
 export type UniversitySection = "programs" | "admission-requirements" | "gallery";
@@ -18,7 +18,7 @@ export type DirectoryRecords = { "academic-majors": AcademicMajor; cities: City 
 export type DirectoryInputs = { "academic-majors": MajorInput; cities: CityInput };
 const recordFields = { id: uuidSchema, universityId: uuidSchema, status: z.enum(publicationStates), publishedAt: isoDateSchema.nullable(), ...timestamps };
 const sectionSchemas = {
-  programs: z.object({ ...recordFields, nameAr: z.string().nullable(), nameEn: z.string().nullable(), facultyNameAr: z.string().nullable(), facultyNameEn: z.string().nullable(), durationValue: z.number().int().nullable(), durationUnit: z.enum(["MONTHS", "YEARS"]).nullable(), academicMajorId: uuidSchema, academicMajor: majorSummary, studyLevel: z.enum(programStudyLevels), languages: z.array(z.enum(teachingLanguages)), officialSourceUrl: z.string(), verifiedAt: isoDateSchema,
+  programs: z.object({ ...recordFields, nameAr: z.string().nullable(), nameEn: z.string().nullable(), facultyNameAr: z.string().nullable(), facultyNameEn: z.string().nullable(), durationValue: z.number().int().nullable(), durationUnit: z.enum(["MONTHS", "YEARS"]).nullable(), academicMajorId: uuidSchema, academicMajor: majorSummary, studyLevel: z.enum(programStudyLevels), languages: z.array(teachingLanguageCodeSchema), officialSourceUrl: z.string(), verifiedAt: isoDateSchema,
     // Both current tuition and history items reference the published nullable schema.
     tuition: tuitionRecordSchema.nullable(), tuitionFees: z.array(tuitionRecordSchema.nullable()),
   }),
@@ -32,7 +32,7 @@ export type AdmissionRequirement = z.infer<typeof sectionSchemas["admission-requ
 export type GalleryImage = z.infer<typeof sectionSchemas.gallery>;
 export type SectionRecords = { programs: UniversityProgram; "admission-requirements": AdmissionRequirement; gallery: GalleryImage };
 export type SectionInputs = { programs: ProgramInput; "admission-requirements": RequirementInput; gallery: GalleryInput };
-export interface ManagementListParams { page?: number; limit?: number; search?: string; countryId?: string; studyLevel?: typeof programStudyLevels[number]; language?: typeof teachingLanguages[number]; faculty?: string; status?: typeof publicationStates[number]; scope?: typeof admissionScopes[number] }
+export interface ManagementListParams { page?: number; limit?: number; search?: string; countryId?: string; studyLevel?: typeof programStudyLevels[number]; language?: string; faculty?: string; status?: typeof publicationStates[number]; scope?: typeof admissionScopes[number] }
 const paginationSchema = z.object({ page: z.number().int(), limit: z.number().int(), total: z.number().int(), totalPages: z.number().int() });
 export type ManagementPage<T> = { items: T[]; pagination: z.infer<typeof paginationSchema> };
 type Signal = Pick<AxiosRequestConfig, "signal">;
@@ -46,7 +46,7 @@ export function managementParams(kind: DirectoryKind | UniversitySection, input:
   const search = z.string().trim().min(1).max(200).optional();
   const shapes = {
     "academic-majors": z.object({ ...base, search }), cities: z.object({ ...base, search, countryId: uuidSchema.optional() }),
-    programs: z.object({ ...base, search, studyLevel: z.enum(programStudyLevels).optional(), language: z.enum(teachingLanguages).optional(), faculty: search, status: z.enum(publicationStates).optional() }),
+    programs: z.object({ ...base, search, studyLevel: z.enum(programStudyLevels).optional(), language: teachingLanguageCodeSchema.optional(), faculty: search, status: z.enum(publicationStates).optional() }),
     "admission-requirements": z.object({ ...base, status: z.enum(publicationStates).optional(), scope: z.enum(admissionScopes).optional() }),
     gallery: z.object({ ...base, status: z.enum(publicationStates).optional() }),
   };
@@ -64,6 +64,26 @@ export const directoryApi = {
     const payload = (kind === "cities" ? cityInputSchema : majorInputSchema).parse(input);
     const response = await apiClient.post(`/admin/${kind}`, payload);
     return envelope(directorySchemas[kind], response.data) as DirectoryRecords[K];
+  },
+  async updateCity(id: string, input: CityPatch): Promise<City> {
+    uuidSchema.parse(id);
+    const response = await apiClient.patch(`/admin/cities/${id}`, cityPatchSchema.parse(input));
+    return envelope(directorySchemas.cities, response.data);
+  },
+  async deleteCity(id: string): Promise<{ id: string }> {
+    uuidSchema.parse(id);
+    const response = await apiClient.delete(`/admin/cities/${id}`);
+    return envelope(z.object({ id: uuidSchema }), response.data);
+  },
+  async updateAcademicMajor(id: string, input: MajorPatch): Promise<AcademicMajor> {
+    uuidSchema.parse(id);
+    const response = await apiClient.patch(`/admin/academic-majors/${id}`, majorPatchSchema.parse(input));
+    return envelope(directorySchemas["academic-majors"], response.data);
+  },
+  async deleteAcademicMajor(id: string): Promise<{ id: string }> {
+    uuidSchema.parse(id);
+    const response = await apiClient.delete(`/admin/academic-majors/${id}`);
+    return envelope(z.object({ id: uuidSchema }), response.data);
   },
 };
 export const universitySectionApi = {

@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+
+import { useMemo, useState } from "react";
 import { z } from "zod";
 import type {
   DirectoryInputs,
@@ -16,7 +17,16 @@ import {
   ErrorState,
   LoadingState,
 } from "@/components/dashboard/states";
-import { buttonClass, inputClass, PageControls, panelClass } from "./controls";
+import { DebouncedSearchBar } from "@/components/ui/debounced-search-bar";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { PlusIcon, RotateCcwIcon } from "@/components/ui/admin-icons";
+import {
+  buttonClass,
+  inputClass,
+  PageControls,
+  panelClass,
+  primaryButtonClass,
+} from "./controls";
 
 export function DirectoryPage<K extends DirectoryKind>({ kind }: { kind: K }) {
   const [params, setParams] = useState({
@@ -31,83 +41,138 @@ export function DirectoryPage<K extends DirectoryKind>({ kind }: { kind: K }) {
   const [message, setMessage] = useState("");
   const access = useAdminAccess();
   const countries = useContentSelectors({ countries: kind === "cities" });
+
   const list = useDirectoryList(kind, {
     ...params,
     search: params.search.trim() || undefined,
     countryId: params.countryId || undefined,
   });
+
   const create = useDirectoryCreate(kind);
   const title = kind === "cities" ? "المدن" : "التخصصات الأكاديمية";
-  if (access.mockEnabled)
+
+  const countryOptions = useMemo(
+    () =>
+      (countries.countries.data?.items ?? []).map((item) => ({
+        value: item.id,
+        label: item.nameAr,
+        sublabel: item.nameEn ?? item.slug,
+      })),
+    [countries.countries.data?.items],
+  );
+
+  if (access.mockEnabled) {
     return (
-      <p>
-        كتالوج {title} يتطلب جلسة Backend؛ لا تُرسل بيانات المعاينة إلى الخادم.
-      </p>
+      <section className="space-y-4">
+        <header>
+          <p className="text-xs font-semibold text-[var(--gold-dark)]">الأدلة المرجعية</p>
+          <h2 className="mt-1 text-2xl font-bold text-[var(--navy)]">{title}</h2>
+        </header>
+        <p className="rounded-2xl border border-[var(--line)] bg-white p-5 text-sm text-[var(--muted)] shadow-[var(--shadow-card)]">
+          كتالوج {title} يتطلب جلسة خادم متصلة؛ لا تُرسل بيانات المعاينة المحلية إلى الخادم.
+        </p>
+      </section>
     );
+  }
+
   return (
     <section className="space-y-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="flex-1 text-2xl font-bold">{title}</h2>
+      <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div>
+          <p className="text-xs font-semibold text-[var(--gold-dark)]">الأدلة المرجعية</p>
+          <h2 className="mt-1 text-2xl font-bold text-[var(--navy)]">{title}</h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            يدعم الكتالوج الاستعراض والإضافة لربط الجامعات والتخصصات والمدن.
+          </p>
+        </div>
+
         <button
-          className={buttonClass}
+          type="button"
+          className={primaryButtonClass}
           onClick={() => {
             setAdding(true);
             setMessage("");
           }}
         >
-          إضافة سجل
+          <PlusIcon className="size-4" />
+          <span>{kind === "cities" ? "إضافة مدينة" : "إضافة تخصص"}</span>
         </button>
-      </div>
-      <p className="text-sm">
-        العقد يدعم الاستعراض والإضافة فقط؛ لا توجد إجراءات تعديل أو حذف غير
-        موثقة.
-      </p>
-      <form
-        className={`${panelClass} flex flex-wrap gap-3`}
-        onSubmit={(event) => {
-          event.preventDefault();
-          const data = new FormData(event.currentTarget);
-          setParams({
-            page: 1,
-            limit: Number(data.get("limit")),
-            search: String(data.get("search") ?? ""),
-            countryId: String(data.get("countryId") ?? ""),
-          });
-        }}
-      >
-        <input
-          aria-label="بحث الكتالوج"
-          name="search"
-          maxLength={200}
-          className={`${inputClass} sm:!w-auto`}
-          placeholder="بحث"
-        />
+      </header>
+
+      {/* Independent Debounced Search Bar */}
+      <DebouncedSearchBar
+        value={params.search}
+        onDebouncedChange={(search) =>
+          setParams((old) => ({ ...old, page: 1, search }))
+        }
+        delayMs={1000}
+        placeholder={kind === "cities" ? "ابحث باسم المدينة..." : "ابحث باسم التخصص..."}
+        ariaLabel={`بحث ${title}`}
+        isFetching={list.isFetching}
+      />
+
+      {/* Auto-apply Filters */}
+      <div className={`${panelClass} grid gap-3 sm:grid-cols-2 lg:grid-cols-3`}>
         {kind === "cities" ? (
-          <select
-            aria-label="تصفية الدولة"
-            name="countryId"
-            className={`${inputClass} sm:!w-auto`}
+          <SearchableSelect
+            label="الدولة"
+            value={params.countryId}
+            onChange={(countryId) =>
+              setParams((old) => ({ ...old, page: 1, countryId }))
+            }
+            options={countryOptions}
+            placeholder="كل الدول"
+            clearLabel="كل الدول"
+            isLoading={countries.countries.isFetching}
+            isError={countries.countries.isError}
+            onRetry={() => void countries.countries.refetch()}
+          />
+        ) : null}
+
+        <div className="min-w-0">
+          <label
+            htmlFor={`limit-${kind}`}
+            className="mb-1.5 block text-xs font-semibold text-[var(--navy)]"
           >
-            <option value="">كل الدول</option>
-            {countries.countries.data?.items.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.nameAr}
+            عدد النتائج
+          </label>
+          <select
+            id={`limit-${kind}`}
+            aria-label="عدد السجلات"
+            value={params.limit}
+            onChange={(event) =>
+              setParams((old) => ({
+                ...old,
+                page: 1,
+                limit: Number(event.target.value),
+              }))
+            }
+            className="h-10 w-full rounded-lg border border-[var(--line)] bg-white px-3 text-sm text-[var(--navy)] tabular-nums"
+          >
+            {[12, 24, 50].map((value) => (
+              <option key={value} value={value}>
+                {value} سجل
               </option>
             ))}
           </select>
+        </div>
+
+        {(params.search || params.countryId) ? (
+          <div className="flex items-end">
+            <button
+              type="button"
+              onClick={() =>
+                setParams({ page: 1, limit: 12, search: "", countryId: "" })
+              }
+              className={buttonClass}
+            >
+              <RotateCcwIcon className="size-3.5 text-[var(--muted)]" />
+              <span>إعادة ضبط</span>
+            </button>
+          </div>
         ) : null}
-        <select
-          aria-label="عدد السجلات"
-          name="limit"
-          defaultValue="12"
-          className={`${inputClass} sm:!w-auto`}
-        >
-          {[12, 24, 50].map((value) => (
-            <option key={value}>{value}</option>
-          ))}
-        </select>
-        <button className={buttonClass}>تطبيق المرشحات</button>
-      </form>
+      </div>
+
       {adding ? (
         <form
           className={panelClass}
@@ -128,9 +193,9 @@ export function DirectoryPage<K extends DirectoryKind>({ kind }: { kind: K }) {
               await create.mutateAsync(input);
               setAdding(false);
               setValues({});
-              setMessage("تمت إضافة السجل.");
+              setMessage("تمت إضافة السجل بنجاح.");
             } catch (error) {
-              if (error instanceof z.ZodError)
+              if (error instanceof z.ZodError) {
                 setErrors(
                   Object.fromEntries(
                     error.issues.map((issue) => [
@@ -139,12 +204,13 @@ export function DirectoryPage<K extends DirectoryKind>({ kind }: { kind: K }) {
                     ]),
                   ),
                 );
-              else {
+              } else {
                 setErrors(
                   Object.fromEntries(
-                    Object.entries(getApiFieldErrors(error)).map(
-                      ([key, messages]) => [key, messages[0]],
-                    ),
+                    Object.entries(getApiFieldErrors(error)).map(([key, messages]) => [
+                      key,
+                      messages[0],
+                    ]),
                   ),
                 );
                 setMessage(
@@ -156,6 +222,10 @@ export function DirectoryPage<K extends DirectoryKind>({ kind }: { kind: K }) {
             }
           }}
         >
+          <h3 className="text-base font-bold text-[var(--navy)]">
+            {kind === "cities" ? "إضافة مدينة جديدة" : "إضافة تخصص أكاديمي جديد"}
+          </h3>
+
           <fieldset
             disabled={create.isPending}
             className="grid min-w-0 gap-4 sm:grid-cols-2"
@@ -166,20 +236,22 @@ export function DirectoryPage<K extends DirectoryKind>({ kind }: { kind: K }) {
               "slug",
               ...(kind === "academic-majors" ? ["category"] : []),
             ].map((name) => (
-              <label key={name} className="grid gap-1 text-sm font-semibold">
-                {
-                  (
-                    {
-                      nameAr: "الاسم بالعربية *",
-                      nameEn: "الاسم بالإنجليزية *",
-                      slug: "المعرّف النصي *",
-                      category: "التصنيف (اختياري)",
-                    } as Record<string, string>
-                  )[name]
-                }
+              <label key={name} className="grid gap-1.5 text-xs font-semibold text-[var(--navy)]">
+                <span>
+                  {
+                    (
+                      {
+                        nameAr: "الاسم بالعربية *",
+                        nameEn: "الاسم بالإنجليزية *",
+                        slug: "المعرّف النصي (Slug) *",
+                        category: "التصنيف (اختياري)",
+                      } as Record<string, string>
+                    )[name]
+                  }
+                </span>
                 <input
                   aria-label={name}
-                  dir={name === "nameAr" ? "rtl" : "ltr"}
+                  dir={name === "nameAr" || name === "category" ? "rtl" : "ltr"}
                   className={inputClass}
                   maxLength={name === "slug" || name === "category" ? 120 : 200}
                   value={values[name] ?? ""}
@@ -188,42 +260,34 @@ export function DirectoryPage<K extends DirectoryKind>({ kind }: { kind: K }) {
                   }
                 />
                 {errors[name] ? (
-                  <span role="alert" className="text-red-700">
+                  <span role="alert" className="text-xs font-medium text-red-700">
                     {errors[name]}
                   </span>
                 ) : null}
               </label>
             ))}
+
             {kind === "cities" ? (
-              <label className="grid gap-1 text-sm">
-                الدولة *
-                <select
-                  aria-label="دولة المدينة"
-                  className={inputClass}
+              <div>
+                <SearchableSelect
+                  label="الدولة"
+                  required
                   value={values.countryId ?? ""}
-                  onChange={(event) =>
-                    setValues((old) => ({
-                      ...old,
-                      countryId: event.target.value,
-                    }))
+                  onChange={(countryId) =>
+                    setValues((old) => ({ ...old, countryId }))
                   }
-                >
-                  <option value="">اختر الدولة</option>
-                  {countries.countries.data?.items.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.nameAr}
-                    </option>
-                  ))}
-                </select>
-                {errors.countryId ? (
-                  <span role="alert">{errors.countryId}</span>
-                ) : null}
-              </label>
+                  options={countryOptions}
+                  placeholder="اختر الدولة"
+                  allowClear={false}
+                  error={errors.countryId}
+                />
+              </div>
             ) : null}
           </fieldset>
-          <div className="flex gap-3">
-            <button className={buttonClass} disabled={create.isPending}>
-              حفظ السجل
+
+          <div className="flex flex-wrap gap-2 border-t border-[var(--line)] pt-4">
+            <button type="submit" className={primaryButtonClass} disabled={create.isPending}>
+              {create.isPending ? "جارٍ الحفظ…" : "حفظ السجل"}
             </button>
             <button
               type="button"
@@ -236,21 +300,22 @@ export function DirectoryPage<K extends DirectoryKind>({ kind }: { kind: K }) {
           </div>
         </form>
       ) : null}
-      {countries.countries.isError ? (
-        <p role="alert">
-          تعذّر تحميل الدول.{" "}
-          <button onClick={() => void countries.countries.refetch()}>
-            إعادة المحاولة
-          </button>
+
+      {message ? (
+        <p
+          role="status"
+          className="rounded-xl border border-[var(--line)] bg-white px-4 py-2.5 text-sm font-medium text-[var(--navy)] shadow-[var(--shadow-card)]"
+        >
+          {message}
         </p>
       ) : null}
-      {message ? <p role="status">{message}</p> : null}
+
       {list.isPending ? (
         <LoadingState />
       ) : list.isError ? (
         <ErrorState
           action={
-            <button className={buttonClass} onClick={() => void list.refetch()}>
+            <button className={primaryButtonClass} onClick={() => void list.refetch()}>
               إعادة المحاولة
             </button>
           }
@@ -258,17 +323,22 @@ export function DirectoryPage<K extends DirectoryKind>({ kind }: { kind: K }) {
       ) : list.data.items.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {list.data.items.map((item) => (
             <article key={item.id} className={panelClass}>
-              <h3 className="break-words font-bold">{item.nameAr}</h3>
-              <p dir="ltr" className="break-words text-sm">
+              <h3 className="break-words text-base font-bold text-[var(--navy)]">
+                {item.nameAr}
+              </h3>
+              <p dir="ltr" className="break-words text-xs text-[var(--muted)]">
                 {item.nameEn} · {item.slug}
               </p>
               {"category" in item ? (
-                <p className="text-sm">{item.category ?? "دون تصنيف"}</p>
+                <p className="text-xs font-medium text-[var(--navy)]">
+                  التصنيف: {item.category ?? "دون تصنيف"}
+                </p>
               ) : "countryId" in item ? (
-                <p className="text-sm">
+                <p className="text-xs font-medium text-[var(--navy)]">
+                  الدولة:{" "}
                   {item.country?.nameAr ??
                     countries.countries.data?.items.find(
                       (country) => country.id === item.countryId,
@@ -280,6 +350,7 @@ export function DirectoryPage<K extends DirectoryKind>({ kind }: { kind: K }) {
           ))}
         </div>
       )}
+
       <PageControls
         data={list.data}
         change={(page) => setParams((old) => ({ ...old, page }))}
