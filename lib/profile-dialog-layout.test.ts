@@ -43,8 +43,10 @@ test("TA-100: Native dialog focus and Escape behavior remain intact with restora
   assert.match(dialogSource, /event\.preventDefault\(\);\s*closeProfileDialog\(\)/);
 });
 
-test("TA-112: Profile dialog controls close the native dialog immediately and synchronize React state", () => {
-  assert.match(source, /function closeProfileDialog\(\) \{[\s\S]*if \(dialog\?\.open\) dialog\.close\(\);[\s\S]*setProfileDialogOpen\(false\);/);
+test("TA-112: A closed Profile Dialog retains the browser's hidden display and React state controls its lifecycle", () => {
+  assert.match(dialogSource, /className="m-auto open:flex/);
+  assert.doesNotMatch(dialogSource, /className="m-auto flex/);
+  assert.match(source, /function closeProfileDialog\(\) \{\s*setProfileDialogOpen\(false\);\s*\}/);
   assert.match(dialogSource, /onClose=\{\(\) => setProfileDialogOpen\(false\)\}/);
   assert.match(dialogSource, /onCancel=\{\(event\) => \{\s*event\.preventDefault\(\);\s*closeProfileDialog\(\);/);
   assert.match(dialogSource, /onClick=\{closeProfileDialog\}/);

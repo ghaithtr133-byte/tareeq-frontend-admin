@@ -166,9 +166,10 @@ test("ADMIN and SUPER_ADMIN can close and reopen the profile dialog with button,
     await page.getByRole("button", { name: role.control, exact: true }).click();
 
     const account = page.getByRole("button", { name: role.account, exact: true });
+    const profile = page.getByRole("dialog", { name: "إعدادات الملف الشخصي", exact: true });
+    await expect(profile).toBeHidden();
     await account.click();
     await page.getByRole("menuitem", { name: "إعدادات الملف الشخصي", exact: true }).click();
-    const profile = page.getByRole("dialog", { name: "إعدادات الملف الشخصي", exact: true });
     await expect(profile).toBeVisible();
     await profile.getByRole("button", { name: "إغلاق", exact: true }).click();
     await expect(profile).toBeHidden();

@@ -250,14 +250,8 @@ export function AdminShell({
     }
   }, [profileDialogOpen]);
 
-  /**
-   * Keep the native dialog and React state in lockstep. Closing the element
-   * directly makes the visible dialog disappear immediately, rather than
-   * waiting for a later state effect to reconcile its `open` property.
-   */
+  /** React state is the only source of truth; the effect above synchronizes the native dialog. */
   function closeProfileDialog() {
-    const dialog = profileDialogRef.current;
-    if (dialog?.open) dialog.close();
     setProfileDialogOpen(false);
   }
 
@@ -458,7 +452,7 @@ export function AdminShell({
           closeProfileDialog();
         }}
         onClose={() => setProfileDialogOpen(false)}
-        className="m-auto flex max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] w-[calc(100%-1rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-white p-0 text-[var(--foreground)] shadow-2xl backdrop:bg-slate-950/45 sm:w-[calc(100%-2rem)]"
+        className="m-auto open:flex max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1rem)] w-[calc(100%-1rem)] max-w-md flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-white p-0 text-[var(--foreground)] shadow-2xl backdrop:bg-slate-950/45 sm:w-[calc(100%-2rem)]"
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--line)] bg-white px-4 py-3.5 sm:px-6 sm:py-4">
           <div className="flex min-w-0 items-center gap-3">
