@@ -1,9 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { z } from "zod";
 import { useAnalyticsJourneys, useAnalyticsSummary } from "@/hook/queries/use-phase4-queries";
-import { analyticsParamsSchema, granularities, type AnalyticsParams } from "@/lib/phase4-schemas";
+import { granularities, type AnalyticsParams } from "@/lib/phase4-schemas";
+import {
+  analyticsParamsFromDraft,
+  analyticsPresetDraft,
+  analyticsRangePresets,
+  emptyAnalyticsFilterDraft,
+  type AnalyticsFilterDraft,
+} from "@/lib/analytics-filters";
 import {
   formatCount,
   formatRate,
@@ -401,8 +407,7 @@ function SummaryView({ params }: { params: AnalyticsParams }) {
 
 function JourneysView({ params }: { params: AnalyticsParams }) {
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const query = useAnalyticsJourneys({ ...params, page, limit });
+  const query = useAnalyticsJourneys({ ...params, page, limit: 10 });
 
   return (
     <section className="space-y-4">
@@ -413,27 +418,7 @@ function JourneysView({ params }: { params: AnalyticsParams }) {
           مستخدمين. تُعرض الدعوة للإجراء ونوع التفاعل فقط عند توفرها.
         </p>
 
-        <label className="grid shrink-0 gap-1.5 text-xs font-semibold text-[var(--navy)]">
-          <span>رحلات لكل صفحة</span>
-          <div className="relative">
-            <select
-              aria-label="رحلات لكل صفحة"
-              className={`${inputClass} w-28 appearance-none pl-9`}
-              value={limit}
-              onChange={(event) => {
-                setLimit(Number(event.target.value));
-                setPage(1);
-              }}
-            >
-              {[10, 20].map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-            <ChevronDownIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]" />
-          </div>
-        </label>
+        <p className="shrink-0 text-xs font-medium text-[var(--muted)]">10 رحلات في كل صفحة من الخادم</p>
       </div>
 
       {query.isPending ? (
@@ -445,7 +430,7 @@ function JourneysView({ params }: { params: AnalyticsParams }) {
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-[var(--muted)] tabular-nums" dir="ltr">
-            Range (UTC): {query.data.range.from} — {query.data.range.to}
+            الفترة (UTC): {query.data.range.from} — {query.data.range.to}
           </p>
 
           {query.data.items.map((item) => (
@@ -544,10 +529,10 @@ function JourneysView({ params }: { params: AnalyticsParams }) {
 }
 
 export function AnalyticsPage() {
-  const [params, setParams] = useState<AnalyticsParams>({});
+  const [params, setParams] = useState<AnalyticsParams>(() => analyticsParamsFromDraft(emptyAnalyticsFilterDraft()));
+  const [draft, setDraft] = useState<AnalyticsFilterDraft>(emptyAnalyticsFilterDraft);
   const [tab, setTab] = useState<"summary" | "journeys">("summary");
   const [error, setError] = useState("");
-  const [formKey, setFormKey] = useState(0);
 
   return (
     <section className="space-y-5">
@@ -595,85 +580,102 @@ export function AnalyticsPage() {
 
       {/* Filter Card */}
       <form
-        key={formKey}
-        className={`${panelClass} grid gap-4 sm:grid-cols-2 xl:grid-cols-5`}
+        className={`${panelClass} space-y-4`}
         onSubmit={(event) => {
           event.preventDefault();
-          const form = new FormData(event.currentTarget);
-          const raw = Object.fromEntries(
-            [...form.entries()]
-              .filter(([, value]) => value !== "")
-              .map(([key, value]) => [key, key === "topLimit" ? Number(value) : value]),
-          );
           try {
-            setParams(analyticsParamsSchema.parse(raw));
+            setParams(analyticsParamsFromDraft(draft));
             setError("");
-          } catch (failure) {
-            setError(
-              failure instanceof z.ZodError
-                ? "تحقق من تواريخ UTC وترتيب الفترة (366 يومًا كحد أقصى) والحدود العددية."
-                : "تعذّر تطبيق المرشحات.",
-            );
+          } catch {
+            setError("تحقق من تواريخ UTC وترتيب الفترة؛ يجب ألا تتجاوز 366 يومًا.");
           }
         }}
       >
-        <label className="grid gap-1.5 text-xs font-semibold text-[var(--navy)]">
-          <span>من (UTC)</span>
-          <input name="from" aria-label="من (UTC)" type="date" className={inputClass} />
-        </label>
-
-        <label className="grid gap-1.5 text-xs font-semibold text-[var(--navy)]">
-          <span>إلى (UTC)</span>
-          <input name="to" aria-label="إلى (UTC)" type="date" className={inputClass} />
-        </label>
-
-        <label className="grid gap-1.5 text-xs font-semibold text-[var(--navy)]">
-          <span>التجميع الزمني</span>
-          <div className="relative">
-            <select
-              name="granularity"
-              aria-label="التجميع"
-              className={`${inputClass} appearance-none pl-9`}
+        <fieldset className="space-y-2">
+          <legend className="text-xs font-semibold text-[var(--navy)]">الفترة الزمنية (UTC)</legend>
+          <div className="flex flex-wrap gap-2">
+            {analyticsRangePresets.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                aria-pressed={draft.preset === preset.id}
+                onClick={() => setDraft((current) => ({ ...analyticsPresetDraft(preset.id), granularity: current.granularity }))}
+                className={draft.preset === preset.id ? primaryButtonClass : buttonClass}
+              >
+                {preset.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              aria-pressed={draft.preset === "custom"}
+              onClick={() => setDraft((current) => ({ ...current, preset: "custom" }))}
+              className={draft.preset === "custom" ? primaryButtonClass : buttonClass}
             >
-              {granularities.map((value) => (
-                <option key={value} value={value}>
-                  {granularityLabels[value]}
-                </option>
-              ))}
-            </select>
-            <ChevronDownIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]" />
+              نطاق مخصص
+            </button>
           </div>
-        </label>
+        </fieldset>
 
-        <label className="grid gap-1.5 text-xs font-semibold text-[var(--navy)]">
-          <span>حد المقارنات (1–25)</span>
-          <input
-            name="topLimit"
-            aria-label="حد المقارنات"
-            type="number"
-            min={1}
-            max={25}
-            defaultValue={10}
-            className={`${inputClass} tabular-nums`}
-          />
-        </label>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <label className="grid gap-1.5 text-xs font-semibold text-[var(--navy)]">
+            <span>من (UTC)</span>
+            <input
+              aria-label="من (UTC)"
+              type="date"
+              value={draft.from}
+              onChange={(event) => setDraft((current) => ({ ...current, from: event.target.value, preset: "custom" }))}
+              className={inputClass}
+            />
+          </label>
 
-        <div className="flex items-end gap-2">
-          <button type="submit" className={`${primaryButtonClass} flex-1`}>
-            تطبيق الفترة
-          </button>
-          <button
-            type="button"
-            className={buttonClass}
-            title="إعادة ضبط الفترة"
-            onClick={() => {
-              setParams({});
-              setError("");
-              setFormKey((k) => k + 1);
-            }}
-          >
-            <RotateCcwIcon className="size-3.5" />
-          </button>
+          <label className="grid gap-1.5 text-xs font-semibold text-[var(--navy)]">
+            <span>إلى (UTC)</span>
+            <input
+              aria-label="إلى (UTC)"
+              type="date"
+              value={draft.to}
+              onChange={(event) => setDraft((current) => ({ ...current, to: event.target.value, preset: "custom" }))}
+              className={inputClass}
+            />
+          </label>
+
+          <label className="grid gap-1.5 text-xs font-semibold text-[var(--navy)]">
+            <span>التجميع الزمني</span>
+            <div className="relative">
+              <select
+                aria-label="التجميع"
+                className={`${inputClass} appearance-none pl-9`}
+                value={draft.granularity}
+                onChange={(event) => setDraft((current) => ({ ...current, granularity: event.target.value as AnalyticsFilterDraft["granularity"] }))}
+              >
+                {granularities.map((value) => (
+                  <option key={value} value={value}>
+                    {granularityLabels[value]}
+                  </option>
+                ))}
+              </select>
+              <ChevronDownIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]" />
+            </div>
+          </label>
+
+          <div className="flex items-end gap-2">
+            <button type="submit" className={`${primaryButtonClass} flex-1`}>
+              تطبيق الفترة
+            </button>
+            <button
+              type="button"
+              className={buttonClass}
+              title="مسح المرشحات"
+              aria-label="مسح المرشحات"
+              onClick={() => {
+                setDraft(emptyAnalyticsFilterDraft());
+                setParams(analyticsParamsFromDraft(emptyAnalyticsFilterDraft()));
+                setError("");
+              }}
+            >
+              <RotateCcwIcon className="size-3.5" />
+            </button>
+          </div>
         </div>
       </form>
 
