@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import type { Article, ArticleListParams, PublicationStatus } from "@/lib/api-client/content";
+import { ArticleHardDeleteDialog } from "@/components/content/article-hard-delete-dialog";
 import { ErrorState } from "@/components/dashboard/states";
 import { DebouncedSearchBar } from "@/components/ui/debounced-search-bar";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -20,8 +21,10 @@ import {
   RotateCcwIcon,
   SearchIcon,
   StarIcon,
+  TrashIcon,
 } from "@/components/ui/admin-icons";
 import { useContentSelectors, useContentList, useInfiniteContentList } from "@/hook/queries/use-content-queries";
+import { useAdminAccess } from "@/providers/admin-access-provider";
 import type { ListSearchParams } from "@/lib/content-filters";
 import {
   activeArticlesAdditionalFilters,
@@ -115,12 +118,15 @@ function useDesktopLayout() {
 export function ArticlesListPage({ searchParams }: { searchParams: ListSearchParams }) {
   const router = useRouter();
   const pathname = usePathname();
+  const access = useAdminAccess();
   const desktop = useDesktopLayout();
   const filters = useMemo(() => parseArticlesListFilters(searchParams), [searchParams]);
   const filtersActive = useMemo(() => hasActiveArticlesFilters(filters), [filters]);
   const additionalCount = useMemo(() => activeArticlesAdditionalFilters(filters), [filters]);
   const [additionalOpen, setAdditionalOpen] = useState(() => additionalCount > 0);
   const [previousAdditionalCount, setPreviousAdditionalCount] = useState(additionalCount);
+  const [articleToDelete, setArticleToDelete] = useState<Article>();
+  const [notice, setNotice] = useState("");
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   if (additionalCount !== previousAdditionalCount) {
@@ -184,6 +190,7 @@ export function ArticlesListPage({ searchParams }: { searchParams: ListSearchPar
   const isPending = desktop ? desktopList.isPending : mobileList.isPending;
   const isError = desktop ? desktopList.isError : mobileList.isError;
   const retry = desktop ? () => void desktopList.refetch() : () => void mobileList.refetch();
+  const canHardDelete = !access.mockEnabled && (access.user?.role === "ADMIN" || access.user?.role === "SUPER_ADMIN");
 
   return (
     <section className="space-y-4">
@@ -196,6 +203,7 @@ export function ArticlesListPage({ searchParams }: { searchParams: ListSearchPar
       </header>
 
       <DebouncedSearchBar value={filters.search ?? ""} onDebouncedChange={handleSearch} delayMs={1000} placeholder="ابحث عن مقال..." ariaLabel="بحث في المقالات" isFetching={desktop ? desktopList.isFetching : mobileList.isFetching} />
+      {notice ? <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">{notice}</p> : null}
 
       <div className="space-y-3 rounded-2xl border border-[var(--line)] bg-white p-3.5 shadow-[var(--shadow-card)] sm:p-4">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -229,7 +237,7 @@ export function ArticlesListPage({ searchParams }: { searchParams: ListSearchPar
             <tbody className="divide-y divide-[var(--line)]">{desktopItems.map((article) => <tr key={article.id} className="transition-colors hover:bg-[var(--surface-subtle)]/80">
               <td className="max-w-sm px-4 py-3.5"><Link href={`/admin/articles/${article.id}`} className="block truncate font-bold text-[var(--navy)] hover:text-[var(--gold-dark)] hover:underline">{article.titleAr}</Link><div className="mt-1 flex items-center gap-2"><p className="line-clamp-1 text-[13px] text-[var(--muted)]">{article.summaryAr}</p>{article.featured ? <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-[var(--gold-dark)]"><StarIcon className="size-3.5 fill-[var(--gold)] text-[var(--gold)]" />مميز</span> : null}</div></td>
               <td className="px-4 py-3.5"><ArticleRelations article={article} /></td><td className="px-4 py-3.5"><ArticleStatusBadge status={article.status} /></td><td className="px-4 py-3.5 text-[13px] text-[var(--muted)] tabular-nums">{article.publishedAt ? formatArticleDate(article.publishedAt) : "لم يُنشر"}</td><td className="px-4 py-3.5 text-[13px] text-[var(--muted)] tabular-nums">{formatArticleDate(article.updatedAt)}</td>
-              <td className="px-4 py-3.5 text-left"><Link href={`/admin/articles/${article.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-white px-3 text-[13px] font-semibold text-[var(--navy)] hover:border-[var(--navy)] hover:bg-[var(--navy)] hover:text-white"><PencilIcon className="size-3.5" />تعديل</Link></td>
+              <td className="px-4 py-3.5 text-left"><div className="flex items-center justify-end gap-2"><Link href={`/admin/articles/${article.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-white px-3 text-[13px] font-semibold text-[var(--navy)] hover:border-[var(--navy)] hover:bg-[var(--navy)] hover:text-white"><PencilIcon className="size-3.5" />تعديل</Link>{canHardDelete ? <button type="button" onClick={() => { setNotice(""); setArticleToDelete(article); }} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 text-[13px] font-semibold text-red-700 hover:bg-red-50"><TrashIcon className="size-3.5" />حذف</button> : null}</div></td>
             </tr>)}</tbody>
           </table>
         </div>
@@ -237,13 +245,14 @@ export function ArticlesListPage({ searchParams }: { searchParams: ListSearchPar
         <div role="list" aria-label="بطاقات المقالات" className="space-y-3 lg:hidden">{mobileArticles.map((article) => <article key={article.id} role="listitem" className="space-y-3 rounded-2xl border border-[var(--line)] bg-white p-4 shadow-[var(--shadow-card)]">
           <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="break-words text-base font-bold text-[var(--navy)]">{article.titleAr}</h3>{article.summaryAr ? <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-[var(--muted)]">{article.summaryAr}</p> : null}</div><ArticleStatusBadge status={article.status} /></div>
           <div className="flex flex-wrap items-center gap-2 border-y border-[var(--line)] py-2.5"><ArticleRelations article={article} />{article.featured ? <span className="inline-flex items-center gap-1 rounded-md border border-[var(--gold)]/40 bg-[var(--gold-soft)]/75 px-2 py-0.5 text-[12px] font-semibold text-[var(--navy)]"><StarIcon className="size-3 fill-[var(--gold)] text-[var(--gold)]" />مميز</span> : null}</div>
-          <div className="flex items-center justify-between gap-3 text-[13px] text-[var(--muted)]"><span>{article.publishedAt ? `نُشر: ${formatArticleDate(article.publishedAt)}` : `تحديث: ${formatArticleDate(article.updatedAt)}`}</span><Link href={`/admin/articles/${article.id}`} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-[var(--navy)] px-3.5 text-xs font-semibold text-white"><PencilIcon className="size-3.5" />تعديل</Link></div>
+          <div className="flex items-center justify-between gap-3 text-[13px] text-[var(--muted)]"><span>{article.publishedAt ? `نُشر: ${formatArticleDate(article.publishedAt)}` : `تحديث: ${formatArticleDate(article.updatedAt)}`}</span><div className="flex items-center gap-2"><Link href={`/admin/articles/${article.id}`} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-[var(--navy)] px-3.5 text-xs font-semibold text-white"><PencilIcon className="size-3.5" />تعديل</Link>{canHardDelete ? <button type="button" onClick={() => { setNotice(""); setArticleToDelete(article); }} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-red-200 px-3 text-xs font-semibold text-red-700 hover:bg-red-50" aria-label={`حذف ${article.titleAr}`}><TrashIcon className="size-3.5" />حذف</button> : null}</div></div>
         </article>)}</div>
 
         {desktop && desktopPagination ? <nav aria-label="صفحات المقالات" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-sm shadow-[var(--shadow-card)]"><p className="text-[13px] text-[var(--muted)]">{formatArticlesPaginationSummary(desktopPagination.page, desktopPagination.limit, desktopPagination.total)} · صفحة <b className="text-[var(--navy)]">{desktopPagination.page}</b> من <b className="text-[var(--navy)]">{Math.max(desktopPagination.totalPages, 1)}</b></p><div className="flex gap-2"><button type="button" disabled={desktopPagination.page <= 1 || desktopList.isFetching} onClick={() => applyPatch({ page: desktopPagination.page - 1 }, false)} className="inline-flex h-9 items-center gap-1 rounded-lg border border-[var(--line)] bg-white px-3 text-xs font-semibold text-[var(--navy)] disabled:opacity-45"><ChevronRightIcon className="size-4" />السابق</button><button type="button" disabled={desktopPagination.page >= desktopPagination.totalPages || desktopList.isFetching} onClick={() => applyPatch({ page: desktopPagination.page + 1 }, false)} className="inline-flex h-9 items-center gap-1 rounded-lg border border-[var(--line)] bg-white px-3 text-xs font-semibold text-[var(--navy)] disabled:opacity-45">التالي<ChevronLeftIcon className="size-4" /></button></div></nav> : null}
 
         {desktop === false ? <div className="space-y-3 lg:hidden"><div ref={sentinelRef} aria-hidden="true" />{mobileList.isFetchingNextPage ? <ArticleSkeleton mobileOnly /> : null}{mobileList.hasNextPage ? <button type="button" onClick={() => void mobileList.fetchNextPage()} disabled={mobileList.isFetchingNextPage} className="mx-auto flex h-10 items-center rounded-xl border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--navy)] disabled:opacity-50">تحميل المزيد</button> : <p className="py-1 text-center text-xs text-[var(--muted)]">تم عرض كل المقالات.</p>}</div> : null}
       </> : null}
+      {articleToDelete ? <ArticleHardDeleteDialog article={articleToDelete} onClose={() => setArticleToDelete(undefined)} onDeleted={() => { setArticleToDelete(undefined); setNotice("تم حذف المقال نهائياً بنجاح."); }} /> : null}
     </section>
   );
 }

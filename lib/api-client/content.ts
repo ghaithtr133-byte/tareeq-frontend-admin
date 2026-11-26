@@ -1,6 +1,7 @@
 import type { AxiosRequestConfig } from "axios";
 
 import { apiClient } from "@/lib/api-client/client";
+import { normalizeApiError } from "@/lib/api-client/error";
 
 export type PublicationStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
 export type ScholarshipApplicationStatus = "OPEN" | "CLOSED";
@@ -181,6 +182,38 @@ export interface ArticleRelatedScholarship {
 }
 export interface ArticleDetail extends Article { scholarshipIds: string[]; relatedScholarships: ArticleRelatedScholarship[] }
 
+/**
+ * The published hard-delete operation returns an impact graph before an
+ * explicit SUPER_ADMIN confirmation is allowed. `resource` intentionally
+ * remains a string: the deployed operation targets articles while the shared
+ * OpenAPI component currently omits `articles` from its target enum.
+ */
+export interface DeletionImpact {
+  target: { resource: string; id: string; slug: string; status: PublicationStatus };
+  outcome: "SAFE" | "REQUIRES_CONFIRMATION" | "BLOCKED";
+  items: Array<{
+    resourceType: string;
+    effect: "DELETE" | "SET_NULL" | "UNLINK" | "PRESERVE" | "BLOCK" | "UNKNOWN";
+    count: number;
+    relationshipPath: string;
+    sampleIds: string[];
+    code: string;
+    canConfirm: boolean;
+    blocked: boolean;
+  }>;
+}
+
+export interface ArticleHardDeleteResult {
+  id: string;
+  impact: DeletionImpact;
+}
+
+export interface ArticleHardDeleteConflict {
+  code: "DELETE_REQUIRES_CONFIRMATION" | "DELETE_BLOCKED";
+  impact: DeletionImpact;
+  confirmation?: { challengeId: string; expiresAt: string };
+}
+
 export interface CountryInput {
   overviewImageUrl?: string | null; overviewImageAltAr?: string | null; studyLanguageAr?: string | null; tuitionSummaryAr?: string | null; admissionSummaryAr?: string | null; applicationDatesSummaryAr?: string | null;
   nameAr?: string; nameEn?: string; introductionAr?: string; introductionEn?: string; detailsAr?: string; detailsEn?: string;
@@ -241,6 +274,58 @@ export interface ContentTypeMap {
 
 type SuccessEnvelope<T> = { success: true; data: T };
 export type ContentRecord = ContentTypeMap[AdminContentResource]["record"];
+
+function isDeletionImpact(value: unknown): value is DeletionImpact {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Partial<DeletionImpact>;
+  return (
+    typeof candidate.target === "object" &&
+    candidate.target !== null &&
+    typeof candidate.target.id === "string" &&
+    typeof candidate.target.slug === "string" &&
+    typeof candidate.target.resource === "string" &&
+    Array.isArray(candidate.items) &&
+    (candidate.outcome === "SAFE" || candidate.outcome === "REQUIRES_CONFIRMATION" || candidate.outcome === "BLOCKED")
+  );
+}
+
+/** Reads the documented 409 deletion envelope without changing the original Axios error. */
+export function getArticleHardDeleteConflict(error: unknown): ArticleHardDeleteConflict | undefined {
+  const normalized = normalizeApiError(error);
+  if (normalized.status !== 409 || typeof normalized.responseData !== "object" || normalized.responseData === null) return undefined;
+  const response = normalized.responseData as { error?: { code?: unknown; details?: unknown } };
+  const code = response.error?.code;
+  const details = response.error?.details;
+  if ((code !== "DELETE_REQUIRES_CONFIRMATION" && code !== "DELETE_BLOCKED") || typeof details !== "object" || details === null) return undefined;
+  const impact = (details as { impact?: unknown }).impact;
+  if (!isDeletionImpact(impact)) return undefined;
+  const confirmation = (details as { confirmation?: unknown }).confirmation;
+  if (
+    code === "DELETE_REQUIRES_CONFIRMATION" &&
+    typeof confirmation === "object" &&
+    confirmation !== null &&
+    typeof (confirmation as { challengeId?: unknown }).challengeId === "string" &&
+    typeof (confirmation as { expiresAt?: unknown }).expiresAt === "string"
+  ) {
+    return { code, impact, confirmation: confirmation as { challengeId: string; expiresAt: string } };
+  }
+  return { code, impact };
+}
+
+/** Article-only hard-delete contract. It is intentionally separate from normal content CRUD. */
+export const articleHardDeleteApi = {
+  async request(id: string): Promise<ArticleHardDeleteResult> {
+    const response = await apiClient.delete<SuccessEnvelope<ArticleHardDeleteResult>>(`/admin/articles/${id}`);
+    return response.data.data;
+  },
+  async confirm(id: string, challengeId: string): Promise<ArticleHardDeleteResult> {
+    const response = await apiClient.post<SuccessEnvelope<ArticleHardDeleteResult>>(
+      `/admin/articles/${id}/hard-delete/confirm`,
+      { challengeId },
+    );
+    return response.data.data;
+  },
+};
 
 function makeContentApi<K extends AdminContentResource>(resource: K) {
   type Entry = ContentTypeMap[K];

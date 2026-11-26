@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 
@@ -13,7 +14,7 @@ import type {
   University,
 } from "@/lib/api-client/content";
 import { getApiFieldErrors, normalizeApiError } from "@/lib/api-client/error";
-import { ArticleBlockEditor } from "@/components/content/article-block-editor";
+import { ArticleHardDeleteDialog } from "@/components/content/article-hard-delete-dialog";
 import { ArticleScholarships } from "@/components/content/article-scholarships";
 import { DetailCollectionManager } from "@/components/content/detail-collection-manager";
 import {
@@ -46,9 +47,29 @@ import {
   validateContentValues,
 } from "@/lib/content-form";
 import { StaleContentSessionError } from "@/lib/content-session";
+import { contentErrorFieldName, contentSaveErrorMessage } from "@/lib/content-save-feedback";
+import { useAdminAccess } from "@/providers/admin-access-provider";
 
 const inputClass =
   "mt-1.5 min-h-10 w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--navy)] placeholder:text-[var(--muted)]/75 hover:border-[var(--line-strong)] focus:border-[var(--gold)] focus:outline-none";
+
+function SaveErrorMessage({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-900">
+      {message}
+    </p>
+  );
+}
+
+/** Loaded only for Article forms because it relies on browser editing APIs. */
+const ArticleRichTextEditor = dynamic(
+  () => import("@/components/content/article-block-editor").then((module) => module.ArticleRichTextEditor),
+  {
+    ssr: false,
+    loading: () => <div className="min-h-64 animate-pulse rounded-xl border border-[var(--line)] bg-slate-100" aria-label="جارٍ تحميل محرر المقال" />,
+  },
+);
 
 const createSubmitLabels: Record<AdminContentResource, string> = {
   countries: "إضافة الدولة",
@@ -209,8 +230,8 @@ const RESOURCE_SECTIONS: Record<AdminContentResource, FormSectionGroup[]> = {
     {
       id: "relationships",
       title: "المحتوى المرتبط",
-      description: "ربط المقال بدولة أو جامعة أو قائمة منح مرتبة.",
-      fieldNames: ["countryId", "universityId"],
+      description: "المنح المختارة يدويًا لها الأولوية، وتُستخدم دولة المقال لاقتراح المنح تلقائيًا.",
+      fieldNames: ["countryId"],
       extraSlot: "article-scholarships",
     },
     {
@@ -322,16 +343,17 @@ export function ContentFormPage({
   id?: string;
 }) {
   const router = useRouter();
+  const access = useAdminAccess();
   const definition = contentDefinitions[resource];
   const detail = useContentDetail(resource, id);
 
   const relationships = useMemo(
     () => ({
       countries: definition.fields.some((field) => field.kind === "country"),
-      universities: definition.fields.some((field) => field.kind === "university"),
+      universities: resource !== "articles" && definition.fields.some((field) => field.kind === "university"),
       scholarships: definition.fields.some((field) => field.kind === "scholarship"),
     }),
-    [definition.fields],
+    [definition.fields, resource],
   );
 
   const selectors = useContentSelectors(relationships);
@@ -344,6 +366,7 @@ export function ContentFormPage({
     null,
   );
   const [manualArticleSlug, setManualArticleSlug] = useState(false);
+  const [articleHardDeleteOpen, setArticleHardDeleteOpen] = useState(false);
 
   const [submitError, setSubmitError] = useState<string>();
   const [relationshipChecks, setRelationshipChecks] = useState(0);
@@ -384,7 +407,7 @@ export function ContentFormPage({
       }
       return;
     }
-    if (!["articles", "scholarships"].includes(resource) || !countryId) return;
+    if (resource !== "scholarships" || !countryId) return;
     const universityId = relationshipValue(form.getValues("universityId"));
     if (!universityId) return;
     setRelationshipChecks((count) => count + 1);
@@ -484,7 +507,7 @@ export function ContentFormPage({
       values.countryId !== baseline.countryId ||
       values.universityId !== baseline.universityId;
     if (
-      ["articles", "scholarships"].includes(resource) &&
+      resource === "scholarships" &&
       relationshipsChanged &&
       values.countryId &&
       values.universityId
@@ -528,19 +551,16 @@ export function ContentFormPage({
     } catch (error) {
       if (error instanceof StaleContentSessionError) return;
       const fieldErrors = getApiFieldErrors(error);
+      const displayFieldErrors: Record<string, string[]> = {};
       for (const [name, messages] of Object.entries(fieldErrors)) {
-        setError(name, { type: "server", message: messages[0] });
+        const field = contentErrorFieldName(name);
+        if (!displayFieldErrors[field]) displayFieldErrors[field] = messages;
+        setError(field, { type: "server", message: messages[0] });
       }
       const normalized = normalizeApiError(error);
       if (normalized.kind !== "cancelled") {
-        setSubmitError(
-          error instanceof Error && error.message === "لا توجد تغييرات للحفظ."
-            ? error.message
-            : normalized.kind === "network"
-              ? "تعذّر الاتصال بالخادم. لم تُفقد بيانات النموذج."
-              : "تعذّر حفظ التغييرات. راجع الحقول ثم حاول مرة أخرى.",
-        );
-        const firstField = Object.keys(fieldErrors)[0];
+        setSubmitError(contentSaveErrorMessage(error, displayFieldErrors));
+        const firstField = Object.keys(displayFieldErrors)[0];
         window.requestAnimationFrame(() => {
           const field = firstField
             ? document.getElementById(`${resource}-${firstField}`)
@@ -622,6 +642,11 @@ export function ContentFormPage({
   const submitLabel = id ? "حفظ التغييرات" : createSubmitLabels[resource];
   const universityCityLabel =
     resource === "universities" ? (detail.data as University | undefined)?.city?.nameAr : undefined;
+  const canHardDeleteArticle =
+    resource === "articles" &&
+    Boolean(id && detail.data) &&
+    !access.mockEnabled &&
+    (access.user?.role === "ADMIN" || access.user?.role === "SUPER_ADMIN");
 
   function renderField(fieldName: string) {
     const field = fieldMap.get(fieldName);
@@ -866,15 +891,6 @@ export function ContentFormPage({
         }}
         className="space-y-8 rounded-2xl border border-[var(--line)] bg-white p-5 pb-[calc(6rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-card)] sm:p-7"
       >
-        {submitError ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-900"
-          >
-            {submitError}
-          </div>
-        ) : null}
-
         {RESOURCE_SECTIONS[resource].map((section) => (
           <section key={section.id} className="space-y-4">
             <div className="border-b border-[var(--line)] pb-2.5">
@@ -917,7 +933,7 @@ export function ContentFormPage({
 
             {section.extraSlot === "article-body" ? (
               <div className="space-y-4">
-                <ArticleBlockEditor
+                <ArticleRichTextEditor
                   control={form.control}
                   name="bodyAr"
                   fieldId="articles-bodyAr"
@@ -925,13 +941,13 @@ export function ContentFormPage({
                   required
                   error={errors.bodyAr?.message}
                 />
-                <ArticleBlockEditor
+                {/* <ArticleRichTextEditor
                   control={form.control}
                   name="bodyEn"
                   fieldId="articles-bodyEn"
                   label="محتوى المقال بالإنجليزية"
                   error={errors.bodyEn?.message}
-                />
+                /> */}
               </div>
             ) : null}
 
@@ -1010,24 +1026,48 @@ export function ContentFormPage({
         ))}
 
         {/* Desktop Actions */}
-        <div className="hidden flex-wrap items-center gap-3 border-t border-[var(--line)] pt-5 sm:flex">
-          <button
-            type="submit"
-            disabled={isPending}
-            className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--navy)] px-5 text-sm font-bold text-white transition-colors hover:bg-[var(--navy-light)] disabled:cursor-wait disabled:opacity-60"
-          >
-            {isPending ? <SpinnerIcon className="size-4 animate-spin" /> : null}
-            <span>{isPending ? "جارٍ الحفظ…" : submitLabel}</span>
-          </button>
+        <div className="hidden border-t border-[var(--line)] pt-5 sm:block">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={isPending}
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--navy)] px-5 text-sm font-bold text-white transition-colors hover:bg-[var(--navy-light)] disabled:cursor-wait disabled:opacity-60"
+            >
+              {isPending ? <SpinnerIcon className="size-4 animate-spin" /> : null}
+              <span>{isPending ? "جارٍ الحفظ…" : submitLabel}</span>
+            </button>
 
-          <Link
-            href={`/admin/${resource}`}
-            className="inline-flex h-11 items-center rounded-xl border border-[var(--line)] px-5 text-sm font-semibold text-[var(--navy)] hover:bg-slate-50"
-          >
-            إلغاء
-          </Link>
+            <Link
+              href={`/admin/${resource}`}
+              className="inline-flex h-11 items-center rounded-xl border border-[var(--line)] px-5 text-sm font-semibold text-[var(--navy)] hover:bg-slate-50"
+            >
+              إلغاء
+            </Link>
+          </div>
+          <div className="mt-3 max-w-xl"><SaveErrorMessage message={submitError} /></div>
         </div>
       </form>
+
+      {canHardDeleteArticle ? (
+        <section className="rounded-2xl border border-red-200 bg-red-50/60 p-5 sm:p-6">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h3 className="text-base font-bold text-red-900">منطقة خطرة</h3>
+              <p className="mt-1 text-sm leading-6 text-red-800">
+                حذف المقال نهائي ولا يمكن التراجع عنه. قد يطلب الخادم تأكيدًا إضافيًا لحماية البيانات المرتبطة.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => setArticleHardDeleteOpen(true)}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-red-300 bg-white px-4 text-sm font-bold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-wait disabled:opacity-45"
+            >
+              حذف المقال نهائياً
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {/* Preserved Detail Collection Manager on Edit */}
       {id &&
@@ -1059,6 +1099,7 @@ export function ContentFormPage({
             إلغاء
           </Link>
         </div>
+        <div className="mx-auto mt-2 max-w-xl"><SaveErrorMessage message={submitError} /></div>
       </div>
 
       {/* Dynamic Options Modal for Scholarships */}
@@ -1090,6 +1131,17 @@ export function ContentFormPage({
           onSelectValue={(val) =>
             setValue(optionsModalKind, val, { shouldDirty: true, shouldValidate: true })
           }
+        />
+      ) : null}
+
+      {articleHardDeleteOpen && resource === "articles" && id && detail.data ? (
+        <ArticleHardDeleteDialog
+          article={detail.data as Article}
+          onClose={() => setArticleHardDeleteOpen(false)}
+          onDeleted={() => {
+            setArticleHardDeleteOpen(false);
+            router.replace("/admin/articles");
+          }}
         />
       ) : null}
     </section>

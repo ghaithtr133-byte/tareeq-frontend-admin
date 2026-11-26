@@ -97,6 +97,24 @@ test("TA-110: text and related-data edits preserve PUBLISHED, DRAFT, and ARCHIVE
   }
 });
 
+test("TA-57: editing an article country leaves its hidden stored university relationship untouched", () => {
+  const linkedArticle: Article = {
+    ...article(),
+    universityId: "00000000-0000-4000-8000-000000000002",
+  };
+  const values = initialContentValues("articles", linkedArticle);
+
+  assert.deepEqual(
+    toContentPatch(
+      "articles",
+      { ...values, countryId: "00000000-0000-4000-8000-000000000003" },
+      linkedArticle,
+      { statusChanged: false },
+    ),
+    { countryId: "00000000-0000-4000-8000-000000000003" },
+  );
+});
+
 test("TA-110: only an explicit status control change sends a status transition", () => {
   const publishedCountry = country();
   const publishedValues = initialContentValues("countries", publishedCountry);

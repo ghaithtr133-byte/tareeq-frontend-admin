@@ -37,6 +37,7 @@ export const queryKeys = {
     content: {
       root: ["admin", "content"] as const,
       lists: () => ["admin", "content", "list"] as const,
+      resourceLists: <TResource extends string>(resource: TResource) => ["admin", "content", "list", resource] as const,
       list: <TResource extends string, TParams>(resource: TResource, params: TParams) => ["admin", "content", "list", resource, params] as const,
       details: () => ["admin", "content", "detail"] as const,
       detail: <TResource extends string>(resource: TResource, id: string) => ["admin", "content", "detail", resource, id] as const,

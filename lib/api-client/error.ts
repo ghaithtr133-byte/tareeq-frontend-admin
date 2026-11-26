@@ -44,6 +44,14 @@ export function normalizeApiError(error: unknown): ApiError {
   };
 }
 
+/** Reads the documented API error message without exposing transport diagnostics. */
+export function getApiErrorMessage(error: unknown): string | undefined {
+  const data = normalizeApiError(error).responseData;
+  if (typeof data !== "object" || data === null || !("error" in data)) return undefined;
+  const message = (data as { error?: { message?: unknown } }).error?.message;
+  return typeof message === "string" && message.trim() ? message.trim() : undefined;
+}
+
 /** Reads only the documented `error.details.fields` validation shape. */
 export function getApiFieldErrors(error: unknown): Record<string, string[]> {
   const normalized = normalizeApiError(error);

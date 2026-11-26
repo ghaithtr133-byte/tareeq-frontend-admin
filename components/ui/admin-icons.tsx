@@ -415,6 +415,66 @@ export function PencilIcon(props: IconProps) {
   );
 }
 
+export function ParagraphIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M5 5h10a4 4 0 0 1 0 8H9" />
+      <path d="M9 5v14" />
+      <path d="M13 5v14" />
+    </svg>
+  );
+}
+
+export function Heading2Icon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M4 5v14" />
+      <path d="M10 5v14" />
+      <path d="M4 12h6" />
+      <path d="M15 8a3 3 0 0 1 5.2 2c0 2-5.2 3-5.2 6h5.2" />
+    </svg>
+  );
+}
+
+export function Heading3Icon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M4 5v14" />
+      <path d="M10 5v14" />
+      <path d="M4 12h6" />
+      <path d="M15 8.5a3 3 0 0 1 5.2 2c0 1.1-.7 1.9-1.8 2.2 1.2.3 2 1.1 2 2.3a3.2 3.2 0 0 1-5.4 2.3" />
+    </svg>
+  );
+}
+
+export function BulletedListIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <circle cx="5" cy="7" r=".8" fill="currentColor" />
+      <circle cx="5" cy="12" r=".8" fill="currentColor" />
+      <circle cx="5" cy="17" r=".8" fill="currentColor" />
+      <path d="M8 7h11M8 12h11M8 17h11" />
+    </svg>
+  );
+}
+
+export function NumberedListIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M4 6h1v4M4 15h2M4 20h2M4 15l2 2-2 3" />
+      <path d="M9 7h10M9 12h10M9 17h10" />
+    </svg>
+  );
+}
+
+export function QuoteIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M8.5 8.5H5.8A2.8 2.8 0 0 0 3 11.3V14a2.5 2.5 0 0 0 5 0v-2.2H5.5M20.5 8.5h-2.7a2.8 2.8 0 0 0-2.8 2.8V14a2.5 2.5 0 0 0 5 0v-2.2h-2.5" />
+    </svg>
+  );
+}
+
 export function StarIcon(props: IconProps) {
   return (
     <svg {...baseProps} {...props}>
