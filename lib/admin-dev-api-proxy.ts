@@ -216,6 +216,16 @@ export function getAllowedDevApiEndpoint(segments: readonly string[]): AllowedDe
     return undefined;
   }
 
+  if (["countries", "universities", "scholarships"].includes(resource ?? "") && UUID_PATTERN.test(segments[2] ?? "")) {
+    if (segments.length === 3) {
+      return { path: `/admin/${resource}/${segments[2]}`, methods: ["GET", "PATCH", "DELETE", "OPTIONS"] };
+    }
+    if (segments.length === 5 && segments[3] === "hard-delete" && segments[4] === "confirm") {
+      return { path: `/admin/${resource}/${segments[2]}/hard-delete/confirm`, methods: ["POST", "OPTIONS"] };
+    }
+    return undefined;
+  }
+
   if (segments.length === 2) {
     return { path: `/admin/${resource}`, methods: ["GET", "POST", "OPTIONS"] };
   }

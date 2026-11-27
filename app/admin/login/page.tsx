@@ -1,4 +1,5 @@
 import { LoginForm } from "./login-form";
+import Image from "next/image";
 
 const platformHighlights = [
   {
@@ -26,8 +27,8 @@ export default function LoginPage() {
         />
 
         <div className="flex items-center gap-3">
-          <span className="grid size-10 place-items-center rounded-xl border border-[var(--gold)]/50 bg-white/10 text-base font-bold text-[var(--gold-soft)]">
-            ط
+          <span className="relative inline-block h-10 w-12 shrink-0 overflow-hidden rounded-xl border border-[var(--gold)]/50 bg-white" aria-hidden="true">
+            <Image src="/tareeq-admin-logo.jpg" alt="" fill sizes="48px" className="object-cover object-center" />
           </span>
           <div>
             <p className="text-lg font-bold tracking-tight text-white">طريق أكاديمي</p>
@@ -65,8 +66,8 @@ export default function LoginPage() {
         <div className="w-full max-w-[440px]">
           {/* Mobile Brand Header */}
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <span className="grid size-10 place-items-center rounded-xl bg-[var(--navy)] text-base font-bold text-[var(--gold-soft)] ring-1 ring-[var(--gold)]/35">
-              ط
+            <span className="relative inline-block h-10 w-12 shrink-0 overflow-hidden rounded-xl border border-[var(--gold)]/35 bg-white" aria-hidden="true">
+              <Image src="/tareeq-admin-logo.jpg" alt="" fill sizes="48px" className="object-cover object-center" />
             </span>
             <div>
               <p className="text-lg font-bold text-[var(--navy)]">طريق أكاديمي</p>

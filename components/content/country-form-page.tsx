@@ -8,6 +8,7 @@ import { useForm, useWatch } from "react-hook-form";
 import type { Country, PublicationStatus } from "@/lib/api-client/content";
 import { getApiFieldErrors, normalizeApiError } from "@/lib/api-client/error";
 import { CountryImageCard } from "@/components/content/country-image-card";
+import { ContentHardDeleteDialog } from "@/components/content/content-hard-delete-dialog";
 import { DetailCollectionManager } from "@/components/content/detail-collection-manager";
 import { ErrorState, LoadingState } from "@/components/dashboard/states";
 import { SwitchToggle } from "@/components/ui/switch-toggle";
@@ -31,6 +32,7 @@ import {
 } from "@/lib/content-form";
 import { COUNTRY_FIELD_FOCUS_ORDER, COUNTRY_SECTION_ANCHORS, resolveAutoCountrySlug } from "@/lib/country-form-helpers";
 import { StaleContentSessionError } from "@/lib/content-session";
+import { useAdminAccess } from "@/providers/admin-access-provider";
 
 const textInputClass =
   "mt-1.5 min-h-11 w-full rounded-xl border border-[var(--line)] bg-white px-3.5 py-2.5 text-base text-[var(--navy)] placeholder:text-[var(--muted)]/65 hover:border-[var(--line-strong)] focus:border-[var(--gold)] focus:outline-none";
@@ -70,6 +72,7 @@ function SectionHeader({
 
 export function CountryFormPage({ id }: { id?: string }) {
   const router = useRouter();
+  const access = useAdminAccess();
   const isEditMode = Boolean(id);
   const detail = useContentDetail("countries", id);
   const create = useCreateContent("countries");
@@ -87,6 +90,7 @@ export function CountryFormPage({ id }: { id?: string }) {
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [mainImageUploading, setMainImageUploading] = useState(false);
   const [overviewImageUploading, setOverviewImageUploading] = useState(false);
+  const [hardDeleteOpen, setHardDeleteOpen] = useState(false);
 
   const submissionRef = useRef(false);
   const mainImageUploadRef = useRef(false);
@@ -102,6 +106,7 @@ export function CountryFormPage({ id }: { id?: string }) {
   const watchedStatus = useWatch({ control: form.control, name: "status" });
 
   const countryRecord = detail.data as Country | undefined;
+  const canHardDelete = Boolean(id && countryRecord) && !access.mockEnabled && (access.user?.role === "ADMIN" || access.user?.role === "SUPER_ADMIN");
   const originallyPublished = isEditMode && countryRecord?.status === "PUBLISHED";
 
   useEffect(() => {
@@ -826,6 +831,18 @@ export function CountryFormPage({ id }: { id?: string }) {
         </section>
       </form>
 
+      {canHardDelete && countryRecord ? (
+        <section className="rounded-2xl border border-red-200 bg-red-50/60 p-5 sm:p-6">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h3 className="text-base font-bold text-red-900">منطقة خطرة</h3>
+              <p className="mt-1 text-sm leading-6 text-red-800">احذف الدولة نهائياً بعد مراجعة آثار الخادم.</p>
+            </div>
+            <button type="button" disabled={isPending} onClick={() => setHardDeleteOpen(true)} className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-red-300 bg-white px-4 text-sm font-bold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-wait disabled:opacity-45">حذف الدولة نهائياً</button>
+          </div>
+        </section>
+      ) : null}
+
       {/* Edit Mode: Study Guide Detail Collection Manager */}
       {id ? <DetailCollectionManager resource="countries" parentId={id} /> : null}
 
@@ -854,6 +871,7 @@ export function CountryFormPage({ id }: { id?: string }) {
           </Link>
         </div>
       </div>
+      {hardDeleteOpen && countryRecord ? <ContentHardDeleteDialog resource="countries" record={{ id: countryRecord.id, nameAr: countryRecord.nameAr }} onClose={() => setHardDeleteOpen(false)} onDeleted={() => { setHardDeleteOpen(false); router.replace("/admin/countries"); }} /> : null}
     </section>
   );
 }

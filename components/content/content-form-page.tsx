@@ -11,10 +11,11 @@ import type {
   AdminContentResource,
   Article,
   ContentRecord,
+  HardDeletableContentResource,
   University,
 } from "@/lib/api-client/content";
 import { getApiFieldErrors, normalizeApiError } from "@/lib/api-client/error";
-import { ArticleHardDeleteDialog } from "@/components/content/article-hard-delete-dialog";
+import { ContentHardDeleteDialog } from "@/components/content/content-hard-delete-dialog";
 import { ArticleScholarships } from "@/components/content/article-scholarships";
 import { DetailCollectionManager } from "@/components/content/detail-collection-manager";
 import {
@@ -366,7 +367,7 @@ export function ContentFormPage({
     null,
   );
   const [manualArticleSlug, setManualArticleSlug] = useState(false);
-  const [articleHardDeleteOpen, setArticleHardDeleteOpen] = useState(false);
+  const [hardDeleteOpen, setHardDeleteOpen] = useState(false);
 
   const [submitError, setSubmitError] = useState<string>();
   const [relationshipChecks, setRelationshipChecks] = useState(0);
@@ -642,8 +643,16 @@ export function ContentFormPage({
   const submitLabel = id ? "حفظ التغييرات" : createSubmitLabels[resource];
   const universityCityLabel =
     resource === "universities" ? (detail.data as University | undefined)?.city?.nameAr : undefined;
-  const canHardDeleteArticle =
-    resource === "articles" &&
+  const hardDeleteResource = (["articles", "universities"] as const).includes(resource as "articles" | "universities")
+    ? resource as HardDeletableContentResource
+    : undefined;
+  const hardDeleteName = resource === "articles"
+    ? (detail.data as Article | undefined)?.titleAr
+    : resource === "universities"
+      ? (detail.data as University | undefined)?.nameAr
+      : undefined;
+  const canHardDelete =
+    Boolean(hardDeleteResource) &&
     Boolean(id && detail.data) &&
     !access.mockEnabled &&
     (access.user?.role === "ADMIN" || access.user?.role === "SUPER_ADMIN");
@@ -1048,22 +1057,22 @@ export function ContentFormPage({
         </div>
       </form>
 
-      {canHardDeleteArticle ? (
+      {canHardDelete ? (
         <section className="rounded-2xl border border-red-200 bg-red-50/60 p-5 sm:p-6">
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
               <h3 className="text-base font-bold text-red-900">منطقة خطرة</h3>
               <p className="mt-1 text-sm leading-6 text-red-800">
-                حذف المقال نهائي ولا يمكن التراجع عنه. قد يطلب الخادم تأكيدًا إضافيًا لحماية البيانات المرتبطة.
+                الحذف نهائي ولا يمكن التراجع عنه. قد يطلب الخادم تأكيدًا إضافيًا لحماية البيانات المرتبطة.
               </p>
             </div>
             <button
               type="button"
               disabled={isPending}
-              onClick={() => setArticleHardDeleteOpen(true)}
+              onClick={() => setHardDeleteOpen(true)}
               className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-red-300 bg-white px-4 text-sm font-bold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-wait disabled:opacity-45"
             >
-              حذف المقال نهائياً
+              حذف نهائي
             </button>
           </div>
         </section>
@@ -1134,13 +1143,14 @@ export function ContentFormPage({
         />
       ) : null}
 
-      {articleHardDeleteOpen && resource === "articles" && id && detail.data ? (
-        <ArticleHardDeleteDialog
-          article={detail.data as Article}
-          onClose={() => setArticleHardDeleteOpen(false)}
+      {hardDeleteOpen && hardDeleteResource && id && hardDeleteName ? (
+        <ContentHardDeleteDialog
+          resource={hardDeleteResource}
+          record={{ id, nameAr: hardDeleteName }}
+          onClose={() => setHardDeleteOpen(false)}
           onDeleted={() => {
-            setArticleHardDeleteOpen(false);
-            router.replace("/admin/articles");
+            setHardDeleteOpen(false);
+            router.replace(`/admin/${resource}`);
           }}
         />
       ) : null}

@@ -117,10 +117,12 @@ test("TA-113: development proxy exposes only the documented article delete workf
 });
 
 test("TA-113: the shared dialog hides technical or ordinary relationship details while preserving meaningful warnings", () => {
-  const dialog = readFileSync("components/content/article-hard-delete-dialog.tsx", "utf8");
+  const articleDialog = readFileSync("components/content/article-hard-delete-dialog.tsx", "utf8");
+  const dialog = readFileSync("components/content/content-hard-delete-dialog.tsx", "utf8");
   const list = readFileSync("components/content/articles-list-page.tsx", "utf8");
   const form = readFileSync("components/content/content-form-page.tsx", "utf8");
-  assert.match(dialog, /حذف المقال نهائياً/);
+  assert.match(articleDialog, /resource="articles"/);
+  assert.match(dialog, /حذف \{label\} نهائياً/);
   assert.match(dialog, /هذا الإجراء دائم ولا يمكن التراجع عنه/);
   assert.match(dialog, /requestInFlight\.current \|\| deletion\.isPending/);
   assert.match(dialog, /type="button"[\s\S]{0,900}إلغاء/);
@@ -135,5 +137,7 @@ test("TA-113: the shared dialog hides technical or ordinary relationship details
   assert.match(list, /lg:hidden/);
   assert.match(form, /منطقة خطرة/);
   assert.match(form, /access\.user\?\.role === "ADMIN" \|\| access\.user\?\.role === "SUPER_ADMIN"/);
+  assert.match(dialog, /DEMO_FIXTURE_PROTECTED/);
+  assert.match(dialog, /لا يمكن حذف هذا العنصر لأنه جزء من البيانات التجريبية المحمية/);
   assert.doesNotMatch(dialog, /status:\s*["'](?:DRAFT|PUBLISHED|ARCHIVED)/);
 });

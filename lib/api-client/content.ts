@@ -203,16 +203,23 @@ export interface DeletionImpact {
   }>;
 }
 
-export interface ArticleHardDeleteResult {
+/** Resources covered by the deployed hard-delete policy in this client. */
+export type HardDeletableContentResource = "countries" | "universities" | "scholarships" | "articles";
+
+export interface ContentHardDeleteResult {
   id: string;
   impact: DeletionImpact;
 }
 
-export interface ArticleHardDeleteConflict {
+export interface ContentHardDeleteConflict {
   code: "DELETE_REQUIRES_CONFIRMATION" | "DELETE_BLOCKED";
   impact: DeletionImpact;
   confirmation?: { challengeId: string; expiresAt: string };
 }
+
+/** Backwards-compatible article names retained for existing consumers. */
+export type ArticleHardDeleteResult = ContentHardDeleteResult;
+export type ArticleHardDeleteConflict = ContentHardDeleteConflict;
 
 export interface CountryInput {
   overviewImageUrl?: string | null; overviewImageAltAr?: string | null; studyLanguageAr?: string | null; tuitionSummaryAr?: string | null; admissionSummaryAr?: string | null; applicationDatesSummaryAr?: string | null;
@@ -290,7 +297,7 @@ function isDeletionImpact(value: unknown): value is DeletionImpact {
 }
 
 /** Reads the documented 409 deletion envelope without changing the original Axios error. */
-export function getArticleHardDeleteConflict(error: unknown): ArticleHardDeleteConflict | undefined {
+export function getContentHardDeleteConflict(error: unknown): ContentHardDeleteConflict | undefined {
   const normalized = normalizeApiError(error);
   if (normalized.status !== 409 || typeof normalized.responseData !== "object" || normalized.responseData === null) return undefined;
   const response = normalized.responseData as { error?: { code?: unknown; details?: unknown } };
@@ -312,19 +319,29 @@ export function getArticleHardDeleteConflict(error: unknown): ArticleHardDeleteC
   return { code, impact };
 }
 
-/** Article-only hard-delete contract. It is intentionally separate from normal content CRUD. */
-export const articleHardDeleteApi = {
-  async request(id: string): Promise<ArticleHardDeleteResult> {
-    const response = await apiClient.delete<SuccessEnvelope<ArticleHardDeleteResult>>(`/admin/articles/${id}`);
+/**
+ * The server owns deletion impact analysis.  The client only sends the
+ * documented initial DELETE or a server-issued confirmation challenge.
+ */
+export const contentHardDeleteApi = {
+  async request(resource: HardDeletableContentResource, id: string): Promise<ContentHardDeleteResult> {
+    const response = await apiClient.delete<SuccessEnvelope<ContentHardDeleteResult>>(`/admin/${resource}/${id}`);
     return response.data.data;
   },
-  async confirm(id: string, challengeId: string): Promise<ArticleHardDeleteResult> {
-    const response = await apiClient.post<SuccessEnvelope<ArticleHardDeleteResult>>(
-      `/admin/articles/${id}/hard-delete/confirm`,
+  async confirm(resource: HardDeletableContentResource, id: string, challengeId: string): Promise<ContentHardDeleteResult> {
+    const response = await apiClient.post<SuccessEnvelope<ContentHardDeleteResult>>(
+      `/admin/${resource}/${id}/hard-delete/confirm`,
       { challengeId },
     );
     return response.data.data;
   },
+};
+
+/** Article aliases preserve the previously released TA-113 integration surface. */
+export const getArticleHardDeleteConflict = getContentHardDeleteConflict;
+export const articleHardDeleteApi = {
+  request: (id: string) => contentHardDeleteApi.request("articles", id),
+  confirm: (id: string, challengeId: string) => contentHardDeleteApi.confirm("articles", id, challengeId),
 };
 
 function makeContentApi<K extends AdminContentResource>(resource: K) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 
 import {
@@ -37,16 +38,32 @@ type AdminShellProps = {
 
 const groupOrder: readonly AdminNavigationGroup[] = ["overview", "content", "submissions", "system"];
 
+function AdminLogo({ compact = false }: { compact?: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`relative inline-block shrink-0 overflow-hidden rounded-xl border border-[var(--gold)]/45 bg-white ${compact ? "size-9" : "h-10 w-12"}`}
+    >
+      <Image
+        src="/tareeq-admin-logo.jpg"
+        alt=""
+        fill
+        sizes={compact ? "36px" : "48px"}
+        className="object-cover object-center"
+      />
+    </span>
+  );
+}
+
 function BrandMark({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <Link
       href="/admin"
       className={`flex items-center gap-3 rounded-xl py-1 focus-visible:outline-offset-4 ${collapsed ? "justify-center" : ""}`}
       title="طريق أكاديمي — لوحة الإدارة"
+      aria-label="طريق أكاديمي — لوحة الإدارة"
     >
-      <span className="grid size-9 shrink-0 place-items-center rounded-xl border border-[var(--gold)]/45 bg-white/10 text-sm font-bold text-[var(--gold-soft)]">
-        ط
-      </span>
+      <AdminLogo compact={collapsed} />
       {!collapsed ? (
         <span className="min-w-0">
           <span className="block truncate text-base font-bold tracking-tight text-white">طريق أكاديمي</span>
@@ -303,6 +320,15 @@ export function AdminShell({
                 <PanelRightCloseIcon className="size-[18px]" />
               )}
             </button>
+
+            <Link
+              href="/admin"
+              aria-label="طريق أكاديمي — لوحة الإدارة"
+              title="طريق أكاديمي — لوحة الإدارة"
+              className="rounded-xl focus-visible:outline-offset-4"
+            >
+              <AdminLogo compact />
+            </Link>
 
             <div className="min-w-0">
               {activeItem !== "dashboard" ? (

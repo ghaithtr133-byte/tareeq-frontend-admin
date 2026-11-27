@@ -10,6 +10,7 @@ import type {
   ScholarshipApplicationStatus,
   ScholarshipListParams,
 } from "@/lib/api-client/content";
+import { ContentHardDeleteDialog } from "@/components/content/content-hard-delete-dialog";
 import { normalizeApiError } from "@/lib/api-client/error";
 import { useScholarshipOptionCatalog } from "@/components/content/scholarship-options-modal";
 import { ErrorState } from "@/components/dashboard/states";
@@ -31,9 +32,11 @@ import {
   SearchIcon,
   SpinnerIcon,
   StarIcon,
+  TrashIcon,
 } from "@/components/ui/admin-icons";
 import { useUpdateContent } from "@/hook/mutations/use-content-mutations";
 import { useContentList, useContentSelectors, useInfiniteContentList } from "@/hook/queries/use-content-queries";
+import { useAdminAccess } from "@/providers/admin-access-provider";
 import type { ListSearchParams } from "@/lib/content-filters";
 import { scholarshipOptionDisplayLabel } from "@/lib/scholarship-form-helpers";
 import {
@@ -128,11 +131,15 @@ function ScholarshipRowActions({
   preferDropUp = false,
   isUpdating,
   onToggleFeatured,
+  canHardDelete,
+  onDelete,
 }: {
   scholarship: Scholarship;
   preferDropUp?: boolean;
   isUpdating: boolean;
   onToggleFeatured: (scholarship: Scholarship) => void;
+  canHardDelete: boolean;
+  onDelete: (scholarship: Scholarship) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -225,6 +232,17 @@ function ScholarshipRowActions({
             />
             <span>{scholarship.featured ? "إلغاء التمييز" : "تمييز المنحة"}</span>
           </button>
+          {canHardDelete ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => { setMenuOpen(false); onDelete(scholarship); }}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-right text-[13px] font-medium text-red-700 transition-colors hover:bg-red-50"
+            >
+              <TrashIcon className="size-4 shrink-0" />
+              <span>حذف نهائي</span>
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -350,6 +368,7 @@ function ScholarshipsEmptyState({
 
 export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearchParams }) {
   const router = useRouter();
+  const access = useAdminAccess();
   const pathname = usePathname();
   const desktop = useDesktopLayout();
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -394,6 +413,8 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
   const [resetCount, setResetCount] = useState(0);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
+  const [scholarshipToDelete, setScholarshipToDelete] = useState<Scholarship | null>(null);
+  const canHardDelete = !access.mockEnabled && (access.user?.role === "ADMIN" || access.user?.role === "SUPER_ADMIN");
 
   const applyPatch = useCallback(
     (
@@ -834,6 +855,8 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
                           preferDropUp={desktopItems.length > 2 && index >= desktopItems.length - 2}
                           isUpdating={updatingId === scholarship.id}
                           onToggleFeatured={(target) => void handleToggleFeatured(target)}
+                          canHardDelete={canHardDelete}
+                          onDelete={setScholarshipToDelete}
                         />
                       </td>
                     </tr>
@@ -900,6 +923,8 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
                       preferDropUp={mobileItems.length > 2 && index >= mobileItems.length - 2}
                       isUpdating={updatingId === scholarship.id}
                       onToggleFeatured={(target) => void handleToggleFeatured(target)}
+                      canHardDelete={canHardDelete}
+                      onDelete={setScholarshipToDelete}
                     />
                   </div>
                 </article>
@@ -985,6 +1010,7 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
           ) : null}
         </>
       ) : null}
+      {scholarshipToDelete ? <ContentHardDeleteDialog resource="scholarships" record={{ id: scholarshipToDelete.id, nameAr: scholarshipToDelete.titleAr }} onClose={() => setScholarshipToDelete(null)} onDeleted={() => setScholarshipToDelete(null)} /> : null}
     </section>
   );
 }

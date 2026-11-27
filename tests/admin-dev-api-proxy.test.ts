@@ -30,7 +30,7 @@ test("development proxy only permits documented auth, health, and Admin content 
   assert.deepEqual(getAllowedDevApiEndpoint(["health"]), { path: "/health", methods: ["GET", "OPTIONS"] });
   assert.deepEqual(getAllowedDevApiEndpoint(["auth", "login"]), { path: "/auth/login", methods: ["POST", "OPTIONS"] });
   assert.deepEqual(getAllowedDevApiEndpoint(["admin", "countries"]), { path: "/admin/countries", methods: ["GET", "POST", "OPTIONS"] });
-  assert.deepEqual(getAllowedDevApiEndpoint(["admin", "countries", recordId]), { path: `/admin/countries/${recordId}`, methods: ["GET", "PATCH", "OPTIONS"] });
+  assert.deepEqual(getAllowedDevApiEndpoint(["admin", "countries", recordId]), { path: `/admin/countries/${recordId}`, methods: ["GET", "PATCH", "DELETE", "OPTIONS"] });
   assert.deepEqual(getAllowedDevApiEndpoint(["admin", "applications"]), { path: "/admin/applications", methods: ["GET", "OPTIONS"] });
   assert.deepEqual(getAllowedDevApiEndpoint(["admin", "applications", recordId]), { path: `/admin/applications/${recordId}`, methods: ["GET", "OPTIONS"] });
   assert.deepEqual(getAllowedDevApiEndpoint(["admin", "applications", recordId, "status"]), { path: `/admin/applications/${recordId}/status`, methods: ["PATCH", "OPTIONS"] });

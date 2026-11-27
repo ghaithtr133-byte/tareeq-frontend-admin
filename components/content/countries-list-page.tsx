@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import type { Country, PublicationStatus } from "@/lib/api-client/content";
+import { ContentHardDeleteDialog } from "@/components/content/content-hard-delete-dialog";
 import { normalizeApiError } from "@/lib/api-client/error";
 import { ErrorState } from "@/components/dashboard/states";
 import { DebouncedSearchBar } from "@/components/ui/debounced-search-bar";
@@ -24,9 +25,11 @@ import {
   SearchIcon,
   SpinnerIcon,
   StarIcon,
+  TrashIcon,
 } from "@/components/ui/admin-icons";
 import { useUpdateContent } from "@/hook/mutations/use-content-mutations";
 import { useContentList, useInfiniteContentList } from "@/hook/queries/use-content-queries";
+import { useAdminAccess } from "@/providers/admin-access-provider";
 import {
   buildContentFilterUrlParams,
   parseContentListFilters,
@@ -135,11 +138,15 @@ function CountryRowActions({
   preferDropUp = false,
   isUpdating,
   onToggleFeatured,
+  canHardDelete,
+  onDelete,
 }: {
   country: Country;
   preferDropUp?: boolean;
   isUpdating: boolean;
   onToggleFeatured: (country: Country) => void;
+  canHardDelete: boolean;
+  onDelete: (country: Country) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -232,6 +239,17 @@ function CountryRowActions({
             />
             <span>{country.featured ? "إلغاء التمييز" : "تمييز الدولة"}</span>
           </button>
+          {canHardDelete ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => { setMenuOpen(false); onDelete(country); }}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-right text-[13px] font-medium text-red-700 transition-colors hover:bg-red-50"
+            >
+              <TrashIcon className="size-4 shrink-0" />
+              <span>حذف نهائي</span>
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -349,6 +367,7 @@ function CountriesEmptyState({
 
 export function CountriesListPage({ searchParams }: { searchParams: ListSearchParams }) {
   const router = useRouter();
+  const access = useAdminAccess();
   const pathname = usePathname();
   const desktop = useDesktopLayout();
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -374,6 +393,8 @@ export function CountriesListPage({ searchParams }: { searchParams: ListSearchPa
   const [resetCount, setResetCount] = useState(0);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
+  const [countryToDelete, setCountryToDelete] = useState<Country | null>(null);
+  const canHardDelete = !access.mockEnabled && (access.user?.role === "ADMIN" || access.user?.role === "SUPER_ADMIN");
 
   const applyPatch = useCallback(
     (
@@ -637,6 +658,8 @@ export function CountriesListPage({ searchParams }: { searchParams: ListSearchPa
                         preferDropUp={items.length > 2 && index >= items.length - 2}
                         isUpdating={updatingId === country.id}
                         onToggleFeatured={(target) => void handleToggleFeatured(target)}
+                        canHardDelete={canHardDelete}
+                        onDelete={setCountryToDelete}
                       />
                     </td>
                   </tr>
@@ -672,6 +695,8 @@ export function CountriesListPage({ searchParams }: { searchParams: ListSearchPa
                     preferDropUp={items.length > 2 && index >= items.length - 2}
                     isUpdating={updatingId === country.id}
                     onToggleFeatured={(target) => void handleToggleFeatured(target)}
+                    canHardDelete={canHardDelete}
+                    onDelete={setCountryToDelete}
                   />
                 </div>
               </article>
@@ -745,6 +770,7 @@ export function CountriesListPage({ searchParams }: { searchParams: ListSearchPa
           ) : null}
         </>
       ) : null}
+      {countryToDelete ? <ContentHardDeleteDialog resource="countries" record={{ id: countryToDelete.id, nameAr: countryToDelete.nameAr }} onClose={() => setCountryToDelete(null)} onDeleted={() => setCountryToDelete(null)} /> : null}
     </section>
   );
 }

@@ -12,6 +12,7 @@ import {
 } from "@/lib/api-client/content";
 import { getApiFieldErrors, normalizeApiError } from "@/lib/api-client/error";
 import { ContentImageCard } from "@/components/content/content-image-card";
+import { ContentHardDeleteDialog } from "@/components/content/content-hard-delete-dialog";
 import { DetailCollectionManager } from "@/components/content/detail-collection-manager";
 import {
   ScholarshipOptionsModal,
@@ -116,6 +117,7 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
 
   const [submitError, setSubmitError] = useState<string>();
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+  const [hardDeleteOpen, setHardDeleteOpen] = useState(false);
 
   // Server-backed paginated selectors (no eager all-pages prefetch on mount)
   const [countrySearch, setCountrySearch] = useState("");
@@ -153,6 +155,7 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
   const watchedStatus = useWatch({ control: form.control, name: "status" });
 
   const scholarshipRecord = detail.data as Scholarship | undefined;
+  const canHardDelete = Boolean(id && scholarshipRecord) && !access.mockEnabled && (access.user?.role === "ADMIN" || access.user?.role === "SUPER_ADMIN");
   const originallyPublished = isEditMode && scholarshipRecord?.status === "PUBLISHED";
 
   const selectedCountryId = typeof watchedCountryId === "string" ? watchedCountryId : "";
@@ -1251,6 +1254,15 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
         </section>
       </form>
 
+      {canHardDelete && scholarshipRecord ? (
+        <section className="rounded-2xl border border-red-200 bg-red-50/60 p-5 sm:p-6">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div><h3 className="text-base font-bold text-red-900">منطقة خطرة</h3><p className="mt-1 text-sm leading-6 text-red-800">احذف المنحة نهائياً بعد مراجعة آثار الخادم.</p></div>
+            <button type="button" disabled={isPending} onClick={() => setHardDeleteOpen(true)} className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-red-300 bg-white px-4 text-sm font-bold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-wait disabled:opacity-45">حذف المنحة نهائياً</button>
+          </div>
+        </section>
+      ) : null}
+
       {/* Legacy Scholarship Detail Items kept collapsed on Edit so existing records remain accessible without cluttering normal authoring */}
       {id ? (
         <details className="rounded-2xl border border-[var(--line)] bg-white shadow-[var(--shadow-card)]">
@@ -1311,6 +1323,7 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
           }}
         />
       ) : null}
+      {hardDeleteOpen && scholarshipRecord ? <ContentHardDeleteDialog resource="scholarships" record={{ id: scholarshipRecord.id, nameAr: scholarshipRecord.titleAr }} onClose={() => setHardDeleteOpen(false)} onDeleted={() => { setHardDeleteOpen(false); router.replace("/admin/scholarships"); }} /> : null}
     </section>
   );
 }
