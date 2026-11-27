@@ -6,6 +6,7 @@ import test from "node:test";
 import {
   analyticsParamsFromDraft,
   analyticsPresetDraft,
+  draftWithResolvedAnalyticsRange,
   emptyAnalyticsFilterDraft,
 } from "@/lib/analytics-filters";
 
@@ -32,10 +33,22 @@ test("Analytics filters keep the documented top limit internal and reject invali
   assert.throws(() => analyticsParamsFromDraft({ from: "2026-11-25", to: "2026-11-01", granularity: "day", preset: "custom" }));
 });
 
+test("server default dates populate only an untouched Analytics draft", () => {
+  const range = { from: "2026-11-19", to: "2026-11-25", granularity: "day" as const };
+  assert.deepEqual(draftWithResolvedAnalyticsRange(emptyAnalyticsFilterDraft(), range), { ...range, preset: "custom" });
+  const selected = analyticsPresetDraft("last-7", new Date("2026-11-25T12:00:00.000Z"));
+  assert.equal(draftWithResolvedAnalyticsRange(selected, range), selected);
+});
+
 test("Analytics UI keeps journeys lazy, server-paginated, and hides the technical topLimit control", () => {
   const source = readFileSync(join(process.cwd(), "components/phase4/analytics-page.tsx"), "utf8");
   assert.doesNotMatch(source, /name="topLimit"|حد المقارنات/);
   assert.match(source, /useAnalyticsJourneys\(\{ \.\.\.params, page, limit: 10 \}\)/);
   assert.match(source, /tab === "summary" \? \(\s*<SummaryView/);
   assert.match(source, /JourneysView key=\{JSON\.stringify\(params\)\}/);
+  assert.match(source, /AnalyticsSkeleton section="summary"/);
+  assert.match(source, /AnalyticsError section="journeys"/);
+  assert.match(source, /analyticsPageReference\(row\.path\)/);
+  assert.doesNotMatch(source, /sessionId\.slice/);
+  assert.match(source, /syncDefaultRange/);
 });

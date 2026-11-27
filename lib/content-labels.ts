@@ -9,6 +9,7 @@ import type {
 import type {
   auditResourceTypes,
   ctaIds,
+  engagementTypes,
   eventTypes,
   granularities,
   managedRoles,
@@ -156,5 +157,12 @@ export const ctaIdLabels: Record<(typeof ctaIds)[number], string> = {
   VIEW_UNIVERSITY: "عرض جامعة",
   VIEW_SCHOLARSHIP: "عرض منحة",
   VIEW_SERVICE: "عرض خدمة",
+};
+
+export const engagementTypeLabels: Record<(typeof engagementTypes)[number], string> = {
+  SCROLL_50: "تمرير 50٪ من الصفحة",
+  SCROLL_90: "تمرير 90٪ من الصفحة",
+  ACTIVE_30_SECONDS: "نشاط لمدة 30 ثانية",
+  ACTIVE_60_SECONDS: "نشاط لمدة 60 ثانية",
 };
 

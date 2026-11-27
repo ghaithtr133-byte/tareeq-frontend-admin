@@ -18,6 +18,16 @@ export function emptyAnalyticsFilterDraft(): AnalyticsFilterDraft {
   return { from: "", to: "", granularity: "day", preset: null };
 }
 
+/** Mirrors the server-default range into an untouched form only; it never applies a request. */
+export function draftWithResolvedAnalyticsRange(
+  draft: AnalyticsFilterDraft,
+  range: Pick<AnalyticsFilterDraft, "from" | "to" | "granularity">,
+): AnalyticsFilterDraft {
+  return draft.from || draft.to || draft.preset !== null
+    ? draft
+    : { from: range.from, to: range.to, granularity: range.granularity, preset: "custom" };
+}
+
 function utcDay(value: Date): string {
   return value.toISOString().slice(0, 10);
 }

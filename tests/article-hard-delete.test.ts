@@ -66,6 +66,33 @@ test("TA-113: only documented 409 impact/challenge envelopes unlock the final co
   assert.equal(getArticleHardDeleteConflict(new Error("not a documented envelope")), undefined);
 });
 
+test("TA-42: a genuine blocked impact stays blocked and never fabricates a confirmation", () => {
+  const response = {
+    status: 409,
+    statusText: "Conflict",
+    headers: {},
+    config: { headers: {} } as never,
+    data: {
+      success: false,
+      error: {
+        code: "DELETE_BLOCKED",
+        message: "blocked",
+        details: {
+          impact: {
+            ...impact,
+            outcome: "BLOCKED",
+            items: [{ resourceType: "STUDENT_APPLICATION", effect: "BLOCK", count: 1, relationshipPath: "article.studentApplications", sampleIds: [], code: "STUDENT_APPLICATION_HISTORY_PROTECTED", canConfirm: false, blocked: true }],
+          },
+        },
+      },
+    },
+  };
+  assert.deepEqual(getArticleHardDeleteConflict(new AxiosError("Conflict", undefined, undefined, undefined, response)), {
+    code: "DELETE_BLOCKED",
+    impact: response.data.error.details.impact,
+  });
+});
+
 test("TA-113: a successful hard delete only clears its detail and article list caches", async () => {
   const removed: unknown[] = [];
   const invalidated: unknown[] = [];
@@ -103,6 +130,10 @@ test("TA-113: the shared dialog hides technical or ordinary relationship details
   assert.doesNotMatch(dialog, /يتطلب الحذف تأكيدًا نهائيًا وفق آثار الخادم الحالية/);
   assert.doesNotMatch(dialog.slice(dialog.indexOf("<ul")), /relationshipPath/);
   assert.match(list, /ArticleHardDeleteDialog/);
+  assert.match(list, /const canHardDelete = !access\.mockEnabled && \(access\.user\?\.role === "ADMIN" \|\| access\.user\?\.role === "SUPER_ADMIN"\)/);
+  assert.match(list, /lg:block/);
+  assert.match(list, /lg:hidden/);
   assert.match(form, /منطقة خطرة/);
-  assert.doesNotMatch(dialog, /status:\s*["'](?:DRAFT|ARCHIVED)/);
+  assert.match(form, /access\.user\?\.role === "ADMIN" \|\| access\.user\?\.role === "SUPER_ADMIN"/);
+  assert.doesNotMatch(dialog, /status:\s*["'](?:DRAFT|PUBLISHED|ARCHIVED)/);
 });

@@ -8,7 +8,7 @@ import { queryKeys } from "@/lib/api-client/query-keys";
 import { normalizeApiError } from "@/lib/api-client/error";
 import { accountParamsSchema, accountUpdateSchema, analyticsParamsSchema, analyticsSummarySchema, auditParamsSchema, journeyParamsSchema, journeySchema } from "@/lib/phase4-schemas";
 import { assertSuperAdminSession, clearPrivilegedCache } from "@/lib/privileged-access";
-import { actionLabel, auditActionTitle, formatCount, formatRate, safeAnalyticsPath, safeAuditActionCode, safeAuditMetadata, trendPoints } from "@/lib/phase4-presentation";
+import { actionLabel, analyticsPageLabel, analyticsPageReference, auditActionTitle, formatCount, formatRate, funnelStageLabel, safeAnalyticsPath, safeAuditActionCode, safeAuditMetadata, trafficCampaignLabel, trafficMediumLabel, trafficSourceLabel, trendPoints } from "@/lib/phase4-presentation";
 import { cacheAccountUpdate } from "@/hook/mutations/use-account-mutation";
 import { getAllowedDevApiEndpoint, isAdminDevApiProxyEnabled, validateTrustedDevelopmentRequest } from "@/lib/admin-dev-api-proxy";
 import { accountFixture, actorId, auditFixture, journeyFixture, summaryFixture, targetId } from "./fixtures/phase4";
@@ -35,6 +35,8 @@ test("metrics preserve raw counts/rates, zero/null/missing distinctions and exac
   assert.equal(analyticsSummarySchema.safeParse({ ...summaryFixture, totals: { ...summaryFixture.totals, pageViews: null } }).success, false); assert.equal(analyticsSummarySchema.safeParse({ ...summaryFixture, conversionRates: undefined }).success, false);
   const rows = [...summaryFixture.trends].reverse(); const before = JSON.stringify(rows); const points = trendPoints(rows, "pageViews"); assert.deepEqual(points.map(point => point.value), [12, 20]); assert.equal(points[0].y, 78); assert.equal(JSON.stringify(rows), before); assert.deepEqual(trendPoints([], "pageViews"), []); assert.equal(trendPoints([{ ...rows[0], pageViews: 0 }], "pageViews")[0].y, 150);
   assert.equal(journeySchema.safeParse(journeyFixture).success, true);
+  assert.equal(analyticsPageLabel("/scholarships"), "المنح الدراسية"); assert.equal(analyticsPageLabel("/universities/opaque-slug"), undefined); assert.deepEqual(analyticsPageReference("/universities/opaque-slug"), { label: "تفاصيل جامعة", path: "/universities/opaque-slug" });
+  assert.equal(trafficSourceLabel("google"), "جوجل"); assert.equal(trafficSourceLabel("unlisted-source"), "unlisted-source"); assert.equal(trafficMediumLabel(null), "غير محدد"); assert.equal(trafficCampaignLabel("demo-seed"), "بيانات حملة اختبار (demo-seed)"); assert.equal(funnelStageLabel("CTA_CLICK"), "نقرة دعوة للإجراء"); assert.equal(funnelStageLabel("CLIENT_REPORTED_CONVERSION"), "إشارة تحويل من المتصفح"); assert.equal(funnelStageLabel("UNLISTED_STAGE"), "UNLISTED_STAGE");
 });
 test("account update is exactly one role or activation flag; invalid writes never reach Axios", async () => {
   for (const input of [{ role: "ADMIN" }, { role: "SUPER_ADMIN" }, { isActive: true }, { isActive: false }]) assert.equal(accountUpdateSchema.safeParse(input).success, true);

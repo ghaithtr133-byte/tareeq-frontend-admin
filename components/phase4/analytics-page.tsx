@@ -1,28 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAnalyticsJourneys, useAnalyticsSummary } from "@/hook/queries/use-phase4-queries";
 import { granularities, type AnalyticsParams } from "@/lib/phase4-schemas";
 import {
   analyticsParamsFromDraft,
   analyticsPresetDraft,
   analyticsRangePresets,
+  draftWithResolvedAnalyticsRange,
   emptyAnalyticsFilterDraft,
   type AnalyticsFilterDraft,
 } from "@/lib/analytics-filters";
 import {
+  analyticsPageReference,
+  funnelStageLabel,
   formatCount,
   formatRate,
-  safeAnalyticsPath,
+  trafficMediumLabel,
+  trafficCampaignLabel,
+  trafficSourceLabel,
   trendLabels,
   trendPoints,
+  utcChartDate,
   utcDate,
   type TrendMetric,
 } from "@/lib/phase4-presentation";
-import { ctaIdLabels, eventTypeLabels, granularityLabels } from "@/lib/content-labels";
+import { ctaIdLabels, engagementTypeLabels, eventTypeLabels, granularityLabels } from "@/lib/content-labels";
 import {
+  AlertTriangleIcon,
   CalendarIcon,
   ChevronDownIcon,
+  InboxIcon,
   RotateCcwIcon,
   ShieldCheckIcon,
 } from "@/components/ui/admin-icons";
@@ -33,8 +41,7 @@ import {
   panelClass,
   primaryButtonClass,
 } from "@/components/universities/controls";
-import { EmptyState, LoadingState } from "@/components/dashboard/states";
-import { Phase4Error } from "./query-state";
+import { normalizeApiError } from "@/lib/api-client/error";
 
 function KpiCard({
   label,
@@ -55,9 +62,9 @@ function KpiCard({
         : "border-[var(--line)] bg-white";
 
   return (
-    <div className={`min-w-0 rounded-xl border p-4 ${toneClass}`}>
+    <div className={`min-w-0 rounded-xl border p-3 sm:p-4 ${toneClass}`}>
       <p className="text-xs font-semibold text-[var(--muted)]">{label}</p>
-      <p className="mt-2 break-words text-2xl font-bold text-[var(--navy)] tabular-nums">{value}</p>
+      <p className="mt-2 break-words text-xl font-bold text-[var(--navy)] tabular-nums sm:text-2xl">{value}</p>
       {hint ? <p className="mt-1 text-[11px] text-[var(--muted)]">{hint}</p> : null}
     </div>
   );
@@ -75,7 +82,7 @@ function BreakdownTable({
   rows: React.ReactNode[][];
 }) {
   return (
-    <section className={panelClass}>
+    <section className={`${panelClass} min-w-0`}>
       <div className="border-b border-[var(--line)] pb-3">
         <h3 className="text-base font-bold text-[var(--navy)]">{title}</h3>
         {subtitle ? <p className="mt-0.5 text-xs text-[var(--muted)]">{subtitle}</p> : null}
@@ -109,23 +116,72 @@ function BreakdownTable({
           </table>
         </div>
       ) : (
-        <p className="py-4 text-center text-xs text-[var(--muted)]">لا توجد بيانات لهذه الفترة.</p>
+        <p className="py-4 text-center text-xs text-[var(--muted)]">لا توجد بيانات {title} لهذه الفترة.</p>
       )}
     </section>
   );
 }
 
-function SummaryView({ params }: { params: AnalyticsParams }) {
+function AnalyticsSkeleton({ section }: { section: "summary" | "journeys" }) {
+  const rows = section === "summary" ? 3 : 2;
+  return (
+    <section aria-busy="true" aria-label={section === "summary" ? "جارٍ تحميل ملخص التحليلات" : "جارٍ تحميل الرحلات المجهولة"} className="space-y-4">
+      <p className="sr-only">جارٍ التحميل</p>
+      {section === "summary" ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {Array.from({ length: rows }, (_, index) => <div key={index} className="h-28 animate-pulse rounded-xl bg-slate-100" />)}
+        </div>
+      ) : (
+        Array.from({ length: rows }, (_, index) => <div key={index} className="h-44 animate-pulse rounded-2xl bg-slate-100" />)
+      )}
+    </section>
+  );
+}
+
+function AnalyticsEmpty({ section }: { section: "summary" | "journeys" }) {
+  const label = section === "summary" ? "ملخص التحليلات" : "الرحلات المجهولة";
+  return (
+    <section className={`${panelClass} mx-auto max-w-xl text-center`}>
+      <InboxIcon className="mx-auto size-5 text-[var(--navy)]" />
+      <h3 className="text-sm font-bold text-[var(--navy)]">لا توجد بيانات لـ{label}</h3>
+      <p className="text-xs leading-6 text-[var(--muted)]">جرّب تغيير الفترة أو راجع توفر البيانات المسجلة من الخادم.</p>
+    </section>
+  );
+}
+
+function AnalyticsError({ section, error, retry }: { section: "summary" | "journeys"; error: unknown; retry: () => unknown }) {
+  const status = normalizeApiError(error).status;
+  const label = section === "summary" ? "ملخص التحليلات" : "الرحلات المجهولة";
+  const detail = status === 403
+    ? "هذا القسم مخصص لصلاحيات أعلى. تواصل مع مدير النظام إذا كنت بحاجة إلى الوصول."
+    : "تحقق من الاتصال ثم أعد المحاولة. لم تُعرض أي تفاصيل تقنية حساسة.";
+  return (
+    <section role="alert" className={`${panelClass} mx-auto max-w-xl text-center`}>
+      <AlertTriangleIcon className="mx-auto size-5 text-red-700" />
+      <h3 className="text-sm font-bold text-[var(--navy)]">تعذّر تحميل {label}</h3>
+      <p className="text-xs leading-6 text-[var(--muted)]">{detail}</p>
+      {status !== 403 ? <button type="button" className={primaryButtonClass} onClick={() => void retry()}>إعادة تحميل {label}</button> : null}
+    </section>
+  );
+}
+
+function SummaryView({ params, onDefaultRange }: { params: AnalyticsParams; onDefaultRange: (range: { from: string; to: string; granularity: AnalyticsFilterDraft["granularity"] }) => void }) {
   const query = useAnalyticsSummary(params);
   const [metric, setMetric] = useState<TrendMetric>("pageViews");
 
-  if (query.isPending) return <LoadingState />;
-  if (query.isError) return <Phase4Error error={query.error} retry={query.refetch} />;
-  if (!query.data) return <EmptyState />;
+  useEffect(() => {
+    if (query.data && !params.from && !params.to) onDefaultRange(query.data.range);
+  }, [onDefaultRange, params.from, params.to, query.data]);
+
+  if (query.isPending) return <AnalyticsSkeleton section="summary" />;
+  if (query.isError) return <AnalyticsError section="summary" error={query.error} retry={query.refetch} />;
+  if (!query.data) return <AnalyticsEmpty section="summary" />;
 
   const data = query.data;
   const points = trendPoints(data.trends, metric);
   const maxTrendValue = points.length ? Math.max(...points.map((point) => point.value)) : 0;
+  const chartLabelStride = Math.max(1, Math.ceil(points.length / 5));
+  const chartDateLabels = points.filter((_, index) => index % chartLabelStride === 0 || index === points.length - 1);
   const maxFunnelSessions = data.funnel.length
     ? Math.max(1, ...data.funnel.map((step) => step.sessions))
     : 1;
@@ -231,6 +287,11 @@ function SummaryView({ params }: { params: AnalyticsParams }) {
         />
       </div>
 
+      <aside className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-2.5 text-xs leading-6 text-amber-950">
+        <strong>كيف تُقرأ المعدلات؟ </strong>
+        تعكس نسب الجلسات تعريف الخادم لكل نوع تحويل وتُعرض كما وردت دون إعادة حساب. عند انخفاض عدد الجلسات قد تتغير النسبة بسرعة؛ اقرأها بجانب إجمالي الجلسات ({formatCount(data.totals.sessions)}) ولا تقارنها وحدها بفترة مختلفة الحجم.
+      </aside>
+
       {/* Trend Chart */}
       <section className={panelClass}>
         <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[var(--line)] pb-3">
@@ -266,22 +327,17 @@ function SummaryView({ params }: { params: AnalyticsParams }) {
             <svg
               role="img"
               aria-label={`اتجاه ${trendLabels[metric]}`}
-              viewBox="0 0 600 180"
-              className="w-full"
+              viewBox="0 0 600 210"
+              className="w-full min-w-0"
               style={{ direction: "ltr" }}
             >
-              {[30, 70, 110, 150].map((y) => (
-                <line
-                  key={y}
-                  x1="30"
-                  x2="570"
-                  y1={y}
-                  y2={y}
-                  stroke="#e2e8f0"
-                  strokeDasharray={y === 150 ? undefined : "4 4"}
-                />
+              {[30, 60, 90, 120, 150].map((y) => (
+                <g key={y}>
+                  <line x1="42" x2="570" y1={y} y2={y} stroke="#e2e8f0" strokeDasharray={y === 150 ? undefined : "4 4"} />
+                  <text x="36" y={y + 3} textAnchor="end" fontSize="10" fill="#64748b" direction="rtl">{formatCount(Math.round(maxTrendValue * (150 - y) / 120))}</text>
+                </g>
               ))}
-              <line x1="30" y1="15" x2="30" y2="150" stroke="#cbd5e1" />
+              <line x1="42" y1="15" x2="42" y2="150" stroke="#cbd5e1" />
               <polyline
                 points={points.map((point) => `${point.x},${point.y}`).join(" ")}
                 fill="none"
@@ -296,6 +352,11 @@ function SummaryView({ params }: { params: AnalyticsParams }) {
                     {utcDate(point.period)}: {formatCount(point.value)}
                   </title>
                 </circle>
+              ))}
+              {chartDateLabels.map((point, index) => (
+                <text key={point.period} x={point.x} y="174" textAnchor={index === 0 ? "start" : index === chartDateLabels.length - 1 ? "end" : "middle"} fontSize="10" fill="#64748b" direction="rtl">
+                  {utcChartDate(point.period)}
+                </text>
               ))}
             </svg>
 
@@ -349,9 +410,12 @@ function SummaryView({ params }: { params: AnalyticsParams }) {
           title="أهم الصفحات"
           columns={["المسار", "المشاهدات", "الزوار"]}
           rows={data.topPages.map((row) => [
-            <span key={row.path} dir="ltr" className="font-mono text-xs">
-              {safeAnalyticsPath(row.path)}
-            </span>,
+            <div key={row.path} className="min-w-0 space-y-1">
+              <strong className="block break-words font-medium text-[var(--navy)]">{analyticsPageReference(row.path).label}</strong>
+              <span dir="ltr" className="block break-all font-mono text-[11px] text-[var(--muted)]">
+                {analyticsPageReference(row.path).path}
+              </span>
+            </div>,
             formatCount(row.pageViews),
             formatCount(row.visitors),
           ])}
@@ -361,16 +425,16 @@ function SummaryView({ params }: { params: AnalyticsParams }) {
           title="مصادر الزيارات"
           columns={["المصدر", "الوسيط", "الحملة", "الجلسات", "المشاهدات"]}
           rows={data.trafficSources.map((row) => [
-            row.source,
-            row.medium ?? "غير محدد",
-            row.campaign ?? "غير محدد",
+            trafficSourceLabel(row.source),
+            trafficMediumLabel(row.medium),
+            trafficCampaignLabel(row.campaign),
             formatCount(row.sessions),
             formatCount(row.pageViews),
           ])}
         />
 
         <BreakdownTable
-          title="التفاعل مع الدعوات للإجراء"
+          title="التفاعل مع أزرار الإجراءات"
           columns={["الإجراء", "النقرات", "الجلسات"]}
           rows={data.ctaEngagement.map((row) => [
             ctaIdLabels[row.ctaId] ?? row.ctaId,
@@ -387,7 +451,7 @@ function SummaryView({ params }: { params: AnalyticsParams }) {
             const width = Math.max(4, Math.round((row.sessions / maxFunnelSessions) * 100));
             return [
               <div key={row.step} className="space-y-1">
-                <span className="font-medium">{row.step}</span>
+                <span className="font-medium">{funnelStageLabel(row.step)}</span>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
                   <div
                     className="h-full rounded-full bg-[var(--navy)]"
@@ -405,9 +469,14 @@ function SummaryView({ params }: { params: AnalyticsParams }) {
   );
 }
 
-function JourneysView({ params }: { params: AnalyticsParams }) {
+function JourneysView({ params, onDefaultRange }: { params: AnalyticsParams; onDefaultRange: (range: { from: string; to: string; granularity: AnalyticsFilterDraft["granularity"] }) => void }) {
   const [page, setPage] = useState(1);
   const query = useAnalyticsJourneys({ ...params, page, limit: 10 });
+  const data = query.data;
+
+  useEffect(() => {
+    if (data && !params.from && !params.to) onDefaultRange(data.range);
+  }, [data, onDefaultRange, params.from, params.to]);
 
   return (
     <section className="space-y-4">
@@ -422,26 +491,23 @@ function JourneysView({ params }: { params: AnalyticsParams }) {
       </div>
 
       {query.isPending ? (
-        <LoadingState />
+        <AnalyticsSkeleton section="journeys" />
       ) : query.isError ? (
-        <Phase4Error error={query.error} retry={query.refetch} />
-      ) : !query.data || !query.data.items.length ? (
-        <EmptyState />
+        <AnalyticsError section="journeys" error={query.error} retry={query.refetch} />
+      ) : !data || !data.items.length ? (
+        <AnalyticsEmpty section="journeys" />
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-[var(--muted)] tabular-nums" dir="ltr">
-            الفترة (UTC): {query.data.range.from} — {query.data.range.to}
+            الفترة (UTC): {data.range.from} — {data.range.to}
           </p>
 
-          {query.data.items.map((item) => (
+          {data.items.map((item, index) => (
             <article key={item.sessionId} className={panelClass}>
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--line)] pb-3">
                 <div>
                   <h3 className="text-sm font-bold text-[var(--navy)]">
-                    جلسة مجهولة{" "}
-                    <span className="font-mono text-xs text-[var(--gold-dark)]" dir="ltr">
-                      #{item.sessionId.slice(0, 8)}
-                    </span>
+                    جلسة {formatCount((data.pagination.page - 1) * data.pagination.limit + index + 1)}
                   </h3>
                   <p className="mt-0.5 text-xs text-[var(--muted)] tabular-nums">
                     {utcDate(item.startedAt, true)} — {utcDate(item.endedAt, true)} UTC ·{" "}
@@ -493,13 +559,17 @@ function JourneysView({ params }: { params: AnalyticsParams }) {
                           {utcDate(step.occurredAt, true)} UTC
                         </span>
                       </div>
-                      <p className="break-all font-mono text-[11px] text-[var(--navy)]" dir="ltr">
-                        {safeAnalyticsPath(step.path)}
-                      </p>
-                      {step.targetPath !== null ? (
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="font-medium text-[var(--navy)]">{analyticsPageReference(step.path).label}</p>
                         <p className="break-all font-mono text-[11px] text-[var(--muted)]" dir="ltr">
-                          → {safeAnalyticsPath(step.targetPath)}
+                          {analyticsPageReference(step.path).path}
                         </p>
+                      </div>
+                      {step.targetPath !== null ? (
+                        <div className="min-w-0 space-y-0.5">
+                          <p className="text-[11px] font-medium text-[var(--muted)]">إلى: {analyticsPageReference(step.targetPath).label}</p>
+                          <p className="break-all font-mono text-[11px] text-[var(--muted)]" dir="ltr">→ {analyticsPageReference(step.targetPath).path}</p>
+                        </div>
                       ) : null}
                       {step.ctaId !== null ? (
                         <p className="text-[11px] text-[var(--muted)]">
@@ -511,7 +581,7 @@ function JourneysView({ params }: { params: AnalyticsParams }) {
                       ) : null}
                       {step.engagementType !== null ? (
                         <p className="text-[11px] text-[var(--muted)]">
-                          نوع التفاعل: <bdi dir="ltr">{step.engagementType}</bdi>
+                          نوع التفاعل: <strong className="text-[var(--navy)]">{engagementTypeLabels[step.engagementType] ?? step.engagementType}</strong>
                         </p>
                       ) : null}
                     </li>
@@ -523,7 +593,7 @@ function JourneysView({ params }: { params: AnalyticsParams }) {
         </div>
       )}
 
-      <PageControls data={query.data} change={setPage} />
+      <PageControls data={data} change={setPage} />
     </section>
   );
 }
@@ -533,6 +603,10 @@ export function AnalyticsPage() {
   const [draft, setDraft] = useState<AnalyticsFilterDraft>(emptyAnalyticsFilterDraft);
   const [tab, setTab] = useState<"summary" | "journeys">("summary");
   const [error, setError] = useState("");
+  const syncDefaultRange = useCallback((range: { from: string; to: string; granularity: AnalyticsFilterDraft["granularity"] }) => {
+    setDraft((current) => draftWithResolvedAnalyticsRange(current, range));
+  }, []);
+  const selectedPresetClass = `${primaryButtonClass} ring-2 ring-[var(--gold)] ring-offset-2 ring-offset-white`;
 
   return (
     <section className="space-y-5">
@@ -600,7 +674,7 @@ export function AnalyticsPage() {
                 type="button"
                 aria-pressed={draft.preset === preset.id}
                 onClick={() => setDraft((current) => ({ ...analyticsPresetDraft(preset.id), granularity: current.granularity }))}
-                className={draft.preset === preset.id ? primaryButtonClass : buttonClass}
+                className={draft.preset === preset.id ? selectedPresetClass : buttonClass}
               >
                 {preset.label}
               </button>
@@ -609,7 +683,7 @@ export function AnalyticsPage() {
               type="button"
               aria-pressed={draft.preset === "custom"}
               onClick={() => setDraft((current) => ({ ...current, preset: "custom" }))}
-              className={draft.preset === "custom" ? primaryButtonClass : buttonClass}
+              className={draft.preset === "custom" ? selectedPresetClass : buttonClass}
             >
               نطاق مخصص
             </button>
@@ -689,9 +763,9 @@ export function AnalyticsPage() {
       ) : null}
 
       {tab === "summary" ? (
-        <SummaryView params={params} />
+        <SummaryView params={params} onDefaultRange={syncDefaultRange} />
       ) : (
-        <JourneysView key={JSON.stringify(params)} params={params} />
+        <JourneysView key={JSON.stringify(params)} params={params} onDefaultRange={syncDefaultRange} />
       )}
     </section>
   );

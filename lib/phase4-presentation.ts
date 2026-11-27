@@ -2,19 +2,85 @@ import type { Trend } from "@/lib/phase4-schemas";
 import { submissionStatuses } from "@/lib/api-client/submissions";
 import { publicationStates } from "@/lib/university-schemas";
 import { managedRoles } from "@/lib/phase4-schemas";
-import { auditResourceLabel } from "@/lib/content-labels";
+import { auditResourceLabel, eventTypeLabels } from "@/lib/content-labels";
 export const trendLabels = { pageViews: "مشاهدات الصفحات", visitors: "الزوار", sessions: "الجلسات", ctaClicks: "نقرات الدعوة للإجراء", clientReportedConversions: "تحويلات مبلغ عنها من المتصفح", serverVerifiedApplications: "طلبات مؤكدة من الخادم", serverVerifiedInquiries: "استفسارات مؤكدة من الخادم" } as const;
 export type TrendMetric = keyof typeof trendLabels;
 export function formatCount(value: number | null | undefined) { return value == null ? "غير متاح" : new Intl.NumberFormat("ar", { maximumFractionDigits: 0 }).format(value); }
 /** Approved example already sends 6.47 for a 6.47% rate. Never multiply Backend rates by100. */
 export function formatRate(value: number | null | undefined) { return value == null ? "غير متاح" : `${new Intl.NumberFormat("ar", { maximumFractionDigits: 2 }).format(value)}٪`; }
 export function utcDate(value: string, withTime = false) { return new Intl.DateTimeFormat("ar", { dateStyle: "medium", ...(withTime ? { timeStyle: "short" as const } : {}), timeZone: "UTC" }).format(new Date(value)); }
+export function utcChartDate(value: string) { return new Intl.DateTimeFormat("ar", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(value)); }
 export function trendPoints(rows: Trend[], metric: TrendMetric) {
   const sorted = [...rows].sort((a, b) => Date.parse(a.periodStart) - Date.parse(b.periodStart)); const max = Math.max(0, ...sorted.map(row => row[metric]));
-  return sorted.map((row, index) => ({ period: row.periodStart, value: row[metric], x: sorted.length === 1 ? 300 : 30 + index * 540 / (sorted.length - 1), y: max === 0 ? 150 : 150 - row[metric] * 120 / max }));
+  return sorted.map((row, index) => ({ period: row.periodStart, value: row[metric], x: sorted.length === 1 ? 306 : 42 + index * 528 / (sorted.length - 1), y: max === 0 ? 150 : 150 - row[metric] * 120 / max }));
 }
 /** Do not turn anonymous paths into a conduit for query strings, identity or executable links. */
 export function safeAnalyticsPath(value: string | null) { return value && /^\/[A-Za-z0-9\-._~!$&'()*+,;=:@%/]*$/.test(value) && value.length <= 500 ? value : value === null ? "—" : "مسار محجوب لسلامة العرض"; }
+
+/** Only static product routes have reliable labels here. Dynamic slugs never imply an entity name. */
+const analyticsPageLabels: Record<string, string> = {
+  "/": "الصفحة الرئيسية",
+  "/countries": "الدول",
+  "/universities": "الجامعات",
+  "/scholarships": "المنح الدراسية",
+  "/services": "الخدمات",
+  "/articles": "المقالات",
+  "/applications": "طلبات الدراسة",
+  "/inquiries": "الاستفسارات",
+  "/faqs": "الأسئلة الشائعة",
+  "/about": "من نحن",
+  "/contact": "تواصل معنا",
+};
+
+export function analyticsPageLabel(path: string) { return analyticsPageLabels[path]; }
+
+const analyticsDetailPageLabels: readonly [string, string][] = [
+  ["/countries/", "تفاصيل دولة"],
+  ["/universities/", "تفاصيل جامعة"],
+  ["/scholarships/", "تفاصيل منحة دراسية"],
+  ["/services/", "تفاصيل خدمة"],
+  ["/articles/", "تفاصيل مقال"],
+  ["/applications/", "تفاصيل طلب دراسة"],
+  ["/inquiries/", "تفاصيل استفسار"],
+];
+
+/** Analytics returns a path only, never an entity title. Keep that path as the secondary reference. */
+export function analyticsPageReference(path: string) {
+  const safePath = safeAnalyticsPath(path);
+  const exact = analyticsPageLabel(path);
+  if (exact) return { label: exact, path: safePath };
+  const detail = analyticsDetailPageLabels.find(([prefix]) => path.startsWith(prefix));
+  return { label: detail?.[1] ?? "صفحة غير مصنّفة", path: safePath };
+}
+
+/** The Analytics contract intentionally permits arbitrary attribution strings; unknown values remain verbatim. */
+const trafficSourceLabels: Record<string, string> = {
+  direct: "زيارة مباشرة",
+  google: "جوجل",
+  bing: "بينغ",
+  yahoo: "ياهو",
+  facebook: "فيسبوك",
+  instagram: "إنستغرام",
+  tiktok: "تيك توك",
+  linkedin: "لينكدإن",
+  email: "البريد الإلكتروني",
+  newsletter: "النشرة البريدية",
+};
+const trafficMediumLabels: Record<string, string> = {
+  organic: "بحث عضوي",
+  referral: "إحالة",
+  social: "شبكات اجتماعية",
+  email: "بريد إلكتروني",
+  cpc: "إعلان بالنقرة",
+  paid: "إعلان مدفوع",
+  paid_social: "شبكات اجتماعية مدفوعة",
+  none: "غير محدد",
+};
+
+export function trafficSourceLabel(value: string) { return trafficSourceLabels[value.trim().toLowerCase()] ?? value; }
+export function trafficMediumLabel(value: string | null) { return value === null ? "غير محدد" : trafficMediumLabels[value.trim().toLowerCase()] ?? value; }
+export function trafficCampaignLabel(value: string | null) { return value === null ? "غير محدد" : value.trim().toLowerCase() === "demo-seed" ? "بيانات حملة اختبار (demo-seed)" : value; }
+export function funnelStageLabel(value: string) { return value === "CLIENT_REPORTED_CONVERSION" ? "إشارة تحويل من المتصفح" : (eventTypeLabels as Record<string, string>)[value] ?? value; }
 const statusValues: ReadonlySet<string> = new Set([...publicationStates, ...submissionStatuses, ...managedRoles]);
 /** Presentation allowlist, not a claim that these optional metadata keys form a Backend schema. */
 export function safeAuditMetadata(metadata: Record<string, unknown>) {
