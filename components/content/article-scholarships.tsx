@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ArticleRelatedScholarship } from "@/lib/api-client/content";
-import { useContentList } from "@/hook/queries/use-content-queries";
+import { useContentSelector } from "@/hook/queries/use-content-queries";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, TrashIcon } from "@/components/ui/admin-icons";
 
@@ -20,15 +20,8 @@ export function ArticleScholarships({
   disabled: boolean;
   error?: string;
 }) {
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
   const [candidate, setCandidate] = useState("");
-  const list = useContentList(
-    "scholarships",
-    { page, limit: 50, search: search.trim() || undefined, sort: "newest" },
-    true,
-    false,
-  );
+  const selector = useContentSelector("scholarships", "newest");
   const [chosenLabels, setChosenLabels] = useState<Record<string, string>>({});
 
   function move(index: number, delta: number) {
@@ -37,15 +30,13 @@ export function ArticleScholarships({
     onChange(ids);
   }
 
-  const availableOptions = (list.data?.items ?? [])
+  const availableOptions = selector.items
     .filter((item) => !value.includes(item.id))
     .map((item) => ({
       value: item.id,
       label: item.titleAr,
       sublabel: item.country?.nameAr ?? undefined,
     }));
-
-  const pagination = list.data?.pagination;
 
   return (
     <fieldset
@@ -68,43 +59,18 @@ export function ArticleScholarships({
           onChange={setCandidate}
           options={availableOptions}
           placeholder="ابحث واختر منحة لإضافتها..."
-          searchPlaceholder="ابحث بعنوان المنحة..."
-          searchValue={search}
-          onSearchChange={(q) => {
-            setSearch(q);
-            setPage(1);
-          }}
-          isLoading={list.isFetching}
-          isError={list.isError}
-          onRetry={() => void list.refetch()}
+          searchPlaceholder="ابحث في جميع المنح..."
+          searchValue={selector.search}
+          onSearchChange={selector.setSearch}
+          onOpenChange={selector.setOpen}
+          isLoading={selector.isFetching || selector.isSearchPending}
+          isError={selector.isError}
+          onRetry={() => void selector.refetch()}
+          hasMore={!selector.isSearchPending && Boolean(selector.hasNextPage)}
+          isLoadingMore={selector.isFetchingNextPage}
+          onLoadMore={() => void selector.fetchNextPage()}
+          endMessage="تم عرض جميع المنح المطابقة."
           emptyMessage="لا توجد منح متاحة مطابقة."
-          dropdownFooter={
-            pagination && pagination.totalPages > 1 ? (
-              <div className="flex items-center justify-between text-[var(--muted)]">
-                <span className="tabular-nums">
-                  صفحة {pagination.page} من {pagination.totalPages}
-                </span>
-                <div className="flex gap-1.5">
-                  <button
-                    type="button"
-                    disabled={pagination.page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    className="rounded border border-[var(--line)] bg-white px-2 py-0.5 font-medium text-[var(--navy)] disabled:opacity-40"
-                  >
-                    السابق
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pagination.page >= pagination.totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                    className="rounded border border-[var(--line)] bg-white px-2 py-0.5 font-medium text-[var(--navy)] disabled:opacity-40"
-                  >
-                    التالي
-                  </button>
-                </div>
-              </div>
-            ) : null
-          }
         />
 
         <button
@@ -113,11 +79,11 @@ export function ArticleScholarships({
             !candidate ||
             value.includes(candidate) ||
             value.length >= 50 ||
-            list.isFetching ||
-            list.isError
+            selector.isFetching ||
+            selector.isError
           }
           onClick={() => {
-            const item = list.data?.items.find((entry) => entry.id === candidate);
+            const item = selector.items.find((entry) => entry.id === candidate);
             if (!item || value.includes(candidate) || value.length >= 50) return;
             setChosenLabels((old) => ({ ...old, [item.id]: item.titleAr }));
             onChange([...value, candidate]);
@@ -142,7 +108,7 @@ export function ArticleScholarships({
                   <span className="ml-2 font-bold text-[var(--gold-dark)] tabular-nums">
                     {index + 1}.
                   </span>
-                  {list.data?.items.find((item) => item.id === id)?.titleAr ??
+                  {selector.items.find((item) => item.id === id)?.titleAr ??
                     chosenLabels[id] ??
                     selected.find((item) => item.id === id)?.titleAr ??
                     `${id} (مختارة)`}

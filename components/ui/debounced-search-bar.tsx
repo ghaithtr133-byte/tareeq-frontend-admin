@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CloseIcon, SearchIcon, SpinnerIcon } from "@/components/ui/admin-icons";
+import { ADMIN_SEARCH_DEBOUNCE_MS } from "@/lib/search-debounce";
 
 interface DebouncedSearchBarProps {
   value: string;
@@ -20,7 +21,7 @@ export function DebouncedSearchBar({
   onDebouncedChange,
   placeholder,
   ariaLabel,
-  delayMs = 1000,
+  delayMs = ADMIN_SEARCH_DEBOUNCE_MS,
   disabled = false,
   unsupportedNote,
   isFetching = false,

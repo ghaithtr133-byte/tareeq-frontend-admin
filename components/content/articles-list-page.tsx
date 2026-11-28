@@ -23,7 +23,7 @@ import {
   StarIcon,
   TrashIcon,
 } from "@/components/ui/admin-icons";
-import { useContentSelectors, useContentList, useInfiniteContentList } from "@/hook/queries/use-content-queries";
+import { useContentList, useContentSelector, useInfiniteContentList } from "@/hook/queries/use-content-queries";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 import type { ListSearchParams } from "@/lib/content-filters";
 import {
@@ -144,7 +144,7 @@ export function ArticlesListPage({ searchParams }: { searchParams: ListSearchPar
   }, [applyPatch]);
   const reset = useCallback(() => router.push(pathname), [pathname, router]);
 
-  const selectors = useContentSelectors({ countries: true });
+  const countrySelector = useContentSelector("countries", "manual");
   const desktopList = useContentList("articles", filters, desktop === true);
   const infiniteFilters = useMemo(
     () => ({
@@ -158,11 +158,11 @@ export function ArticlesListPage({ searchParams }: { searchParams: ListSearchPar
   );
   const mobileList = useInfiniteContentList("articles", infiniteFilters, ARTICLES_MOBILE_PAGE_LIMIT, desktop === false);
 
-  const countryOptions = useMemo(() => (selectors.countries.data?.items ?? []).map((country) => ({
+  const countryOptions = useMemo(() => countrySelector.items.map((country) => ({
     value: country.slug,
     label: country.nameAr,
     sublabel: country.nameEn ?? country.slug,
-  })), [selectors.countries.data?.items]);
+  })), [countrySelector.items]);
 
   const mobileArticles = useMemo(() => {
     const unique = new Map<string, Article>();
@@ -219,7 +219,7 @@ export function ArticlesListPage({ searchParams }: { searchParams: ListSearchPar
         </div>
 
         {additionalOpen ? <div className="space-y-3 border-t border-[var(--line)] pt-3">
-          <SearchableSelect id="articles-country-filter" label="الدولة المرتبطة" value={filters.country ?? ""} onChange={(country) => applyPatch({ country: country || undefined })} options={countryOptions} placeholder="الكل" clearLabel="الكل" isLoading={selectors.countries.isFetching} isError={selectors.countries.isError} onRetry={() => void selectors.countries.refetch()} />
+          <SearchableSelect id="articles-country-filter" label="الدولة المرتبطة" value={filters.country ?? ""} onChange={(country) => applyPatch({ country: country || undefined })} options={countryOptions} placeholder="الكل" clearLabel="الكل" searchPlaceholder="ابحث في جميع الدول..." searchValue={countrySelector.search} onSearchChange={countrySelector.setSearch} onOpenChange={countrySelector.setOpen} isLoading={countrySelector.isFetching || countrySelector.isSearchPending} isError={countrySelector.isError} onRetry={() => void countrySelector.refetch()} hasMore={!countrySelector.isSearchPending && Boolean(countrySelector.hasNextPage)} isLoadingMore={countrySelector.isFetchingNextPage} onLoadMore={() => void countrySelector.fetchNextPage()} endMessage="تم عرض جميع الدول المطابقة." />
           <p className="text-[11px] leading-5 text-[var(--muted)]">لا يدعم عقد قائمة المقالات الحالي التصفية حسب الجامعة أو المنحة المرتبطة؛ لم تُضف تصفية محلية بديلة.</p>
         </div> : null}
       </div>

@@ -10,11 +10,26 @@ import { useForm, useWatch } from "react-hook-form";
 import type {
   AdminContentResource,
   Article,
+  ArticleRichTextBlock,
   ContentRecord,
   HardDeletableContentResource,
   University,
 } from "@/lib/api-client/content";
+import {
+  applyAcceptedContentSuggestion,
+  applyAcceptedSeoSuggestion,
+  articleAiGenerationAction,
+  articleAiSuggestionError,
+  type ArticleContentSuggestion,
+  type ArticleContentSuggestionField,
+  type ArticleSeoSuggestion,
+  type ArticleSeoSuggestionField,
+} from "@/lib/article-ai-suggestions";
 import { getApiFieldErrors, normalizeApiError } from "@/lib/api-client/error";
+import {
+  ArticleContentSuggestionPreview,
+  ArticleSeoSuggestionPreview,
+} from "@/components/content/article-ai-suggestions";
 import { ContentHardDeleteDialog } from "@/components/content/content-hard-delete-dialog";
 import { ArticleScholarships } from "@/components/content/article-scholarships";
 import { DetailCollectionManager } from "@/components/content/detail-collection-manager";
@@ -36,7 +51,8 @@ import {
   SpinnerIcon,
 } from "@/components/ui/admin-icons";
 import { useCreateContent, useUpdateContent } from "@/hook/mutations/use-content-mutations";
-import { useContentDetail, useContentSelectors } from "@/hook/queries/use-content-queries";
+import { useArticleContentSuggestions, useArticleSeoSuggestions } from "@/hook/mutations/use-article-ai-suggestions";
+import { useContentDetail, useContentSelector } from "@/hook/queries/use-content-queries";
 import { contentDefinitions, type ContentFieldDefinition } from "@/lib/content-config";
 import {
   applyArticleSeoDefaults,
@@ -80,13 +96,60 @@ const createSubmitLabels: Record<AdminContentResource, string> = {
   articles: "إنشاء المقال",
 };
 
+type ArticleContentSuggestionState = {
+  articleId: string;
+  original: Pick<ArticleContentSuggestion, "titleAr" | "summaryAr" | "bodyAr">;
+  suggestion: ArticleContentSuggestion;
+  decisions: Partial<Record<ArticleContentSuggestionField, "accepted" | "rejected">>;
+};
+
+type ArticleSeoSuggestionState = {
+  articleId: string;
+  original: Pick<ArticleSeoSuggestion, "seoTitleAr" | "seoDescriptionAr">;
+  suggestion: ArticleSeoSuggestion;
+  decisions: Partial<Record<ArticleSeoSuggestionField, "accepted" | "rejected">>;
+};
+
+type ArticleAiKind = "content" | "seo";
+
+function isArticleRichTextBlocks(value: ContentFormValues["bodyAr"]): value is ArticleRichTextBlock[] {
+  return Array.isArray(value) && value.every((block) =>
+    typeof block === "object" &&
+    block !== null &&
+    "type" in block &&
+    "text" in block,
+  );
+}
+
+function articleContentSuggestionSnapshot(values: ContentFormValues): ArticleContentSuggestionState["original"] {
+  return {
+    titleAr: String(values.titleAr ?? ""),
+    summaryAr: String(values.summaryAr ?? ""),
+    bodyAr: isArticleRichTextBlocks(values.bodyAr) ? values.bodyAr.map((block) => ({ ...block })) : [],
+  };
+}
+
+function articleSeoSuggestionSnapshot(values: ContentFormValues): ArticleSeoSuggestionState["original"] {
+  return {
+    seoTitleAr: String(values.seoTitleAr ?? ""),
+    seoDescriptionAr: String(values.seoDescriptionAr ?? ""),
+  };
+}
+
+function articleAiErrorDetail(error: ReturnType<typeof articleAiSuggestionError>) {
+  if (!error) return null;
+  if (error.resetAt) return `يتجدد الحد في ${error.resetAt}.`;
+  if (error.retryAfterSeconds !== undefined) return `يمكن إعادة المحاولة بعد ${error.retryAfterSeconds} ثانية.`;
+  return null;
+}
+
 type FormSectionGroup = {
   id: string;
   title: string;
   description?: string;
   fieldNames: string[];
   mediaBlocks?: ("primary" | "country-overview" | "university-logo")[];
-  extraSlot?: "article-scholarships" | "article-body";
+  extraSlot?: "article-scholarships" | "article-body" | "article-ai";
 };
 
 const RESOURCE_SECTIONS: Record<AdminContentResource, FormSectionGroup[]> = {
@@ -223,6 +286,13 @@ const RESOURCE_SECTIONS: Record<AdminContentResource, FormSectionGroup[]> = {
       extraSlot: "article-body",
     },
     {
+      id: "ai-optimization",
+      title: "تحسين المقال بالذكاء الاصطناعي",
+      description: "تُنشأ الاقتراحات من آخر نسخة محفوظة فقط، ولا تُحفظ أي قيمة قبل اعتمادها ثم حفظ التغييرات.",
+      fieldNames: [],
+      extraSlot: "article-ai",
+    },
+    {
       id: "media",
       title: "صورة المقال",
       fieldNames: ["coverImageUrl", "coverImageAltAr"],
@@ -357,9 +427,16 @@ export function ContentFormPage({
     [definition.fields, resource],
   );
 
-  const selectors = useContentSelectors(relationships);
+  const countrySelector = useContentSelector("countries", "manual", {
+    available: relationships.countries,
+  });
+  const universitySelector = useContentSelector("universities", "name", {
+    available: relationships.universities,
+  });
   const create = useCreateContent(resource);
   const update = useUpdateContent(resource);
+  const contentSuggestions = useArticleContentSuggestions();
+  const seoSuggestions = useArticleSeoSuggestions();
 
   const studyLevelCatalog = useScholarshipOptionCatalog("studyLevel");
   const fundingTypeCatalog = useScholarshipOptionCatalog("fundingType");
@@ -371,7 +448,21 @@ export function ContentFormPage({
 
   const [submitError, setSubmitError] = useState<string>();
   const [relationshipChecks, setRelationshipChecks] = useState(0);
+  const [contentSuggestion, setContentSuggestion] = useState<ArticleContentSuggestionState>();
+  const [seoSuggestion, setSeoSuggestion] = useState<ArticleSeoSuggestionState>();
+  const [articleAiError, setArticleAiError] = useState<{ articleId: string; error: ReturnType<typeof articleAiSuggestionError> }>();
+  const [generationWarning, setGenerationWarning] = useState<{ articleId: string; kind: ArticleAiKind }>();
+  const [acceptedAiSeo, setAcceptedAiSeo] = useState<{ articleId: string; fields: Set<ArticleSeoSuggestionField> }>();
+  const [articleAiBusy, setArticleAiBusy] = useState<{ articleId: string; active: boolean }>();
   const submissionRef = useRef(false);
+  const articleAiRequestRef = useRef<ArticleAiKind | undefined>(undefined);
+  const articleAiAbortRef = useRef<AbortController | undefined>(undefined);
+  const currentContentSuggestion = contentSuggestion?.articleId === id ? contentSuggestion : undefined;
+  const currentSeoSuggestion = seoSuggestion?.articleId === id ? seoSuggestion : undefined;
+  const currentArticleAiError = articleAiError && articleAiError.articleId === id ? articleAiError.error : undefined;
+  const currentGenerationWarning = generationWarning?.articleId === id ? generationWarning : undefined;
+  const acceptedAiSeoFields = acceptedAiSeo && acceptedAiSeo.articleId === id ? acceptedAiSeo.fields : undefined;
+  const currentArticleAiBusy = Boolean(articleAiBusy && articleAiBusy.articleId === id && articleAiBusy.active);
 
   const form = useForm<ContentFormValues>({
     defaultValues: initialContentValues(resource),
@@ -401,6 +492,105 @@ export function ContentFormPage({
   const relationshipValue = (value: unknown) =>
     typeof value === "string" ? value : undefined;
 
+  useEffect(() => () => {
+    articleAiAbortRef.current?.abort();
+    articleAiAbortRef.current = undefined;
+    articleAiRequestRef.current = undefined;
+  }, [id, resource]);
+
+  async function generateArticleSuggestion(kind: ArticleAiKind) {
+    if (resource !== "articles" || !id || articleAiRequestRef.current) return;
+    const controller = new AbortController();
+    articleAiRequestRef.current = kind;
+    articleAiAbortRef.current = controller;
+    setArticleAiBusy({ articleId: id, active: true });
+    setArticleAiError(undefined);
+    setGenerationWarning(undefined);
+    const originalValues = form.getValues();
+    try {
+      if (kind === "content") {
+        const suggestion = await contentSuggestions.generate(id, controller.signal);
+        if (!controller.signal.aborted) {
+          setContentSuggestion({
+            articleId: id,
+            original: articleContentSuggestionSnapshot(originalValues),
+            suggestion,
+            decisions: {},
+          });
+        }
+      } else {
+        const suggestion = await seoSuggestions.generate(id, controller.signal);
+        if (!controller.signal.aborted) {
+          setSeoSuggestion({
+            articleId: id,
+            original: articleSeoSuggestionSnapshot(originalValues),
+            suggestion,
+            decisions: {},
+          });
+        }
+      }
+    } catch (error) {
+      if (!controller.signal.aborted && !(error instanceof StaleContentSessionError)) {
+        setArticleAiError({ articleId: id, error: articleAiSuggestionError(error) });
+      }
+    } finally {
+      if (articleAiAbortRef.current === controller) articleAiAbortRef.current = undefined;
+      if (articleAiRequestRef.current === kind) articleAiRequestRef.current = undefined;
+      setArticleAiBusy({ articleId: id, active: false });
+    }
+  }
+
+  function requestArticleSuggestion(kind: ArticleAiKind) {
+    const action = articleAiGenerationAction(id, formState.isDirty, currentArticleAiBusy || Boolean(articleAiRequestRef.current));
+    if (resource !== "articles" || !id || action === "unavailable") return;
+    if (action === "confirm-unsaved") {
+      setGenerationWarning({ articleId: id, kind });
+      return;
+    }
+    void generateArticleSuggestion(kind);
+  }
+
+  function acceptContentSuggestion(fields: readonly ArticleContentSuggestionField[]) {
+    if (!contentSuggestion) return;
+    const next = applyAcceptedContentSuggestion(form.getValues(), contentSuggestion.suggestion, fields);
+    for (const field of fields) {
+      setValue(field, next[field], { shouldDirty: true, shouldValidate: true });
+      clearErrors(field);
+    }
+    setContentSuggestion((current) => current ? {
+      ...current,
+      decisions: { ...current.decisions, ...Object.fromEntries(fields.map((field) => [field, "accepted" as const])) },
+    } : current);
+  }
+
+  function rejectContentSuggestion(field: ArticleContentSuggestionField) {
+    setContentSuggestion((current) => current ? {
+      ...current,
+      decisions: { ...current.decisions, [field]: "rejected" },
+    } : current);
+  }
+
+  function acceptSeoSuggestion(fields: readonly ArticleSeoSuggestionField[]) {
+    if (!seoSuggestion || !id) return;
+    const next = applyAcceptedSeoSuggestion(form.getValues(), seoSuggestion.suggestion, fields);
+    for (const field of fields) setValue(field, next[field], { shouldDirty: true, shouldValidate: true });
+    setAcceptedAiSeo((current) => {
+      const currentFields = current && current.articleId === id ? current.fields : [];
+      return { articleId: id, fields: new Set([...currentFields, ...fields]) };
+    });
+    setSeoSuggestion((current) => current ? {
+      ...current,
+      decisions: { ...current.decisions, ...Object.fromEntries(fields.map((field) => [field, "accepted" as const])) },
+    } : current);
+  }
+
+  function rejectSeoSuggestion(field: ArticleSeoSuggestionField) {
+    setSeoSuggestion((current) => current ? {
+      ...current,
+      decisions: { ...current.decisions, [field]: "rejected" },
+    } : current);
+  }
+
   async function countryChanged(countryId: string) {
     if (resource === "universities") {
       if (countryId !== selectedCountryId) {
@@ -414,9 +604,9 @@ export function ContentFormPage({
     setRelationshipChecks((count) => count + 1);
     try {
       const result =
-        selectors.universities.isError || !selectors.universities.data
-          ? await selectors.universities.refetch()
-          : selectors.universities;
+        universitySelector.isError || !universitySelector.data
+          ? await universitySelector.refetch()
+          : universitySelector;
       if (
         form.getValues("countryId") !== countryId ||
         form.getValues("universityId") !== universityId
@@ -429,7 +619,9 @@ export function ContentFormPage({
         });
         return;
       }
-      const university = result.data.items.find((item) => item.id === universityId);
+      const university = result.data.pages
+        .flatMap((page) => page.items)
+        .find((item) => item.id === universityId);
       if (!university || university.countryId !== countryId) {
         setValue("universityId", "", { shouldDirty: true });
       }
@@ -485,7 +677,9 @@ export function ContentFormPage({
       );
     }
     if (resource === "articles") {
-      Object.assign(values, applyArticleSeoDefaults(values, detail.data as Article | undefined));
+      Object.assign(values, applyArticleSeoDefaults(values, detail.data as Article | undefined, {
+        preserveExplicitSeo: acceptedAiSeoFields,
+      }));
     }
     const validation = validateContentValues(resource, values);
     if (Object.keys(validation).length) {
@@ -513,12 +707,12 @@ export function ContentFormPage({
       values.countryId &&
       values.universityId
     ) {
-      const university = selectors.universities.data?.items.find(
+      const university = universitySelector.items.find(
         (item) => item.id === values.universityId,
       );
       if (
         relationshipChecks ||
-        selectors.universities.isError ||
+        universitySelector.isError ||
         !university ||
         university.countryId !== values.countryId
       ) {
@@ -582,24 +776,24 @@ export function ContentFormPage({
 
   const countrySelectOptions = useMemo(
     () =>
-      (selectors.countries.data?.items ?? []).map((item) => ({
+      countrySelector.items.map((item) => ({
         value: item.id,
         label: item.nameAr,
         sublabel: item.nameEn ?? item.slug,
       })),
-    [selectors.countries.data?.items],
+    [countrySelector.items],
   );
 
   const universitySelectOptions = useMemo(() => {
     const cid = relationshipValue(selectedCountryId);
-    return (selectors.universities.data?.items ?? [])
+    return universitySelector.items
       .filter((item) => !cid || item.countryId === cid)
       .map((item) => ({
         value: item.id,
         label: item.nameAr,
         sublabel: item.cityAr,
       }));
-  }, [selectors.universities.data?.items, selectedCountryId]);
+  }, [universitySelector.items, selectedCountryId]);
 
   const studyLevelSelectOptions = useMemo(() => {
     const current = typeof watchedStudyLevel === "string" ? watchedStudyLevel.trim() : "";
@@ -765,7 +959,10 @@ export function ContentFormPage({
       const val = isCountry
         ? relationshipValue(selectedCountryId) ?? ""
         : relationshipValue(selectedUniversityId) ?? "";
-      const lookup = isCountry ? selectors.countries : selectors.universities;
+      const lookup = isCountry ? countrySelector : universitySelector;
+      const selectedLabel = isCountry
+        ? (detail.data as { country?: { nameAr?: string } } | undefined)?.country?.nameAr
+        : (detail.data as { university?: { nameAr?: string } } | undefined)?.university?.nameAr;
 
       return (
         <div key={field.name} className={spanClass}>
@@ -775,12 +972,21 @@ export function ContentFormPage({
             required={field.required}
             value={val}
             options={isCountry ? countrySelectOptions : universitySelectOptions}
+            selectedLabel={selectedLabel}
             placeholder={field.nullable ? "بلا ارتباط" : "اختر عنصرًا"}
             clearLabel={field.nullable ? "بلا ارتباط" : "إزالة الاختيار"}
             allowClear={Boolean(field.nullable)}
-            isLoading={lookup.isFetching}
+            isLoading={lookup.isFetching || lookup.isSearchPending}
             isError={lookup.isError}
             onRetry={() => void lookup.refetch()}
+            searchPlaceholder={isCountry ? "ابحث في جميع الدول..." : "ابحث في جميع الجامعات..."}
+            searchValue={lookup.search}
+            onSearchChange={lookup.setSearch}
+            onOpenChange={lookup.setOpen}
+            hasMore={!lookup.isSearchPending && Boolean(lookup.hasNextPage)}
+            isLoadingMore={lookup.isFetchingNextPage}
+            onLoadMore={() => void lookup.fetchNextPage()}
+            endMessage={isCountry ? "تم عرض جميع الدول المطابقة." : "تم عرض جميع الجامعات المطابقة."}
             error={error}
             onChange={(nextValue) => {
               setValue(field.name, nextValue, {
@@ -957,6 +1163,84 @@ export function ContentFormPage({
                   label="محتوى المقال بالإنجليزية"
                   error={errors.bodyEn?.message}
                 /> */}
+              </div>
+            ) : null}
+
+            {section.extraSlot === "article-ai" ? (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-subtle)] p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="max-w-2xl text-sm leading-6 text-[var(--muted)]">
+                    يستخدم التحسين آخر نسخة محفوظة من المقال فقط. احفظ التعديلات الحالية أولًا إذا أردت تضمينها في الاقتراح.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={!id || currentArticleAiBusy || contentSuggestions.isPending || seoSuggestions.isPending}
+                      onClick={() => requestArticleSuggestion("content")}
+                      className="min-h-10 rounded-xl bg-[var(--navy)] px-4 text-xs font-bold text-white transition-colors hover:bg-[var(--navy-light)] disabled:cursor-not-allowed disabled:opacity-55"
+                    >
+                      {contentSuggestions.isPending ? "جارٍ تحسين المحتوى…" : "تحسين المحتوى بالذكاء الاصطناعي"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!id || currentArticleAiBusy || contentSuggestions.isPending || seoSuggestions.isPending}
+                      onClick={() => requestArticleSuggestion("seo")}
+                      className="min-h-10 rounded-xl border border-[var(--navy)] bg-white px-4 text-xs font-bold text-[var(--navy)] transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-55"
+                    >
+                      {seoSuggestions.isPending ? "جارٍ تحسين SEO…" : "تحسين SEO بالذكاء الاصطناعي"}
+                    </button>
+                  </div>
+                </div>
+
+                {!id ? (
+                  <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+                    احفظ المقال أولًا قبل طلب اقتراحات الذكاء الاصطناعي.
+                  </p>
+                ) : null}
+
+                {currentGenerationWarning ? (
+                  <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+                    <p className="font-bold">لديك تعديلات غير محفوظة.</p>
+                    <p className="mt-1 leading-6">سيعتمد الاقتراح على آخر نسخة محفوظة ولن يستبدل أي حقل قبل اعتمادك الصريح.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button type="button" onClick={() => void generateArticleSuggestion(currentGenerationWarning.kind)} className="min-h-9 rounded-lg bg-amber-800 px-3 text-xs font-bold text-white hover:bg-amber-900">
+                        متابعة التوليد من النسخة المحفوظة
+                      </button>
+                      <button type="button" onClick={() => setGenerationWarning(undefined)} className="min-h-9 rounded-lg border border-amber-300 bg-white px-3 text-xs font-semibold text-amber-950 hover:bg-amber-100">
+                        إلغاء
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {currentArticleAiError ? (
+                  <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+                    <p className="font-semibold">{currentArticleAiError.message}</p>
+                    {articleAiErrorDetail(currentArticleAiError) ? <p className="mt-1 text-xs">{articleAiErrorDetail(currentArticleAiError)}</p> : null}
+                  </div>
+                ) : null}
+
+                {currentContentSuggestion ? (
+                  <ArticleContentSuggestionPreview
+                    original={currentContentSuggestion.original}
+                    suggestion={currentContentSuggestion.suggestion}
+                    decisions={currentContentSuggestion.decisions}
+                    onAccept={(field) => acceptContentSuggestion([field])}
+                    onReject={rejectContentSuggestion}
+                    onAcceptAll={() => acceptContentSuggestion((["titleAr", "summaryAr", "bodyAr"] as const).filter((field) => !currentContentSuggestion.decisions[field]))}
+                  />
+                ) : null}
+
+                {currentSeoSuggestion ? (
+                  <ArticleSeoSuggestionPreview
+                    original={currentSeoSuggestion.original}
+                    suggestion={currentSeoSuggestion.suggestion}
+                    decisions={currentSeoSuggestion.decisions}
+                    onAccept={(field) => acceptSeoSuggestion([field])}
+                    onReject={rejectSeoSuggestion}
+                    onAcceptAll={() => acceptSeoSuggestion((["seoTitleAr", "seoDescriptionAr"] as const).filter((field) => !currentSeoSuggestion.decisions[field]))}
+                  />
+                ) : null}
               </div>
             ) : null}
 

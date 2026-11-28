@@ -119,18 +119,23 @@ function articleSeoDescription(summaryAr: unknown): string | undefined {
 }
 
 /** Preserve custom Article SEO while refreshing only absent or previously generated values. */
-export function applyArticleSeoDefaults(values: ContentFormValues, record?: Article): ContentFormValues {
+export function applyArticleSeoDefaults(
+  values: ContentFormValues,
+  record?: Article,
+  options?: { preserveExplicitSeo?: ReadonlySet<"seoTitleAr" | "seoDescriptionAr"> },
+): ContentFormValues {
   const next = { ...values };
   const title = articleSeoTitle(next.titleAr);
   const description = articleSeoDescription(next.summaryAr);
 
   if (!record) {
-    if (isBlank(next.seoTitleAr) && title) next.seoTitleAr = title;
-    if (isBlank(next.seoDescriptionAr) && description) next.seoDescriptionAr = description;
+    if (!options?.preserveExplicitSeo?.has("seoTitleAr") && isBlank(next.seoTitleAr) && title) next.seoTitleAr = title;
+    if (!options?.preserveExplicitSeo?.has("seoDescriptionAr") && isBlank(next.seoDescriptionAr) && description) next.seoDescriptionAr = description;
     return next;
   }
 
   if (
+    !options?.preserveExplicitSeo?.has("seoTitleAr") &&
     String(next.titleAr ?? "") !== record.titleAr &&
     title &&
     (record.seoTitleAr === null ||
@@ -140,6 +145,7 @@ export function applyArticleSeoDefaults(values: ContentFormValues, record?: Arti
     next.seoTitleAr = title;
   }
   if (
+    !options?.preserveExplicitSeo?.has("seoDescriptionAr") &&
     String(next.summaryAr ?? "") !== record.summaryAr &&
     description &&
     (record.seoDescriptionAr === null || record.seoDescriptionAr === articleSeoDescription(record.summaryAr))

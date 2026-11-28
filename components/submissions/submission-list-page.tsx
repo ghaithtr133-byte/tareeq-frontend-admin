@@ -28,6 +28,7 @@ import {
   RotateCcwIcon,
   SlidersHorizontalIcon,
 } from "@/components/ui/admin-icons";
+import { SortableTableHeader } from "@/components/ui/sortable-table-header";
 import {
   SubmissionError,
   SubmissionField,
@@ -104,6 +105,10 @@ export function SubmissionListPage({
       ...patch,
       ...(resetPage ? { page: 1 } : {}),
     });
+  }
+
+  function toggleCreatedSort() {
+    patchFilters({ sort: filters.sort === "newest" ? "oldest" : "newest" });
   }
 
   const metadata = list.data?.pagination;
@@ -230,18 +235,20 @@ export function SubmissionListPage({
             </SubmissionField>
           ) : null}
 
-          <SubmissionField label="الترتيب">
-            <select
-              name="sort"
-              value={filters.sort ?? "newest"}
-              onChange={(event) => patchFilters({ sort: event.target.value })}
-              className={submissionControlClass}
-            >
-              <option value="newest">الأحدث أولًا</option>
-              <option value="oldest">الأقدم أولًا</option>
-              <option value="updated">آخر تحديث</option>
-            </select>
-          </SubmissionField>
+          <div className="md:hidden">
+            <SubmissionField label="الترتيب">
+              <select
+                name="sort"
+                value={filters.sort ?? "newest"}
+                onChange={(event) => patchFilters({ sort: event.target.value })}
+                className={submissionControlClass}
+              >
+                <option value="newest">الأحدث أولًا</option>
+                <option value="oldest">الأقدم أولًا</option>
+                <option value="updated">آخر تحديث</option>
+              </select>
+            </SubmissionField>
+          </div>
 
         </div>
       </div>
@@ -266,21 +273,28 @@ export function SubmissionListPage({
           {items?.length ? (
             <>
               <div className="hidden overflow-x-auto rounded-2xl border border-[var(--line)] bg-white shadow-[var(--shadow-card)] md:block">
-                <table className="w-full min-w-[760px] border-collapse text-right text-sm">
+                <table className="w-full min-w-[860px] border-collapse text-right text-sm">
                   <thead className="border-b border-[var(--line)] bg-[var(--surface-subtle)] text-xs font-semibold text-[var(--muted)]">
                     <tr>
-                      {[
-                        "مقدم الطلب",
-                        "معلومات التواصل",
-                        resource === "applications" ? "نوع الطلب" : "الموضوع",
-                        "الحالة",
-                        "تاريخ الإرسال",
-                        "إجراء",
-                      ].map((label) => (
-                        <th scope="col" key={label} className="px-4 py-3.5 whitespace-nowrap">
-                          {label}
-                        </th>
-                      ))}
+                      <th scope="col" className="px-4 py-3.5 whitespace-nowrap">مقدم الطلب</th>
+                      <th scope="col" className="px-4 py-3.5 whitespace-nowrap">معلومات التواصل</th>
+                      <th scope="col" className="px-4 py-3.5 whitespace-nowrap">{resource === "applications" ? "نوع الطلب" : "الموضوع"}</th>
+                      <th scope="col" className="px-4 py-3.5 whitespace-nowrap">الحالة</th>
+                      <SortableTableHeader
+                        label="تاريخ الإرسال"
+                        active={filters.sort === "newest" || filters.sort === "oldest"}
+                        direction={filters.sort === "oldest" ? "ascending" : "descending"}
+                        onSort={toggleCreatedSort}
+                        className="px-4 py-3.5"
+                      />
+                      <SortableTableHeader
+                        label="آخر تحديث"
+                        active={filters.sort === "updated"}
+                        direction="descending"
+                        onSort={() => patchFilters({ sort: "updated" })}
+                        className="px-4 py-3.5"
+                      />
+                      <th scope="col" className="px-4 py-3.5 whitespace-nowrap">إجراء</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--line)]">
@@ -308,6 +322,9 @@ export function SubmissionListPage({
                         </td>
                         <td className="px-4 py-3.5 text-xs text-[var(--muted)] tabular-nums whitespace-nowrap">
                           {submissionDate(item.createdAt)}
+                        </td>
+                        <td className="px-4 py-3.5 text-xs text-[var(--muted)] tabular-nums whitespace-nowrap">
+                          {submissionDate(item.updatedAt)}
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap">{detailLink(item)}</td>
                       </tr>

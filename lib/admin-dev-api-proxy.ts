@@ -210,6 +210,9 @@ export function getAllowedDevApiEndpoint(segments: readonly string[]): AllowedDe
     if (segments.length === 3) {
       return { path: `/admin/articles/${segments[2]}`, methods: ["GET", "PATCH", "DELETE", "OPTIONS"] };
     }
+    if (segments.length === 4 && ["content-suggestions", "seo-suggestions"].includes(segments[3])) {
+      return { path: `/admin/articles/${segments[2]}/${segments[3]}`, methods: ["POST", "OPTIONS"] };
+    }
     if (segments.length === 5 && segments[3] === "hard-delete" && segments[4] === "confirm") {
       return { path: `/admin/articles/${segments[2]}/hard-delete/confirm`, methods: ["POST", "OPTIONS"] };
     }

@@ -16,6 +16,7 @@ import { useScholarshipOptionCatalog } from "@/components/content/scholarship-op
 import { ErrorState } from "@/components/dashboard/states";
 import { DebouncedSearchBar } from "@/components/ui/debounced-search-bar";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { SortableTableHeader } from "@/components/ui/sortable-table-header";
 import { SwitchToggle } from "@/components/ui/switch-toggle";
 import {
   CalendarIcon,
@@ -35,7 +36,7 @@ import {
   TrashIcon,
 } from "@/components/ui/admin-icons";
 import { useUpdateContent } from "@/hook/mutations/use-content-mutations";
-import { useContentList, useContentSelectors, useInfiniteContentList } from "@/hook/queries/use-content-queries";
+import { useContentList, useContentSelector, useInfiniteContentList } from "@/hook/queries/use-content-queries";
 import { useAdminAccess } from "@/providers/admin-access-provider";
 import type { ListSearchParams } from "@/lib/content-filters";
 import { scholarshipOptionDisplayLabel } from "@/lib/scholarship-form-helpers";
@@ -391,10 +392,13 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
   }, [filters]);
   const list = useContentList("scholarships", filters, desktop === true);
   const mobileList = useInfiniteContentList("scholarships", mobileFilters, 5, desktop === false);
-  const selectors = useContentSelectors({
-    countries: true,
-    universities: true,
-    scholarships: false,
+  const countrySelector = useContentSelector("countries", "manual");
+  const universitySelectorParams = useMemo(
+    () => (filters.country ? { country: filters.country } : {}),
+    [filters.country],
+  );
+  const universitySelector = useContentSelector("universities", "name", {
+    params: universitySelectorParams,
   });
   const updateScholarship = useUpdateContent("scholarships");
 
@@ -464,31 +468,22 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
 
   const countryOptions = useMemo(
     () =>
-      (selectors.countries.data?.items ?? []).map((item) => ({
+      countrySelector.items.map((item) => ({
         value: item.slug,
         label: item.nameAr,
       })),
-    [selectors.countries.data?.items],
+    [countrySelector.items],
   );
 
   const universityOptions = useMemo(() => {
-    const allUniversities = selectors.universities.data?.items ?? [];
-    const countryFilter = filters.country;
-    const filtered = countryFilter
-      ? allUniversities.filter(
-          (item) =>
-            item.country?.slug === countryFilter || item.slug === filters.university,
-        )
-      : allUniversities;
-
-    return filtered.map((item) => ({
+    return universitySelector.items.map((item) => ({
       value: item.slug,
       label: item.nameAr,
       sublabel: item.country?.nameAr
         ? `${item.country.nameAr} · ${item.cityAr}`
         : item.cityAr,
     }));
-  }, [selectors.universities.data?.items, filters.country, filters.university]);
+  }, [universitySelector.items]);
 
   const studyLevelOptions = useMemo(() => {
     const merged = [...studyLevelCatalog.options];
@@ -585,12 +580,19 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
             value={filters.country ?? ""}
             onChange={(value) => applyPatch({ country: value || undefined })}
             options={countryOptions}
-            placeholder="جميع الدول"
-            clearLabel="جميع الدول"
-            searchPlaceholder="ابحث باسم الدولة..."
-            isLoading={selectors.countries.isFetching}
-            isError={selectors.countries.isError}
-            onRetry={() => void selectors.countries.refetch()}
+            placeholder="الكل"
+            clearLabel="الكل"
+            searchPlaceholder="ابحث في جميع الدول..."
+            searchValue={countrySelector.search}
+            onSearchChange={countrySelector.setSearch}
+            onOpenChange={countrySelector.setOpen}
+            isLoading={countrySelector.isFetching || countrySelector.isSearchPending}
+            isError={countrySelector.isError}
+            onRetry={() => void countrySelector.refetch()}
+            hasMore={!countrySelector.isSearchPending && Boolean(countrySelector.hasNextPage)}
+            isLoadingMore={countrySelector.isFetchingNextPage}
+            onLoadMore={() => void countrySelector.fetchNextPage()}
+            endMessage="تم عرض جميع الدول المطابقة."
           />
 
           <SearchableSelect
@@ -615,16 +617,18 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
             searchPlaceholder="ابحث في حالات التقديم..."
           />
 
-          <SearchableSelect
-            id="scholarships-sort-filter"
-            label="ترتيب حسب"
-            value={filters.sort ?? "newest"}
-            onChange={(value) => applyPatch({ sort: value || "newest" })}
-            options={SCHOLARSHIP_SORT_OPTIONS}
-            allowClear={false}
-            placeholder="الأحدث إضافةً"
-            searchPlaceholder="ابحث في خيارات الترتيب..."
-          />
+          <div className="lg:hidden">
+            <SearchableSelect
+              id="scholarships-sort-filter"
+              label="ترتيب حسب"
+              value={filters.sort ?? "newest"}
+              onChange={(value) => applyPatch({ sort: value || "newest" })}
+              options={SCHOLARSHIP_SORT_OPTIONS}
+              allowClear={false}
+              placeholder="الأحدث إضافةً"
+              searchPlaceholder="ابحث في خيارات الترتيب..."
+            />
+          </div>
         </div>
 
         {/* Featured Switch + Collapsible Additional Filters Trigger + Reset */}
@@ -688,12 +692,19 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
                 value={filters.university ?? ""}
                 onChange={(value) => applyPatch({ university: value || undefined })}
                 options={universityOptions}
-                placeholder="جميع الجامعات"
-                clearLabel="جميع الجامعات"
-                searchPlaceholder="ابحث باسم الجامعة..."
-                isLoading={selectors.universities.isFetching}
-                isError={selectors.universities.isError}
-                onRetry={() => void selectors.universities.refetch()}
+                placeholder="الكل"
+                clearLabel="الكل"
+                searchPlaceholder="ابحث في جميع الجامعات..."
+                searchValue={universitySelector.search}
+                onSearchChange={universitySelector.setSearch}
+                onOpenChange={universitySelector.setOpen}
+                isLoading={universitySelector.isFetching || universitySelector.isSearchPending}
+                isError={universitySelector.isError}
+                onRetry={() => void universitySelector.refetch()}
+                hasMore={!universitySelector.isSearchPending && Boolean(universitySelector.hasNextPage)}
+                isLoadingMore={universitySelector.isFetchingNextPage}
+                onLoadMore={() => void universitySelector.fetchNextPage()}
+                endMessage="تم عرض جميع الجامعات المطابقة."
               />
 
               <SearchableSelect
@@ -774,12 +785,20 @@ export function ScholarshipsListPage({ searchParams }: { searchParams: ListSearc
             <table className="w-full border-collapse text-right">
               <thead className="border-b border-[var(--line)] bg-[var(--surface-subtle)] text-[13px] font-semibold text-[var(--muted)]">
                 <tr>
-                  <th scope="col" className="rounded-tr-2xl px-4 py-3.5 xl:px-5">
-                    المنحة
-                  </th>
-                  <th scope="col" className="px-3.5 py-3.5 whitespace-nowrap xl:px-4">
-                    آخر موعد للتقديم
-                  </th>
+                  <SortableTableHeader
+                    label="المنحة"
+                    active={(filters.sort ?? "newest") === "newest"}
+                    direction="descending"
+                    onSort={() => applyPatch({ sort: "newest" })}
+                    className="rounded-tr-2xl px-4 py-3.5 xl:px-5"
+                  />
+                  <SortableTableHeader
+                    label="آخر موعد للتقديم"
+                    active={filters.sort === "deadline"}
+                    direction="ascending"
+                    onSort={() => applyPatch({ sort: "deadline" })}
+                    className="px-3.5 py-3.5 xl:px-4"
+                  />
                   <th scope="col" className="px-3.5 py-3.5 whitespace-nowrap xl:px-4">
                     حالة التقديم
                   </th>

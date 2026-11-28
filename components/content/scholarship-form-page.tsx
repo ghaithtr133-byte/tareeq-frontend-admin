@@ -32,7 +32,7 @@ import {
   SpinnerIcon,
 } from "@/components/ui/admin-icons";
 import { useCreateContent, useUpdateContent } from "@/hook/mutations/use-content-mutations";
-import { useContentDetail, useContentList } from "@/hook/queries/use-content-queries";
+import { useContentDetail, useContentSelector } from "@/hook/queries/use-content-queries";
 import { publicationStatusOptions } from "@/lib/content-config";
 import {
   applyScholarshipSeoDefaults,
@@ -119,17 +119,13 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [hardDeleteOpen, setHardDeleteOpen] = useState(false);
 
-  // Server-backed paginated selectors (no eager all-pages prefetch on mount)
-  const [countrySearch, setCountrySearch] = useState("");
-  const [countryPage, setCountryPage] = useState(1);
+  // Lookup data remains server-paginated and is fetched only when each selector opens.
   const [selectedCountryMeta, setSelectedCountryMeta] = useState<{
     id: string;
     nameAr: string;
     slug?: string;
   }>();
 
-  const [uniSearch, setUniSearch] = useState("");
-  const [uniPage, setUniPage] = useState(1);
   const [selectedUniMeta, setSelectedUniMeta] = useState<{
     id: string;
     nameAr: string;
@@ -161,12 +157,7 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
   const selectedCountryId = typeof watchedCountryId === "string" ? watchedCountryId : "";
   const selectedUniversityId = typeof watchedUniversityId === "string" ? watchedUniversityId : "";
 
-  const countriesQuery = useContentList("countries", {
-    page: countryPage,
-    limit: 50,
-    search: countrySearch.trim() || undefined,
-    sort: "newest",
-  });
+  const countriesQuery = useContentSelector("countries", "newest");
 
   const resolvedCountrySlug = useMemo(() => {
     if (!selectedCountryId) return undefined;
@@ -176,16 +167,16 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
     if (scholarshipRecord?.country?.id === selectedCountryId) {
       return scholarshipRecord.country.slug;
     }
-    const found = (countriesQuery.data?.items ?? []).find((c) => c.id === selectedCountryId);
+    const found = countriesQuery.items.find((c) => c.id === selectedCountryId);
     return found?.slug;
-  }, [selectedCountryId, selectedCountryMeta, scholarshipRecord?.country, countriesQuery.data?.items]);
+  }, [selectedCountryId, selectedCountryMeta, scholarshipRecord?.country, countriesQuery.items]);
 
-  const universitiesQuery = useContentList("universities", {
-    page: uniPage,
-    limit: 50,
-    search: uniSearch.trim() || undefined,
-    ...(resolvedCountrySlug ? { country: resolvedCountrySlug } : {}),
-    sort: "name",
+  const universitySelectorParams = useMemo(
+    () => (resolvedCountrySlug ? { country: resolvedCountrySlug } : {}),
+    [resolvedCountrySlug],
+  );
+  const universitiesQuery = useContentSelector("universities", "name", {
+    params: universitySelectorParams,
   });
 
   useEffect(() => {
@@ -204,12 +195,12 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
 
   const countryOptions = useMemo(
     () =>
-      (countriesQuery.data?.items ?? []).map((item) => ({
+      countriesQuery.items.map((item) => ({
         value: item.id,
         label: item.nameAr,
         sublabel: item.nameEn ?? item.slug,
       })),
-    [countriesQuery.data?.items],
+    [countriesQuery.items],
   );
 
   const selectedCountryLabel = !selectedCountryId
@@ -221,7 +212,7 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
         : undefined;
 
   const universityOptions = useMemo(() => {
-    const items = universitiesQuery.data?.items ?? [];
+    const items = universitiesQuery.items;
     return items
       .filter((item) => !selectedCountryId || item.countryId === selectedCountryId)
       .map((item) => ({
@@ -229,7 +220,7 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
         label: item.nameAr,
         sublabel: item.cityAr,
       }));
-  }, [universitiesQuery.data?.items, selectedCountryId]);
+  }, [universitiesQuery.items, selectedCountryId]);
 
   const selectedUniversityLabel = !selectedUniversityId
     ? undefined
@@ -331,10 +322,9 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
     setCascadeNotice(undefined);
     setValue("countryId", nextCountryId, { shouldDirty: true, shouldValidate: true });
     clearErrors("countryId");
-    setUniSearch("");
-    setUniPage(1);
+    universitiesQuery.setSearch("");
 
-    const matchedCountry = (countriesQuery.data?.items ?? []).find((c) => c.id === nextCountryId);
+    const matchedCountry = countriesQuery.items.find((c) => c.id === nextCountryId);
     if (matchedCountry) {
       setSelectedCountryMeta({
         id: matchedCountry.id,
@@ -348,7 +338,7 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
     const currentUniId = String(getValues("universityId") ?? "").trim();
     if (!nextCountryId || !currentUniId) return;
 
-    const knownInPage = (universitiesQuery.data?.items ?? []).find((u) => u.id === currentUniId);
+    const knownInPage = universitiesQuery.items.find((u) => u.id === currentUniId);
     const knownCountryId =
       knownInPage?.countryId ??
       (selectedUniMeta?.id === currentUniId ? selectedUniMeta.countryId : undefined) ??
@@ -702,50 +692,20 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
                   options={countryOptions}
                   placeholder="اختر الدولة"
                   clearLabel="بلا دولة محددة"
-                  searchPlaceholder="ابحث باسم الدولة..."
+                  searchPlaceholder="ابحث في جميع الدول..."
                   allowClear
-                  searchValue={countrySearch}
-                  onSearchChange={(q) => {
-                    setCountrySearch(q);
-                    setCountryPage(1);
-                  }}
-                  isLoading={countriesQuery.isFetching}
+                  searchValue={countriesQuery.search}
+                  onSearchChange={countriesQuery.setSearch}
+                  onOpenChange={countriesQuery.setOpen}
+                  isLoading={countriesQuery.isFetching || countriesQuery.isSearchPending}
                   isError={countriesQuery.isError}
                   onRetry={() => void countriesQuery.refetch()}
+                  hasMore={!countriesQuery.isSearchPending && Boolean(countriesQuery.hasNextPage)}
+                  isLoadingMore={countriesQuery.isFetchingNextPage}
+                  onLoadMore={() => void countriesQuery.fetchNextPage()}
+                  endMessage="تم عرض جميع الدول المطابقة."
                   error={errors.countryId?.message}
                   onChange={(nextValue) => void handleCountryChange(nextValue)}
-                  dropdownFooter={
-                    countriesQuery.data?.pagination &&
-                    countriesQuery.data.pagination.totalPages > 1 ? (
-                      <div className="flex items-center justify-between text-[var(--muted)]">
-                        <span className="tabular-nums">
-                          صفحة {countriesQuery.data.pagination.page} من{" "}
-                          {countriesQuery.data.pagination.totalPages}
-                        </span>
-                        <div className="flex gap-1.5">
-                          <button
-                            type="button"
-                            disabled={countriesQuery.data.pagination.page <= 1}
-                            onClick={() => setCountryPage((p) => Math.max(1, p - 1))}
-                            className="rounded border border-[var(--line)] bg-white px-2 py-0.5 font-medium text-[var(--navy)] disabled:opacity-40"
-                          >
-                            السابق
-                          </button>
-                          <button
-                            type="button"
-                            disabled={
-                              countriesQuery.data.pagination.page >=
-                              countriesQuery.data.pagination.totalPages
-                            }
-                            onClick={() => setCountryPage((p) => p + 1)}
-                            className="rounded border border-[var(--line)] bg-white px-2 py-0.5 font-medium text-[var(--navy)] disabled:opacity-40"
-                          >
-                            التالي
-                          </button>
-                        </div>
-                      </div>
-                    ) : null
-                  }
                 />
                 <p className="mt-1.5 text-[14px] leading-6 text-[var(--muted)]">
                   اختيار الدولة يحصر قائمة الجامعات في جامعات تلك الدولة.
@@ -762,16 +722,18 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
                   options={universityOptions}
                   placeholder={selectedCountryId ? "اختر جامعة من الدولة" : "اختر الجامعة (اختيارية)"}
                   clearLabel="بلا جامعة محددة"
-                  searchPlaceholder="ابحث باسم الجامعة..."
+                  searchPlaceholder="ابحث في جميع الجامعات..."
                   allowClear
-                  searchValue={uniSearch}
-                  onSearchChange={(q) => {
-                    setUniSearch(q);
-                    setUniPage(1);
-                  }}
-                  isLoading={universitiesQuery.isFetching || relationshipChecking}
+                  searchValue={universitiesQuery.search}
+                  onSearchChange={universitiesQuery.setSearch}
+                  onOpenChange={universitiesQuery.setOpen}
+                  isLoading={universitiesQuery.isFetching || universitiesQuery.isSearchPending || relationshipChecking}
                   isError={universitiesQuery.isError}
                   onRetry={() => void universitiesQuery.refetch()}
+                  hasMore={!universitiesQuery.isSearchPending && Boolean(universitiesQuery.hasNextPage)}
+                  isLoadingMore={universitiesQuery.isFetchingNextPage}
+                  onLoadMore={() => void universitiesQuery.fetchNextPage()}
+                  endMessage="تم عرض جميع الجامعات المطابقة."
                   error={errors.universityId?.message}
                   onChange={(nextValue) => {
                     setCascadeNotice(undefined);
@@ -780,7 +742,7 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
                       shouldValidate: true,
                     });
                     clearErrors("universityId");
-                    const matchedUni = (universitiesQuery.data?.items ?? []).find(
+                    const matchedUni = universitiesQuery.items.find(
                       (u) => u.id === nextValue,
                     );
                     if (matchedUni) {
@@ -793,38 +755,6 @@ export function ScholarshipFormPage({ id }: { id?: string }) {
                       setSelectedUniMeta(undefined);
                     }
                   }}
-                  dropdownFooter={
-                    universitiesQuery.data?.pagination &&
-                    universitiesQuery.data.pagination.totalPages > 1 ? (
-                      <div className="flex items-center justify-between text-[var(--muted)]">
-                        <span className="tabular-nums">
-                          صفحة {universitiesQuery.data.pagination.page} من{" "}
-                          {universitiesQuery.data.pagination.totalPages}
-                        </span>
-                        <div className="flex gap-1.5">
-                          <button
-                            type="button"
-                            disabled={universitiesQuery.data.pagination.page <= 1}
-                            onClick={() => setUniPage((p) => Math.max(1, p - 1))}
-                            className="rounded border border-[var(--line)] bg-white px-2 py-0.5 font-medium text-[var(--navy)] disabled:opacity-40"
-                          >
-                            السابق
-                          </button>
-                          <button
-                            type="button"
-                            disabled={
-                              universitiesQuery.data.pagination.page >=
-                              universitiesQuery.data.pagination.totalPages
-                            }
-                            onClick={() => setUniPage((p) => p + 1)}
-                            className="rounded border border-[var(--line)] bg-white px-2 py-0.5 font-medium text-[var(--navy)] disabled:opacity-40"
-                          >
-                            التالي
-                          </button>
-                        </div>
-                      </div>
-                    ) : null
-                  }
                 />
                 {cascadeNotice ? (
                   <p role="status" className="mt-1.5 text-[13px] font-medium text-[var(--gold-dark)]">

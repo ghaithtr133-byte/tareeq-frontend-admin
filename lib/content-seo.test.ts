@@ -140,7 +140,7 @@ test("supported Admin forms do not render manual SEO controls or manual country/
   const countryForm = source("components/content/country-form-page.tsx");
   const scholarshipForm = source("components/content/scholarship-form-page.tsx");
   const sharedForm = source("components/content/content-form-page.tsx");
-  const articleSections = sharedForm.slice(sharedForm.indexOf("  articles: ["), sharedForm.indexOf("\n  ],\n};", sharedForm.indexOf("  articles: [")));
+  const articleSections = sharedForm.slice(sharedForm.indexOf("  articles: ["), sharedForm.indexOf("\nfunction fieldDirection", sharedForm.indexOf("  articles: [")));
 
   assert.doesNotMatch(countryForm, /countries-seo(?:Title|Description)Ar/);
   assert.doesNotMatch(scholarshipForm, /scholarships-seo(?:Title|Description)Ar/);

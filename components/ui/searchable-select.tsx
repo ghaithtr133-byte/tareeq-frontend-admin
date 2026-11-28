@@ -25,12 +25,17 @@ interface SearchableSelectProps {
   isLoading?: boolean;
   isError?: boolean;
   onRetry?: () => void;
+  onOpenChange?: (open: boolean) => void;
   /** Optional server-backed search hook: when passed, typing triggers this callback instead of client-only filtering. */
   searchValue?: string;
   onSearchChange?: (query: string) => void;
   emptyMessage?: string;
   /** Optional footer controls inside dropdown (e.g. page navigation for huge server catalogs). */
   dropdownFooter?: React.ReactNode;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
+  onLoadMore?: () => void;
+  endMessage?: string;
   labelAction?: React.ReactNode;
   size?: "default" | "comfortable";
   selectedLabel?: string;
@@ -52,10 +57,15 @@ export function SearchableSelect({
   isLoading = false,
   isError = false,
   onRetry,
+  onOpenChange,
   searchValue,
   onSearchChange,
   emptyMessage = "لا توجد خيارات مطابقة.",
   dropdownFooter,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
+  endMessage = "تم عرض جميع النتائج.",
   labelAction,
   size = "default",
   selectedLabel,
@@ -66,6 +76,7 @@ export function SearchableSelect({
   const listboxId = `${generatedId}-listbox`;
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const loadMorePendingRef = useRef(false);
 
   const [open, setOpen] = useState(false);
   const [localQuery, setLocalQuery] = useState("");
@@ -98,11 +109,12 @@ export function SearchableSelect({
     function handleOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setOpen(false);
+        onOpenChange?.(false);
       }
     }
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
-  }, [open]);
+  }, [onOpenChange, open]);
 
   useEffect(() => {
     if (open) {
@@ -113,15 +125,21 @@ export function SearchableSelect({
     }
   }, [open]);
 
+  useEffect(() => {
+    if (!isLoadingMore) loadMorePendingRef.current = false;
+  }, [isLoadingMore]);
+
   function openMenu() {
     if (disabled) return;
     setActiveIndex(-1);
     setOpen(true);
+    onOpenChange?.(true);
   }
 
   function closeMenu() {
     setOpen(false);
     setActiveIndex(-1);
+    onOpenChange?.(false);
     if (!onSearchChange) setLocalQuery("");
   }
 
@@ -157,6 +175,18 @@ export function SearchableSelect({
       event.preventDefault();
       pick(filteredOptions[activeIndex].value);
     }
+  }
+
+  function requestMore() {
+    if (!hasMore || isLoadingMore || !onLoadMore || loadMorePendingRef.current) return;
+    loadMorePendingRef.current = true;
+    onLoadMore();
+  }
+
+  function handleListScroll(event: React.UIEvent<HTMLUListElement>) {
+    if (!hasMore || isLoadingMore || !onLoadMore) return;
+    const element = event.currentTarget;
+    if (element.scrollHeight - element.scrollTop - element.clientHeight < 48) requestMore();
   }
 
   return (
@@ -255,6 +285,7 @@ export function SearchableSelect({
             role="listbox"
             aria-label={label}
             className="max-h-60 overflow-y-auto p-1 text-sm"
+            onScroll={handleListScroll}
           >
             {allowClear ? (
               <li role="option" aria-selected={!value}>
@@ -327,9 +358,23 @@ export function SearchableSelect({
             )}
           </ul>
 
-          {dropdownFooter ? (
+          {dropdownFooter || hasMore || onLoadMore ? (
             <div className="border-t border-[var(--line)] bg-[var(--surface-subtle)] px-2.5 py-2 text-xs">
-              {dropdownFooter}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {dropdownFooter}
+                {hasMore && onLoadMore ? (
+                  <button
+                    type="button"
+                    disabled={isLoadingMore}
+                    onClick={requestMore}
+                    className="rounded border border-[var(--line)] bg-white px-2 py-1 font-semibold text-[var(--navy)] disabled:opacity-45"
+                  >
+                    {isLoadingMore ? "جارٍ تحميل المزيد…" : "تحميل المزيد"}
+                  </button>
+                ) : !isLoading && filteredOptions.length > 0 ? (
+                  <span className="text-[var(--muted)]">{endMessage}</span>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </div>
